@@ -8,8 +8,8 @@
   function originalPhotoUrl(value) {
     try {
       const url = new URL(String(value || ""));
-      const extensionMatch = url.pathname.match(/\.(jpe?g|png|webp)$/i);
-      let extension = extensionMatch ? extensionMatch[1].toLowerCase() : "jpg";
+      const extensionMatch = url.pathname.match(/\.(jpe?g|png|webp|gif)$/i);
+      let extension = extensionMatch ? extensionMatch[1].toLowerCase() : /^(jpg|jpeg|png|webp|gif)$/i.test(url.searchParams.get("format")||"") ? url.searchParams.get("format").toLowerCase() : "jpg";
       if (extension === "jpeg") extension = "jpg";
       if (extensionMatch) url.pathname = url.pathname.slice(0, -extensionMatch[0].length);
       url.search = "";
@@ -26,10 +26,13 @@
     const variants = videoInfo && Array.isArray(videoInfo.variants)
       ? videoInfo.variants
       : media && Array.isArray(media.variants) ? media.variants : [];
+    const cap=Number(globalThis.__collectorVideoQuality)||Infinity;
     return variants
       .filter((variant) => {
         const contentType = variant && (variant.content_type || variant.contentType || variant.mime_type);
-        return contentType === "video/mp4" && variant.url;
+        const dimensions=String(variant.url||'').match(/\/(\d+)x(\d+)\//);
+        const height=variant.height|| (dimensions?Number(dimensions[2]):0);
+        return contentType === "video/mp4" && variant.url && (cap===Infinity||height&&height<=cap);
       })
       .sort((a, b) => Number(b.bitrate || 0) - Number(a.bitrate || 0))[0] || null;
   }
@@ -55,6 +58,7 @@
           result.push({
             kind: type === "animated_gif" ? "gif" : "video",
             url: variant.url,
+            quality: variant.url.match(/\/(\d+x\d+)\//)?.[1]||'当前源',
             extension: "mp4"
           });
         }

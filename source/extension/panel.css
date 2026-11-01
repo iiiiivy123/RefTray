@@ -18,7 +18,7 @@ progress{margin-top:6px}progress::-webkit-progress-value{background:var(--accent
 .options{margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff}
 [hidden]{display:none!important}.rounded-select{position:relative;display:inline-block;max-width:100%;min-width:150px}
 .select-trigger,.select-menu button{font:inherit;color:var(--ink);border-radius:10px;padding:8px 10px;background:#fff;text-align:left;cursor:pointer;width:100%;border:1px solid var(--line)}
-.select-menu{display:block;position:absolute;top:calc(100% + 5px);right:0;min-width:100%;width:max-content;max-width:290px;padding:5px;border-radius:12px;border:1px solid var(--line);background:#fff;box-shadow:0 8px 24px #25322f24;z-index:100}
+.select-menu{display:block;position:absolute;top:calc(100% + 5px);right:0;min-width:100%;width:max-content;max-width:290px;padding:5px;border-radius:12px;border:1px solid var(--line);background:#fff;box-shadow:0 8px 24px #25322f24;z-index:100;overflow-y:auto}
 .select-menu button{display:block;border:0;white-space:normal}.select-menu button:hover,.select-menu button:focus,.select-menu button[aria-selected=true]{background:#e5eee8;color:var(--accent)}
 /* Fluent spacing rhythm: 4/8/12/16; dense controls, distinct groups. */
 body{padding:16px;width:368px;font-size:13px}.app-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px}.app-header h1{font-size:19px;margin:0}.app-header .rounded-select{min-width:86px}
@@ -31,5 +31,14 @@ body{padding:16px;width:368px;font-size:13px}.app-header{display:flex;justify-co
 .field{margin:8px 0}.select-trigger{padding:6px 10px;min-height:34px}.hint,.subtitle{font-size:11px;margin:8px 0}
 #mode-help{line-height:1.4}#layout-warning{font-size:11px}.destination{margin-top:12px;padding-top:12px}#save-path{max-height:42px;overflow:auto}
 .app-header{position:relative;z-index:30}
+#status[data-state=failed],#recent-list [data-state=failed]{color:#b42318}
+#status[data-state=partial],#recent-list [data-state=partial]{color:#a45a08}
+#recent-list [data-state=completed]{color:#356653}
+#recent-list p{font-size:11px;line-height:1.5;margin:6px 0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#recent-tasks{margin:8px 0;border-top:1px solid var(--line);padding-top:6px}
 .rounded-select .select-trigger{position:relative;padding-right:32px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .select-trigger::after{content:'';position:absolute;right:12px;top:50%;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor;transform:translateY(-50%);pointer-events:none}
+
+#skip-gifs-option{display:flex;align-items:center;gap:8px;margin:10px 0;min-height:28px;font-size:13px;line-height:20px;font-weight:400;color:var(--ink);cursor:pointer}#skip-gifs-option input{width:16px;height:16px;margin:0;flex:0 0 16px}.field>span{font-size:14px}.hint{font-size:12px;line-height:18px}
+
+#scroll-content::-webkit-scrollbar-button,#recent-list::-webkit-scrollbar-button{display:none;height:0;width:0}

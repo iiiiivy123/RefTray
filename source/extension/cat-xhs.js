@@ -86,7 +86,10 @@
     const unique = new Map();
     for (const image of Array.isArray(images) ? images : []) {
       const url = imageUrl(image);
-      if (url) unique.set(url, { kind: "photo", url, extension: "jpg" });
+      const live = Boolean(image.livePhoto || image.live_photo);
+      const motion = live ? bestVideo(image.stream || image.livePhoto?.media || image.live_photo?.media) : null;
+      if (url && !motion) unique.set(url, { kind: "photo", url, extension: /\.gif(?:[?#]|$)/i.test(url) ? "gif" : "jpg", live_missing: live && !motion });
+      if (motion) unique.set(motion.url, { kind: "gif", url: motion.url, extension: "mp4", live_photo: true });
     }
     return Array.from(unique.values());
   }

@@ -12,23 +12,33 @@ from urllib.parse import urlsplit, urlunsplit
 def source_id(value):
     u = urlsplit(value)
     host = (u.hostname or '').lower()
+    if host in ('youtube.com','www.youtube.com','m.youtube.com','youtu.be'):
+        from .media_resolver import canonical
+        return canonical(value)[0]
     if host in ('bilibili.com','www.bilibili.com') and re.fullmatch(r'/video/BV[\da-zA-Z]{10}/?',u.path):
         from .destinations import source_key
         return source_key(value)
     for domain, pattern, prefix in (
         ('xiaohongshu.com', r'/([a-f0-9]{24})/?$', 'xhs'),
         ('x.com', r'/status/(\d+)', 'x'), ('twitter.com', r'/status/(\d+)', 'x'),
-        ('instagram.com', r'^/(?:p|reels?)/([\w-]+)', 'instagram'),
+        ('instagram.com', r'^/(?:[\w.]+/)?(?:p|reels?)/([\w-]+)', 'instagram'),
         ('pinterest.com', r'^/pin/(\d+)', 'pinterest'), ('pinterest.cn', r'^/pin/(\d+)', 'pinterest')):
         if host == domain or host.endswith('.' + domain):
             match = re.search(pattern, u.path, re.I)
             if match: return prefix + ':' + match[1]
-    return urlunsplit((u.scheme, u.netloc, u.path.rstrip('/'), '', ''))
+    from .destinations import source_key
+    return source_key(value)
 
 
 def public_url(value):
     u = urlsplit(value)
+    if u.hostname in ('youtube.com','www.youtube.com','m.youtube.com','youtu.be'):
+        from .media_resolver import canonical
+        return canonical(value)[0]
     if u.hostname in ('bilibili.com','www.bilibili.com'):
+        from .destinations import source_key
+        return source_key(value)
+    if u.path.endswith('/index.php'):
         from .destinations import source_key
         return source_key(value)
     return urlunsplit((u.scheme, u.netloc, u.path, '', ''))
@@ -54,6 +64,8 @@ class Catalog:
                 PRIMARY KEY(url_hash,path));
                 CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, data TEXT, updated REAL);
                 CREATE TABLE IF NOT EXISTS preferences (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT);
+                CREATE INDEX IF NOT EXISTS captures_updated ON captures(updated DESC, id DESC);
+                CREATE INDEX IF NOT EXISTS captures_source ON captures(source, updated DESC);
                 PRAGMA user_version=1;''')
 
     @contextmanager
@@ -106,16 +118,23 @@ class Catalog:
         return None
 
     @staticmethod
-    def describe(row):
+    def describe(row, check_files=True):
         item = dict(row)
         item['files'] = json.loads(item['files'])
         item['coverage'] = json.loads(item['coverage'])
+        item.update(Catalog.classify(item['mode'], item['directory'], item['coverage'], item['url']))
+        item['available'] = check_files and bool(item['files']) and all(Path(f['path']).is_file() and Path(f['path']).stat().st_size == f['size'] for f in item['files'])
+        return item
+
+    @staticmethod
+    def classify(mode, directory, coverage, url):
+        item = {'mode': mode, 'directory': directory, 'coverage': coverage, 'url': url}
         parts = Path(item['directory']).parts
         item['category'] = item['coverage'].get('category') or ('batch' if any(p in ('批量','图片批量','图文批量','作者采集','画板采集') for p in parts) else 'video' if item['coverage'].get('videos') and not item['coverage'].get('text') and not item['coverage'].get('images') else item['mode'])
         host = urlsplit(item['url']).hostname or ''
-        item['platform'] = next((name for domain,name in [('bilibili.com','B站'),('xiaohongshu.com','小红书'),('twitter.com','X'),('x.com','X'),('instagram.com','Instagram'),('pinterest.com','Pinterest'),('pinterest.cn','Pinterest'),('huaban.com','花瓣')] if host == domain or host.endswith('.'+domain)), '其他网页')
-        item['available'] = bool(item['files']) and all(Path(f['path']).is_file() and Path(f['path']).stat().st_size == f['size'] for f in item['files'])
-        return item
+        item['platform'] = next((name for domain,name in [('artstation.com','ArtStation'),('bilibili.com','B站'),('xiaohongshu.com','小红书'),('twitter.com','X'),('x.com','X'),('instagram.com','Instagram'),('pinterest.com','Pinterest'),('pinterest.cn','Pinterest'),('huaban.com','花瓣')] if host == domain or host.endswith('.'+domain)), '其他网页')
+        if host in ('youtube.com','www.youtube.com','m.youtube.com','youtu.be'):item['platform']='YouTube'
+        return {k: item[k] for k in ('category', 'platform')}
 
     def search(self, query='', category='', platform=''):
         with self.connect() as db:
@@ -127,6 +146,31 @@ class Catalog:
                 found.append(item)
                 if len(found)>=200: break
             return found
+
+    def search_page(self, query='', category='', platform='', page=1, page_size=40):
+        page_size = page_size if page_size in (20, 40, 80) else 40
+        where = ['(title LIKE ? OR author LIKE ? OR url LIKE ?)']
+        params = ['%' + query[:300] + '%'] * 3
+        if category:
+            where.append('capture_category(mode,directory,coverage)=?')
+            params.append(category)
+        if platform:
+            where.append('capture_platform(url)=?')
+            params.append(platform)
+        predicate = ' AND '.join(where)
+        with self.connect() as db:
+            db.create_function('capture_category', 3, lambda mode, directory, coverage:
+                               self.classify(mode, directory, json.loads(coverage), '')['category'], deterministic=True)
+            db.create_function('capture_platform', 1, lambda url:
+                               self.classify('', '', {}, url)['platform'], deterministic=True)
+            total = db.execute('SELECT COUNT(*) FROM captures WHERE ' + predicate, params).fetchone()[0]
+            pages = max(1, (total + page_size - 1) // page_size)
+            page = min(max(1, page), pages)
+            rows = db.execute('SELECT * FROM captures WHERE ' + predicate +
+                              ' ORDER BY updated DESC, id DESC LIMIT ? OFFSET ?',
+                              [*params, page_size, (page - 1) * page_size]).fetchall()
+        return {'items': [self.describe(row) for row in rows],
+                'total': total, 'page': page, 'pages': pages, 'page_size': page_size}
 
     def lookup(self, url, required):
         with self.connect() as db:
@@ -154,4 +198,4 @@ class Catalog:
 
     def tasks(self):
         with self.connect() as db:
-            return [json.loads(row[0]) for row in db.execute('SELECT data FROM tasks ORDER BY updated DESC LIMIT 100')]
+            return [{**json.loads(row[0]), 'updated': row[1] * 1000} for row in db.execute('SELECT data,updated FROM tasks ORDER BY updated DESC')]

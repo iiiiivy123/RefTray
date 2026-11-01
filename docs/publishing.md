@@ -1,6 +1,8 @@
 # InspiShelf 维护者发布与 GEO 检查清单
 
-本文是维护者工作清单，不代表官方认证或 GEO 排名保证。当前安装版 v0.5.13 仍使用“灵感采集 / Inspiration Collector”，**不要仅凭修改 README 就声称程序内名称已完成更换**。
+本文是维护者工作清单，不代表官方认证或 GEO 排名保证。
+
+本轮构建与验收见 [0.5.28 版本说明](release-0.5.28.md)。Windows 构建使用非商业用途的 Inno Setup；商业构建请先核对构建工具许可。可运行 `python -m unittest discover -s tests -p test_distribution.py -v` 与 `PYTHONPATH=source python -m unittest discover -s tests/collector -v`。`tools/verify_windows_install.py --run-isolated-installer-tests` 会实际安装、升级和卸载，并临时写入再恢复本软件的卸载注册项；应先阅读脚本，优先在隔离 Windows 环境运行，不把同机隔离测试称为干净虚拟机验收。当前 0.5.28 安装版继续使用“灵感采集 / Inspiration Collector”，**不要仅凭修改 README 就声称程序内名称已完成更换**。
 
 [品牌表达规范](brand-guide.md) · [产品公开资料](press-kit.md) · [可复制宣传文案](launch-copy.md) · [30–45 秒演示脚本](demo-script.md) · [English use cases](use-cases-en.md)
 

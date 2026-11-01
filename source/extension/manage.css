@@ -15,7 +15,7 @@ form#defaults-form{display:block;max-width:760px}
 #defaults-form .rounded-select,#defaults-form input[type=number]{width:300px}
 #defaults-form button[type=submit]{width:100%}
 .destination{margin:0 0 24px;background:#f6f8f6}
-.path-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.path-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:12px}
 #path-editor{margin-top:16px}#path-input{width:100%;margin-bottom:12px}
 #save-path{overflow-wrap:anywhere}.record-tabs{display:flex;gap:8px;margin-bottom:16px}
 #search-form{display:flex;gap:10px;flex-wrap:wrap}
@@ -26,3 +26,23 @@ form#defaults-form{display:block;max-width:760px}
 .record-tabs button{border:0;border-radius:0;padding:8px 0;background:transparent;color:#718078}
 .record-tabs button[aria-selected=true]{border-bottom:2px solid #477665;color:#315b49;font-weight:650}
 #history .entry{padding:16px;border:1px solid #dce4df;border-radius:10px;margin:10px 0}
+#search-form{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#search-form input{width:auto;flex:1;min-width:160px;height:38px;box-sizing:border-box}
+#search-form button,#search-form .select-trigger{height:38px;box-sizing:border-box}
+#search-form>button{background:#356653;color:white;border-color:#356653;min-width:70px}
+.task-selection{justify-content:flex-start;gap:8px;margin:8px 0;font-weight:600}
+.task-selection input{appearance:auto;display:inline-block;width:18px;height:18px;accent-color:#356653;flex:none}
+form#defaults-form{max-width:none;width:100%}
+#defaults-form fieldset{width:100%;min-width:0}
+.task-toolbar,.inline-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0}
+.task-toolbar .rounded-select{min-width:180px;max-width:100%}
+.task-toolbar button{margin:0;min-height:38px}
+#tasks>.task-selection{margin:12px 0}
+.entry button{margin:8px 8px 0 0}
+
+/* Readable hierarchy for labels, help, and record tabs. */
+#defaults>p,#defaults-form p,.destination>p,#history-content>p,#tasks>p{font-size:12px;line-height:1.65;color:#64756d}
+.record-tabs button{font-size:17px;font-weight:600}
+#defaults-form legend{font-size:17px}#defaults-form label{font-size:14px}
+
+.layout-settings{margin-top:18px;display:grid;gap:10px}.layout-settings label{font-weight:600}.layout-settings select{width:100%}.layout-settings .hint{font-size:13px;line-height:1.6;color:#62736c;margin:0}.layout-settings #layout-preview{overflow-wrap:anywhere;padding:10px;background:#f2f6f3;border-radius:8px}.layout-settings button{justify-self:start}

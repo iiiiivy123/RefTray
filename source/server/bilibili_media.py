@@ -10,6 +10,10 @@ def executables():
     root = Path(__file__).resolve().parents[1]/'media-tools'
     ffmpeg = Path(os.environ.get('COLLECTOR_FFMPEG', str(root/'ffmpeg.exe')))
     ffprobe = Path(os.environ.get('COLLECTOR_FFPROBE', str(root/'ffprobe.exe')))
+    # The local conversion component supports HEVC/AV1-only tracks as well as AVC.
+    full = Path(os.environ.get('COLLECTOR_GIF_FFMPEG', ''))
+    if full.is_absolute() and full.is_file() and full.with_name('ffprobe.exe').is_file():
+        ffmpeg, ffprobe = full, full.with_name('ffprobe.exe')
     if not all(p.is_absolute() and p.is_file() for p in (ffmpeg, ffprobe)):
         raise ValueError('缺少B站音视频合并组件，请安装包含媒体组件的版本；未保存无声视频')
     return ffmpeg, ffprobe
@@ -50,7 +54,7 @@ def run_local(command, checkpoint, timeout=120):
 def inspect(path):
     _, ffprobe = executables()
     result = subprocess.run([str(ffprobe), '-v', 'error', '-protocol_whitelist', 'file', '-show_entries',
-                             'stream=codec_type,codec_name:format=duration', '-of', 'json', str(path)],
+                             'stream=codec_type,codec_name:format=duration,format_name', '-of', 'json', str(path)],
                             capture_output=True, timeout=30, check=True,
                             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     return json.loads(result.stdout)

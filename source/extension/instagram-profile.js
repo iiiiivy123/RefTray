@@ -9,8 +9,8 @@
   const urls=new Map();
   for(const link of main.querySelectorAll('a[href]')) {
     if(link.closest('header,aside,[role="dialog"]'))continue;
-    const post=new URL(link.href,url.href), id=post.pathname.match(/^\/(p|reels?)\/([\w-]{5,30})\/?$/);
-    if(/(^|\.)instagram\.com$/.test(post.hostname) && id)urls.set(id[2],`https://www.instagram.com/${id[1]==='p'?'p':'reel'}/${id[2]}/`);
+    const post=new URL(link.href,url.href), id=post.pathname.match(/^\/(?:([\w.]+)\/)?(p|reels?)\/([\w-]{5,30})\/?$/);
+    if(/(^|\.)instagram\.com$/.test(post.hostname) && id && (!id[1]||id[1].toLowerCase()===match[1].toLowerCase()))urls.set(id[3],`https://www.instagram.com/${id[2]==='p'?'p':'reel'}/${id[3]}/`);
   }
   const handle=match[1].toLowerCase();
   return {author_url:`https://www.instagram.com/${handle}`,author_name:`@${handle}`,handle,view:match[2]||'posts',urls:[...urls.values()]};

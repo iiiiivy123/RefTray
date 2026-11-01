@@ -8,6 +8,10 @@
 !/docs/
 /docs/*
 !/docs/usage.md
+!/docs/install.md
+!/docs/update.md
+!/docs/ytdlp-license.md
+!/docs/release-0.5.28.md
 !/docs/use-cases.md
 !/docs/rights-and-privacy.md
 !/docs/third-party-notices.md
@@ -28,6 +32,8 @@
 !/source/extension/*.css
 !/source/extension/*.json
 !/source/extension/icon-*.png
+!/source/extension/reftray-a*.ico
+!/source/extension/reftray-a.svg
 /source/extension/live-test.*
 !/source/server/
 /source/server/*
@@ -39,6 +45,16 @@
 !/tools/build_release.py
 !/tools/build_windows.py
 !/tools/build_media.sh
+!/tools/prepare_build_inputs.py
+!/tools/verify_windows_install.py
+!/tests/
+/tests/*
+!/tests/test_distribution.py
+!/tests/collector/
+/tests/collector/*
+!/tests/collector/test_bili_resolver.py
+!/tests/collector/test_public_tracks.py
+!/tests/collector/test_worker_formats.py
 !/installer/
 /installer/*
 !/installer/*.cs

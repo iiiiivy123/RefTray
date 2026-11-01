@@ -15,15 +15,37 @@
     });
     function close(){menu.hidden=true;trigger.setAttribute('aria-expanded','false');}
     function refresh(){
+      while(buttons.length<select.options.length){
+        const option=select.options[buttons.length],b=document.createElement('button');
+        b.type='button';b.setAttribute('role','option');
+        b.addEventListener('click',()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));close();refresh();trigger.focus();});
+        menu.append(b);buttons.push(b);
+      }
       const label=select.selectedOptions[0]?.textContent||'请选择';if(trigger.textContent!==label)trigger.textContent=label;
       const parent=select.closest('label')?.cloneNode(true);parent?.querySelectorAll('select,input,button,.rounded-select').forEach(e=>e.remove());
       const name=select.getAttribute('aria-label')||parent?.textContent.trim()||select.name||select.id;
       trigger.setAttribute('aria-label',name+': '+label);menu.setAttribute('aria-label',name);
       trigger.disabled=select.disabled||Boolean(select.closest('fieldset:disabled'));
-      buttons.forEach((b,i)=>{b.disabled=select.options[i].disabled;if(b.textContent!==select.options[i].textContent)b.textContent=select.options[i].textContent;b.setAttribute('aria-selected',String(select.options[i].selected));});
+      buttons.forEach((b,i)=>{b.disabled=select.options[i].disabled;b.hidden=select.options[i].hidden;if(b.textContent!==select.options[i].textContent)b.textContent=select.options[i].textContent;b.setAttribute('aria-selected',String(select.options[i].selected));});
       if(trigger.disabled)close();
     }
-    trigger.addEventListener('click',e=>{e.preventDefault();const opening=menu.hidden;controls.forEach(c=>c.close());if(opening){refresh();if(trigger.disabled)return;menu.hidden=false;menu.style.top='calc(100% + 5px)';menu.style.bottom='auto';const boundary=select.closest('main')?.getBoundingClientRect();const box=menu.getBoundingClientRect();if(box.bottom>(boundary?.bottom||innerHeight)&&wrap.getBoundingClientRect().top-box.height>(boundary?.top||0)){menu.style.top='auto';menu.style.bottom='calc(100% + 5px)';}trigger.setAttribute('aria-expanded','true');const selected=buttons[select.selectedIndex];(selected&&!selected.disabled?selected:buttons.find(b=>!b.disabled))?.focus();}});
+    trigger.addEventListener('click',e=>{
+      e.preventDefault();const opening=menu.hidden;controls.forEach(c=>c.close());
+      if(!opening)return;
+      refresh();if(trigger.disabled)return;
+      const rect=trigger.getBoundingClientRect();
+      Object.assign(menu.style,{position:'fixed',width:rect.width+'px',minWidth:'0',left:Math.max(5,Math.min(rect.left,innerWidth-rect.width-5))+'px',right:'auto',bottom:'auto',top:'0px',maxHeight:'none'});
+      menu.hidden=false;
+      const height=menu.getBoundingClientRect().height;
+      const below=innerHeight-rect.bottom-10,above=rect.top-10,up=height>below&&above>below;
+      menu.style.maxHeight=Math.max(40,up?above:below)+'px';
+      menu.style.top=(up?Math.max(5,rect.top-Math.min(height,above)-5):rect.bottom+5)+'px';
+      trigger.setAttribute('aria-expanded','true');
+      const selected=buttons[select.selectedIndex];
+      (selected&&!selected.disabled?selected:buttons.find(b=>!b.disabled))?.focus({preventScroll:true});
+    });
+    window.addEventListener('resize',close);
+    document.addEventListener('scroll',e=>{if(!menu.contains(e.target))close();},true);
     wrap.addEventListener('keydown',e=>{
       if(e.key==='Escape'){e.preventDefault();close();trigger.focus();return;}
       if(menu.hidden&&e.target===trigger&&['ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();trigger.click();return;}
