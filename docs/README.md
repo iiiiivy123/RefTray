@@ -12,7 +12,7 @@
 | --- | --- |
 | [首次安装](install.md) | 下载正确安装包、加载扩展、选择自己的素材库 |
 | [旧版更新](update.md) | 退出后台、覆盖安装、重载扩展与保留数据 |
-| [0.5.28 朋友试用版](release-0.5.28.md) | 本轮实际验收与仍有限制的部分 |
+| [0.5.28 朋友试用版](release-0.5.28.md) | 更新内容、测试结果和已知问题 |
 | [安装与使用教程](usage.md) | 下载安装、加载 Chrome 扩展、选择素材库、日常使用、更新与故障排查 |
 | [使用场景与常见问题](use-cases.md) | 小红书 Markdown、Pinterest 画板、图文、视频与批量采集的适用范围 |
 | [English use cases](use-cases-en.md) | English workflow examples and supported-scope explanations |
@@ -22,7 +22,7 @@
 
 ## 名称与视觉
 
-[品牌与表达规范](brand-guide.md) 包括 RefTray / 灵感采集的名称用法、已选定的文件图标、早期候选以及展示资产与二进制发布的区别。
+[品牌与表达规范](brand-guide.md) 包括 RefTray / 灵感采集的名称用法、已选定的文件图标、早期候选以及程序内名称的对应关系。
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="assets/icon-clean-file-white.svg"><img src="assets/icon-clean-file.svg" width="64" height="64" alt="RefTray 简洁文件图标"></picture>
 
@@ -37,7 +37,7 @@
 | :---: | :---: | :---: | :---: |
 | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/icon-a-tray-white.svg"><img src="assets/icon-a-tray.svg" width="48" alt="托盘图标"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/icon-b-sheets-white.svg"><img src="assets/icon-b-sheets.svg" width="48" alt="叠页图标"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/icon-c-monogram-white.svg"><img src="assets/icon-c-monogram.svg" width="48" alt="字母图标"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/icon-d-frame-white.svg"><img src="assets/icon-d-frame.svg" width="48" alt="框选图标"></picture> |
 
-这些 SVG 保留为早期方案，不是当前首页 Logo。
+这些 SVG 是早期设计归档；当前采用上方的简洁文件图标。
 
 </details>
 
@@ -45,13 +45,13 @@
 
 [版权与隐私](rights-and-privacy.md) · [第三方声明](third-party-notices.md) · [媒体组件说明](third-party-media.md) · [CAT·LOGUE 许可](CAT-LOGUE-LICENSE.txt)
 
-项目源代码可公开查看，但尚未选择项目级开源许可证。第三方平台名称只用于说明适配，不代表官方合作或内容使用授权。
+项目源代码可公开查看，尚未选择项目级开源许可证。RefTray 是独立第三方工具；保存和使用素材时，请遵守来源网站规则与内容授权。
 
 ## 发布与介绍材料
 
 [发布指南](publishing.md) · [演示脚本](demo-script.md) · [宣传稿](launch-copy.md) · [媒体资料](press-kit.md)
 
-这些既有材料中可能仍使用旧展示名称 **InspiShelf**，指向同一项目；对外使用前，请依据 [当前品牌规范](brand-guide.md) 校正名称，并按实际发布版本核验功能。脚本或设计方案不等于已经完成的演示或已上线功能。
+这里提供介绍草稿和拍摄方案。发布时请配合当前版本的真实截图或录屏，并按 [品牌规范](brand-guide.md) 使用名称和图标。
 
 ## 反馈问题
 

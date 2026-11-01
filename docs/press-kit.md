@@ -1,20 +1,20 @@
-# InspiShelf｜公开介绍资料 / Product fact sheet
+# RefTray｜公开介绍资料 / Product fact sheet
 
-[项目主页](../README.md) · [English](../README_EN.md) · [下载](https://github.com/iiiiivy123/inspiration-collector/releases/latest) · [版权与隐私](rights-and-privacy.md)
+[项目主页](../README.md) · [English](../README_EN.md) · [下载](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.28) · [版权与隐私](rights-and-privacy.md)
 
-## 30 秒认识 InspiShelf
+## 30 秒认识 RefTray
 
-**产品**：InspiShelf · 灵感采集  
+**产品**：RefTray · 灵感采集  
 **定位**：Windows + Chrome 本地素材采集工具  
 **核心价值**：把有权保存的参考图、图文笔记和视频参考整理进自己的电脑文件夹，而不只是散落在网页收藏夹里。
 
 **简短介绍（直接可用）**
 
-InspiShelf 是给创作者使用的本地素材采集工具。在受支持的网页中，可选择保存图片、Markdown 图文、纯文字、部分视频及抽帧；部分作者主页或画板还支持批量采集。文件按来源与类型写入本地素材库，便于以后查看和整理。当前适用于 Windows 10/11 与 Chrome。
+RefTray 是给创作者使用的本地素材采集工具。在受支持的网页中，可选择保存图片、Markdown 图文、纯文字、部分视频及抽帧；部分作者主页或画板还支持批量采集。文件按来源与类型写入本地素材库，便于以后查看和整理。当前适用于 Windows 10/11 与 Chrome。
 
 **English short description**
 
-InspiShelf is a local-first reference collector for creators using Windows and Chrome. Save images, Markdown notes, text and supported videos from selected websites, with batch workflows and frame extraction where available. Keep the files in a local library folder you choose.
+RefTray is a local-first reference collector for creators using Windows and Chrome. Save images, Markdown notes, text and supported videos from selected websites, with batch workflows and frame extraction where available. Keep the files in a local library folder you choose.
 
 ## 用一句话介绍给不同的人
 
@@ -29,11 +29,11 @@ InspiShelf is a local-first reference collector for creators using Windows and C
 | --- | --- |
 | 操作系统 | Windows 10/11，64 位 |
 | 浏览器 | Chrome，需要首次手动加载已解压的扩展 |
-| 目前发行版本 | v0.5.13，应用界面仍名为「灵感采集 / Inspiration Collector」 |
+| 目前发行版本 | 0.5.28 朋友试用版，应用界面名为「灵感采集 / Inspiration Collector」 |
 | 保存位置 | 用户选择的本地资料夹 |
 | 内容类型 | 图片、Markdown 图文、纯文字、部分视频和视频抽帧 |
 | 批量能力 | 部分适配的作者主页、画板和视频列表；非全网站通用 |
-| 费用 | 从 GitHub Releases 获取公开发行的安装包；不对未来付费政策作承诺 |
+| 费用 | 可从 GitHub Releases 下载安装包 |
 | 云端同步 | 当前不提供 |
 | 开源许可 | 项目尚未选定；部分第三方模块为 MIT 等独立许可 |
 | 平台关系 | 独立第三方工具，非相关平台官方产品 |
@@ -44,15 +44,15 @@ InspiShelf is a local-first reference collector for creators using Windows and C
 
 English: local-first reference collector, Chrome extension, Windows media organizer, web clipper, Pinterest board reference images, Markdown notes, video frame extraction, local media library.
 
-**关键词是对真实能力的描述，不是对所有网站功能的保证。** 不要使用“破解”“免权限”“抓取私密内容”“全网批量下载”等不准确或高风险词。
+关键词按当前支持的功能选用。程序只处理用户有权访问和保存的内容，不提供绕过访问限制的功能。
 
 ## 关于截图、媒体引用与封面
 
 请尽量使用软件自身界面，以及自有或有明确许可的演示图片/视频。若需展示平台页面，控制范围为说明实际操作所必要的部分，并避免把第三方平台标识当作项目商标。不需要放出真实用户账号、下载凭据、他人完整作品或个人数据。
 
-## 对外引用时的限制
+## 平台与内容授权
 
-InspiShelf 不是任何所列平台的官方产品。公开网页内容不一定授权保存、复制、转载或商业利用。请根据权利范围与网站规则使用；准确说明浏览器及平台兼容性限制。详情见 [版权与隐私](rights-and-privacy.md)。
+RefTray 不是任何所列平台的官方产品。公开网页内容不一定授权保存、复制、转载或商业利用。请根据权利范围与网站规则使用；准确说明浏览器及平台兼容性限制。详情见 [版权与隐私](rights-and-privacy.md)。
 
 ## 联系与反馈
 

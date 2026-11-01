@@ -1,6 +1,6 @@
 # 版权、平台关系与隐私 / Rights, platform affiliation & privacy
 
-适用于 InspiShelf（原“灵感采集 / Inspiration Collector”）。这份说明是**产品使用与数据处理说明，不是法律意见或为用户提供的版权授权**。各司法辖区法律与平台条款不同，应根据具体用途核对。
+适用于 RefTray · 灵感采集（较早名称 InspiShelf；程序内名称为“灵感采集 / Inspiration Collector”）。这份说明是**产品使用与数据处理说明，不是法律意见或为用户提供的版权授权**。各司法辖区法律与平台条款不同，应根据具体用途核对。
 
 ## 来源内容的权利
 
@@ -11,7 +11,7 @@
 
 ## 平台名称与第三方关系
 
-“InspiShelf”是本项目的对外名称；“小红书 / Xiaohongshu / RedNote”“X / Twitter”“Instagram”“Pinterest”“花瓣”“bilibili / B站”等名称仅用于说明**兼容性**，相关商标与标识归各自权利人所有。本项目不是这些平台的官方插件，未获其赞助、认可或授权进行品牌代言。请勿将本项目宣传为“官方”“授权下载器”或其他可能导致混淆的产品。
+“RefTray”是本项目的对外名称；“小红书 / Xiaohongshu / RedNote”“X / Twitter”“Instagram”“Pinterest”“花瓣”“bilibili / B站”等名称仅用于说明**兼容性**，相关商标与标识归各自权利人所有。本项目不是这些平台的官方插件，未获其赞助、认可或授权进行品牌代言。请勿将本项目宣传为“官方”“授权下载器”或其他可能导致混淆的产品。
 
 ## 使用边界
 
@@ -37,4 +37,4 @@
 
 ## English summary
 
-InspiShelf is an independent, third-party local-first collection tool, **not affiliated with or endorsed by** the platforms it supports. Platform names are descriptive only. Publicly accessible media is **not automatically licensed** for copying, redistribution or commercial use. Use it only where you have the necessary rights, authorization or another valid legal basis; comply with applicable law and site terms. The current app saves to local folders but makes ordinary requests to source websites and their CDNs. Do not submit credentials or private data in bug reports.
+RefTray is an independent, third-party local-first collection tool, **not affiliated with or endorsed by** the platforms it supports. Platform names are descriptive only. Publicly accessible media is **not automatically licensed** for copying, redistribution or commercial use. Use it only where you have the necessary rights, authorization or another valid legal basis; comply with applicable law and site terms. The current app saves to local folders but makes ordinary requests to source websites and their CDNs. Do not submit credentials or private data in bug reports.

@@ -10,7 +10,7 @@
 
 **RefTray / 灵感采集** saves authorized images, Markdown notes, text and supported videos from selected websites into local folders. Selected author pages and boards support batch collection; compatible videos can also become reference frames.
 
-Not another cloud collection. **Choose a folder. Keep the actual files.**
+**Choose a folder. Keep the actual files.**
 
 ## What it collects
 
@@ -63,10 +63,10 @@ Capabilities depend on the page, loaded content, login state and media format. T
 Yes, on supported note pages. Comments include only already-loaded, identifiable content.
 
 **Can it download Pinterest boards?**  
-It can process accessible, identifiable Pins in supported boards, not export hidden content or arbitrary search results in full.
+Open a specific board and choose batch image collection. It processes identifiable, accessible Pins; search results and hidden content are outside this workflow.
 
 **Does it upload my files?**  
-The current collector uses a local service and writes to local folders, not a project-operated cloud library. Normal requests to source websites and media CDNs still occur.
+A local service writes the files to your chosen folders. Files are not uploaded to a project-operated cloud library; collection still makes normal requests to source websites and media CDNs.
 
 **Where are the files?**  
 In the library folder you choose, grouped by type, platform and item. Changing the library path does not migrate old files; history can help open their previous folders.
@@ -80,9 +80,9 @@ In the library folder you choose, grouped by type, platform and item. Changing t
 <details>
 <summary><strong>Name and release notes</strong></summary>
 
-RefTray / 灵感采集 is the display name used in this documentation. Older references to **InspiShelf** refer to the same project. Version **0.5.28** is provided as a friend-preview release, named `InspirationCollector-0.5.28-Windows-x64-Setup.exe`; see the release notes for verified scope and known limitations. The installer, tray app and extension still use **Inspiration Collector / 灵感采集**.
+RefTray / 灵感采集 is the display name used in this documentation. Older references to **InspiShelf** refer to the same project. Version **0.5.28** is provided as a friend-preview release, named `InspirationCollector-0.5.28-Windows-x64-Setup.exe`; see the release notes for changes, test results and known issues. The installer, tray app and extension still use **Inspiration Collector / 灵感采集**.
 
-The 0.5.28 build includes the selected icon in the extension, tray application and installer, plus initial-install and upgrade instructions. It does not certify every platform or every link. [Verified scope and limitations](docs/release-0.5.28.md). The homepage uses the selected clean file logo: an outlined file and a detached solid square, without inner text lines. The Chinese README banner stays white in both light and dark modes. Earlier icon concepts remain archived in the brand guide.
+The 0.5.28 build includes the selected icon in the extension, tray application and installer, plus initial-install and upgrade instructions. [Test results and known issues](docs/release-0.5.28.md) cover what was checked for this version. The homepage uses the selected clean file logo: an outlined file and a detached solid square, without inner text lines. The Chinese README banner stays white in both light and dark modes. Earlier icon concepts remain archived in the brand guide.
 
 </details>
 
