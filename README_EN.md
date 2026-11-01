@@ -1,103 +1,95 @@
-# InspiShelf — A local-first reference collector
+<p align="center">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-a-tray-white.svg"><img src="docs/assets/icon-a-tray.svg" width="64" height="64" alt="RefTray"></picture>
+</p>
+<h1 align="center">RefTray</h1>
+<p align="center"><strong>Your references. Your folders.</strong></p>
+<p align="center">A local-first reference collector for Windows + Chrome.</p>
+<p align="center">
+  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/latest"><strong>Download for Windows</strong></a> · <a href="docs/README.md">Documentation</a> · <a href="docs/use-cases-en.md">Use cases</a> · <a href="README.md">简体中文</a>
+</p>
 
-**From scattered saves to a folder you actually own.**
+**RefTray / 灵感采集** saves authorized images, Markdown notes, text and supported videos from selected websites into local folders. Selected author pages and boards support batch collection; compatible videos can also become reference frames.
 
-When inspiration lives across tabs, bookmarks and different social platforms, finding a reference again can become a project of its own.
+Not another cloud collection. **Choose a folder. Keep the actual files.**
 
-**InspiShelf** is a **Windows + Chrome tool for collecting authorized visual references** into local folders. Save images, Markdown notes, text and supported video files from selected websites. Some author pages and boards also support batch collection, and supported videos can be turned into reference frames.
+## What it collects
 
-**[Download Windows installer](https://github.com/iiiiivy123/inspiration-collector/releases/latest)** · [Setup guide](docs/usage.md) · [中文说明](README.md) · [Use cases](docs/use-cases-en.md)
-
-> **Name transition:** InspiShelf is the new public-facing name. The current **v0.5.13** installer, desktop shortcut and extension still use **Inspiration Collector / 灵感采集**. They are the same project; there is no separately released InspiShelf binary yet.
->
-> **Updating an existing installation?** First exit the old desktop app from the **Windows system tray → right-click → 退出灵感采集 (Exit)**. Closing Chrome or the extension popup does not stop the local background service. Install the new version only after it has exited, then reload the Chrome extension.
-
-## What can it save?
-
-| Your reference | Available workflow | Local output |
-| --- | --- | --- |
-| Visuals from a supported post | Collect images | Image files |
-| A post worth keeping as a note | Save text, source and optional images / already-loaded comments / local OCR | Markdown and selected attachments |
-| Text only | Choose text-only mode | A `.md` file, without media attachments |
-| A supported ordinary video | Save the video and optionally extract frames | Video file and reference images |
-| A set of related posts | Use supported profile / board batches | Organized folders, history and duplicate checks |
-
-Your files go into **a local library folder you choose**, not an InspiShelf cloud collection. You can review saved items, open their folders, and resume or retry certain unfinished tasks.
-
-## Supported websites
-
-| Website | Current coverage and limits |
+| Workflow | Local output |
 | --- | --- |
-| **Xiaohongshu / RedNote** | Supported note images, Markdown, text and video modes; some creator-profile batches |
-| **Pinterest** | Individual Pins and specific boards; **no batch Markdown mode for boards** |
-| **Instagram** | Posts, Reels and some profile-list workflows |
-| **X / Twitter** | Posts and some author-post batches; reposts excluded |
-| **Huaban** | Individual items and selected image-batch modes |
-| **Bilibili** | Supported video pages and creator-upload lists; applicable video download / frame extraction |
-| **Other sites** | Mainly images from the current page; no universal batching |
+| Images from supported posts | Image files for visual reference |
+| Notes or text only | Markdown, with optional images, already-loaded comments and OCR |
+| Supported videos | Video files and optional extracted frames; local videos can also be processed |
+| Selected profile / board batches | Organized folders, history, duplicate checks and recovery for certain unfinished tasks |
 
-Capabilities vary by site, page type, loaded content, access rights and media format. The tool does not bypass logins, paywalls, DRM or other access controls.
+## Get started
 
-## Get started in four steps
+**Windows 10/11 x64 + Chrome required.** Python and media components are bundled.
 
-1. From [GitHub Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest), download the **Windows x64 Setup .exe** under **Assets**, not the green Code button or the source ZIP. The current file is `InspirationCollector-0.5.13-Windows-x64-Setup.exe`.
-2. Install and run **Inspiration Collector / 灵感采集**. It stays in the Windows system tray rather than opening a main window.
-3. In Chrome, open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**. Select the installed `extension` folder; its path can be copied from the tray menu.
-4. Pin the extension, select a local library folder, then open a supported content page and choose a collection mode.
+1. Download the Windows Setup `.exe` from **Assets** on [GitHub Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest), not the source ZIP.
+2. Install and launch **灵感采集 / Inspiration Collector**. It runs in the Windows system tray.
+3. Open `chrome://extensions`, enable **Developer mode**, then **Load unpacked**. Choose the installed `extension` folder; copy its path from the tray menu.
+4. Pin the extension, choose a local library folder and open a supported content page.
 
-**Requires Windows 10/11 x64 and Google Chrome.** The installer includes the required Python and media components. There is currently no Chrome Web Store listing, mobile app or automatic updater. The installer is unsigned; verify its source and never disable security protections to install it.
+[Full installation guide (Chinese) →](docs/usage.md)
 
-For detailed setup and troubleshooting, see the [full guide (Chinese)](docs/usage.md).
+> **Updating?** First right-click the Windows tray icon and choose **退出灵感采集 (Exit)**. Run the new installer, then reload the Chrome extension. Closing Chrome or the popup does not stop the local background service. Install to the existing location; you normally do not need to uninstall or delete your library.
 
-## Updating an existing installation
+No Chrome Web Store listing, mobile app or automatic updater is available yet. The installer is unsigned; verify its source and do not disable security protections.
 
-**Always stop the old desktop background app before running a new installer.** This applies to every manual update.
+## Supported sources
 
-1. Finish or stop any running collection task.
-2. Find **灵感采集 / Inspiration Collector** in the Windows notification area (expand the hidden tray icons with **∧** if necessary).
-3. Right-click its icon and choose **退出灵感采集 (Exit)**. Wait for the icon to disappear. If Setup says the app is still running, cancel Setup, exit the app, and start the installer again.
-4. Download the latest Windows installer from [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest), and install **to the same folder**. You normally do not need to uninstall the previous version or delete your library.
-5. After installation, confirm the desktop background service is running. Open `chrome://extensions`, find the **灵感采集** extension, click **Reload**, and refresh any already-open target page.
+**Xiaohongshu / RedNote · Pinterest · Instagram · X · Huaban · Bilibili**, plus selected images from other webpages.
 
-Your selected media library is not automatically moved by an update. The app currently has **no automatic updater**.
+<details>
+<summary><strong>Coverage by website</strong></summary>
 
-## Where do files go?
+| Website | Current scope |
+| --- | --- |
+| Xiaohongshu / RedNote | Supported note images, Markdown, text and video modes; some creator-profile batches |
+| Pinterest | Individual Pins and specific boards; no batch Markdown mode for boards |
+| Instagram | Posts, Reels and some profile-list workflows |
+| X / Twitter | Posts and some author-post batches; reposts excluded |
+| Huaban | Individual items and selected image-batch modes |
+| Bilibili | Supported video pages and creator-upload lists; applicable video download and frame extraction |
+| Other websites | Mainly current-page images; no universal batching |
 
-```text
-Chosen library/
-├── 图片 / platform / item /
-├── 图文 / platform / item /
-├── 视频 / platform / item /
-└── 批量 / platform / creator or board /
-```
+Capabilities depend on the page, loaded content, login state and media format. The tool does not bypass logins, paywalls, DRM or other access controls.
 
-Folder names are examples. Changing your library location does not move files saved previously.
+</details>
 
 ## Common questions
 
 **Can I save a Xiaohongshu post as Markdown?**  
-Yes, for supported note pages. You can include selected media and already-loaded comments, or save text only.
+Yes, on supported note pages. Comments include only already-loaded, identifiable content.
 
-**Can it save Pinterest board images locally?**  
-It can collect identifiable, accessible Pins from a specific supported board. It is not a full export of hidden or inaccessible items.
+**Can it download Pinterest boards?**  
+It can process accessible, identifiable Pins in supported boards, not export hidden content or arbitrary search results in full.
 
-**Can it extract frames from video?**  
-Yes, for supported videos and locally available video files. Sampling and similarity-based filtering may skip some frames.
+**Does it upload my files?**  
+The current collector uses a local service and writes to local folders, not a project-operated cloud library. Normal requests to source websites and media CDNs still occur.
 
-**Does it upload my media to a service operated by InspiShelf?**  
-The current collector writes to local folders and uses a local background service. Ordinary requests to source websites and media CDNs still occur.
+**Where are the files?**  
+In the library folder you choose, grouped by type, platform and item. Changing the library path does not migrate old files; history can help open their previous folders.
 
-**Is content that is publicly viewable free to reuse?**  
-No. Visibility does not establish a license to copy, distribute or commercially exploit someone else's work.
+[More use cases and answers →](docs/use-cases-en.md)
 
-See the [English use-case guide](docs/use-cases-en.md) and [rights & privacy statement](docs/rights-and-privacy.md) for more.
+## Documentation
 
-## Independence, licensing and feedback
+[Documentation index](docs/README.md) · [Setup & troubleshooting](docs/usage.md) · [Brand & icon candidates](docs/brand-guide.md) · [Rights & privacy](docs/rights-and-privacy.md)
 
-InspiShelf is an independent third-party project, **not affiliated with or endorsed by** Xiaohongshu, Pinterest, Instagram, X, Huaban or Bilibili. Site names identify compatibility only. Comply with applicable law, site rules and rights-holder permissions.
+<details>
+<summary><strong>Name and release notes</strong></summary>
 
-The repository is publicly readable but **does not yet have a project-wide open-source license**. Some parser files originate from CAT·LOGUE under MIT; media and runtime components have their own licenses. See the [notices](docs/third-party-notices.md) and [media component details](docs/third-party-media.md).
+RefTray / 灵感采集 is the display name used in this documentation. Older references to **InspiShelf** refer to the same project. The current public installer is **v0.5.13**, named `InspirationCollector-0.5.13-Windows-x64-Setup.exe`. The installer, tray app and extension still use **Inspiration Collector / 灵感采集**.
 
-For bug reports, use [GitHub Issues](https://github.com/iiiiivy123/inspiration-collector/issues) with a version number, steps and redacted screenshots. Do not post cookies, credentials, private data or copyrighted media.
+This update changes documentation and presentation assets only. It does not release a new binary or replace the installed extension icons. Four icon concepts are available; the homepage currently uses the tray concept.
 
-Maintained by [iiiiivy123](https://github.com/iiiiivy123), with AI-assisted development contributions from OpenAI Codex. [Brand guide](docs/brand-guide.md) · [Launch copy](docs/launch-copy.md).
+</details>
+
+---
+
+Independent third-party project, not affiliated with or endorsed by the listed platforms. Save content only when you have the necessary rights or another lawful basis. Public visibility does not imply permission to redistribute or commercially reuse content.
+
+The source is publicly readable but **no project-wide open-source license has been selected**. Third-party components retain their own licenses: [notices](docs/third-party-notices.md), [media components](docs/third-party-media.md).
+
+Maintained by [iiiiivy123](https://github.com/iiiiivy123), with development assistance from OpenAI Codex. [Report an issue](https://github.com/iiiiivy123/inspiration-collector/issues) with the version, reproduction steps and redacted screenshots. Never submit cookies, credentials, private data or copyrighted media files.

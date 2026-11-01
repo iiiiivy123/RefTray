@@ -1,67 +1,109 @@
-# InspiShelf · 灵感采集
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg">
+    <img src="docs/assets/hero.svg" alt="RefTray · 灵感采集 — 把网页素材，存进自己的文件夹。" width="100%">
+  </picture>
+</p>
 
-**把网页参考，存进自己的文件夹。**
+<p align="center">
+  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/latest"><img src="docs/assets/download.svg" alt="下载 Windows 安装包" height="40"></a>
+  &nbsp;
+  <a href="docs/README.md"><img src="docs/assets/docs.svg" alt="项目文档" height="40"></a>
+</p>
 
-在网上收集灵感时，图片在一个平台、笔记在另一个平台，视频又单独躺在收藏夹里。等真正需要参考的时候，常常得重新翻找。
+<p align="center">
+  <a href="#能收集什么">功能介绍</a> · <a href="#开始使用">快速开始</a> · <a href="docs/use-cases.md">使用场景</a> · <a href="https://github.com/iiiiivy123/inspiration-collector/issues">问题反馈</a> · <a href="README_EN.md">English</a>
+</p>
 
-**InspiShelf** 是一款面向设计师、插画师和内容创作者的 **Windows + Chrome 本地素材采集工具**。从支持的网页中保存图片、Markdown 图文、纯文字或视频；部分作者主页、画板支持批量处理，还能把视频提取成参考画面。
+**RefTray · 灵感采集** 是面向设计师、插画师与内容创作者的 **Windows + Chrome 本地素材采集工具**。从支持的网页保存图片、Markdown 图文、纯文字与视频，部分作者页和画板支持批量采集，视频还可按需提取参考画面。
 
-**[下载 Windows 安装包](https://github.com/iiiiivy123/inspiration-collector/releases/latest)** · [第一次使用教程](docs/usage.md) · [English](README_EN.md) · [真实使用场景](docs/use-cases.md)
+不是另一个云端收藏夹。**你选择文件夹，素材就保存在那里。**
 
-> **名称说明**：InspiShelf 是新的对外展示名称。当前已发布的 **v0.5.13** 安装包、快捷方式和 Chrome 扩展仍叫「灵感采集 / Inspiration Collector」，是同一款软件。还没有单独名为 InspiShelf 的新版安装包。
->
-> **已有旧版？更新前先退出后台！** 在 Windows 右下角托盘中找到「灵感采集」→ 右键 → **退出灵感采集**，确认退出后再打开新安装包。更新完成后还要到 Chrome 扩展管理页点击**重新加载**。仅关闭 Chrome、扩展弹窗或说明书**不会退出本地后台**。详细步骤见下文。
+## 能收集什么
 
-## 从收藏夹，到本地素材库
+<table>
+<tr>
+<td width="50%" valign="top"><h3>图片与视觉参考</h3><p>从适配的作品页保存图片，收集构图、服装、场景与设计参考。</p></td>
+<td width="50%" valign="top"><h3>图文与纯文字</h3><p>整理为 Markdown；按需附带正文图片、已加载评论与图片文字识别结果。</p></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><h3>视频与参考画面</h3><p>保存支持的视频，按需抽帧；也支持对本地视频提取参考画面。</p></td>
+<td width="50%" valign="top"><h3>批量与任务恢复</h3><p>处理支持的作者页或画板，查看采集记录、去重结果，并继续或重试部分未完成任务。</p></td>
+</tr>
+</table>
 
-| 看到的内容 | 可以怎样保存 | 得到什么 |
-| --- | --- | --- |
-| 想留作参考的作品图片 | 从适配的作品页采集图片 | 本地图片文件 |
-| 值得记录的图文笔记 | 保存正文、来源与可选的图片、已加载评论、OCR | Markdown 笔记与所选附件 |
-| 只想留下文字 | 选择「纯文字 · Markdown」 | 一个 `.md` 文件，不下载图片或视频 |
-| 可以用于研究的普通视频 | 在支持的页面保存视频，按需提取参考画面 | 本地视频文件与抽帧图片 |
-| 多篇相关作品 | 在支持的作者页或具体画板批量处理 | 分组文件夹、采集记录与去重结果 |
+## 从网页，到自己的文件夹
 
-这不是云端收藏夹：**你选择素材库放在哪里，文件就保存在哪里**。支持查看记录、打开来源文件夹，以及对部分未完成任务进行继续或重试。
+<img src="docs/assets/workflow.svg" alt="打开支持的页面 → 选择采集内容 → 保存到本地文件夹" width="100%">
+
+图片、图文、视频和批量内容按类型与来源整理。更改素材库位置不会自动搬迁旧文件；历史记录可帮助打开此前的保存目录。
+
+## 开始使用
+
+**需要 Windows 10/11 64 位 + Chrome。** 安装包内置 Python 与媒体组件，不用自己配置开发环境。
+
+1. **下载安装。** 前往 [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest)，在 **Assets** 下载 Windows 安装包，不要下载源码 ZIP。
+2. **启动本地程序。** 打开「灵感采集」，程序会在 Windows 右下角系统托盘运行。
+3. **加载 Chrome 扩展。** 打开 `chrome://extensions` → 开启「开发者模式」→「加载已解压的扩展程序」。从托盘菜单复制 `extension` 文件夹的实际地址，选择该文件夹。
+4. **保存第一份素材。** 固定工具栏扩展，选择本地素材库，打开支持的作品页并选择采集内容。
+
+[查看完整安装教程与故障排查 →](docs/usage.md)
+
+> **更新旧版：** 先在系统托盘右键 → **退出灵感采集**，再安装新版，最后到 Chrome 扩展管理页点**重新加载**。仅关闭浏览器或弹窗不会退出后台。
+
+目前需要手动加载扩展，**尚未上架 Chrome 扩展商店，没有手机端和自动更新**。安装包暂未签名；请核实下载来源，不要关闭安全防护。
 
 ## 能在哪些网站使用？
 
+**小红书 · Pinterest · Instagram · X · 花瓣 · B站**，以及部分其他网页图片。
+
+不同平台和页面支持的模式不同，不代表全站、全格式均可采集。
+
+<details>
+<summary><strong>展开查看各平台适配范围</strong></summary>
+
 | 平台 | 目前适配的范围 |
 | --- | --- |
-| **小红书** | 单篇笔记的图片、图文、纯文字及部分视频模式；部分作者页面批量 |
-| **Pinterest** | 当前 Pin、具体画板的相关图片采集；画板批量**不支持图文模式** |
-| **Instagram** | 帖子、Reels 与部分作者帖子列表 |
-| **X（原 Twitter）** | 单帖和部分作者帖子列表；批量不包含转帖 |
-| **花瓣** | 当前页面和部分图片批量模式 |
-| **B站** | 受支持的视频稿件及 UP 主投稿列表，支持符合条件的视频保存、抽帧 |
-| **其他网页** | 主要是当前页面的图片，不提供通用批量 |
+| 小红书 | 单篇笔记的图片、图文、纯文字及部分视频模式；部分作者页面批量 |
+| Pinterest | 当前 Pin、具体画板的相关图片采集；画板批量不支持图文模式 |
+| Instagram | 帖子、Reels 与部分作者帖子列表 |
+| X（原 Twitter） | 单帖和部分作者帖子列表；批量不包含转帖 |
+| 花瓣 | 当前页面和部分图片批量模式 |
+| B站 | 受支持的视频稿件及 UP 主投稿列表，支持符合条件的视频保存、抽帧 |
+| 其他网页 | 主要是当前页面的图片，不提供通用批量 |
 
-可选模式随页面类型、登录状态和媒体格式不同；不保证完整获取未加载内容，也不支持绕过访问限制。详情见 [各平台使用场景与常见问题](docs/use-cases.md)。
+结果取决于页面类型、登录状态、已加载内容与媒体格式；不保证完整获取未加载内容，不绕过访问限制。详见 [平台使用场景与常见问题](docs/use-cases.md)。
 
-## 4 步开始
+</details>
 
-1. 在 [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest) 的 **Assets** 里下载 Windows 64 位安装包（当前文件名 `InspirationCollector-0.5.13-Windows-x64-Setup.exe`）。不要下载绿色 **Code** 按钮中的源码 ZIP。
-2. 安装并启动桌面「灵感采集」。它会在 **Windows 系统托盘**运行，而不是打开一个主窗口。
-3. 打开 Chrome 的 `chrome://extensions` → 开启「开发者模式」→「加载已解压的扩展程序」。从托盘菜单复制 `extension` 文件夹的实际地址，选择该文件夹。
-4. 固定 Chrome 工具栏里的扩展，设置素材库位置，打开要保存的作品页并选择功能。
+## 常见问题
 
-这一步的安装操作只需要首次完成。安装包内置所需的 Python 与媒体组件，不用自己配置开发环境。
+**能把小红书笔记保存成 Markdown 吗？**  
+可以，在支持的笔记页选择图文或纯文字模式。评论只涵盖当前已加载、能够识别的部分。
 
-**目前只支持 Windows 10/11 64 位 + Chrome**；暂未上架 Chrome 扩展商店，没有手机端，也没有自动更新。当前安装包未签名，遇到 Windows 的「未知发布者」提示，请核实下载来源，**不要关闭安全防护**。详细教程：[安装、更新与常见问题](docs/usage.md)。
+**能批量保存 Pinterest 画板吗？**  
+支持具体画板中可访问、可识别的 Pin；不是隐藏内容或任意搜索结果的全量导出。
 
-## 已经安装过？每次更新都要先退出旧程序
+**素材会上传到项目服务器吗？**  
+当前通过本机服务保存文件，不以将素材上传到项目云端为工作方式；正常采集仍需向来源网站与媒体 CDN 发起请求。
 
-**先退出旧版后台，再运行新安装包。** 这是每次手动更新都要做的操作，不能只关闭 Chrome。
+[更多使用问题 →](docs/use-cases.md)
 
-1. 等待当前采集结束，或者在扩展里停止正在进行的任务。
-2. 在 Windows 右下角通知区域找到「灵感采集」图标；没看到就先点小箭头 **∧** 展开隐藏图标。
-3. **右键图标 → 退出灵感采集**，等待图标消失。若安装器提示“程序正在运行 / 未退出”，请先取消安装，完成退出后重新运行安装包。
-4. 从 [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest) 下载新版 Windows 安装包，安装到**原来的位置**。通常不需要卸载旧版，也不要删除素材库。
-5. 安装结束后，确认本地程序已启动。再打开 Chrome 的 `chrome://extensions`，在「灵感采集」扩展卡片上点**重新加载**，并刷新准备使用的作品页面。
+## 项目文档
 
-更新不会主动移动你选择的素材库。**目前没有自动更新**；详细说明和“找不到托盘图标怎么办”见 [更新与故障排查](docs/usage.md#7-更新与卸载)。
+| 想做什么 | 从这里开始 |
+| --- | --- |
+| 安装、更新、解决使用问题 | [使用教程](docs/usage.md) |
+| 了解平台适配和实际场景 | [中文场景与 FAQ](docs/use-cases.md) · [English use cases](docs/use-cases-en.md) |
+| 查找全部文档 | [文档导航](docs/README.md) |
+| 介绍项目、查看图标方案 | [品牌与图标](docs/brand-guide.md) |
 
-## 文件保存在哪里？
+<details>
+<summary><strong>名称、版本与文件位置说明</strong></summary>
+
+**RefTray · 灵感采集** 是本次首页采用的展示名称；较早文档中的 **InspiShelf** 也指这个项目。当前公开安装包为 **v0.5.13**，文件名 `InspirationCollector-0.5.13-Windows-x64-Setup.exe`；安装器、快捷方式、托盘和扩展仍使用「灵感采集 / Inspiration Collector」。本次仅调整文档与视觉资产，不意味着发布了新版本。
+
+图标提供四款设计候选，首页暂用托盘方案；未替换安装包或扩展内的图标。
 
 ```text
 你选择的素材库/
@@ -71,33 +113,14 @@
 └── 批量/平台/作者或画板/
 ```
 
-这只是结构示例；实际目录随采集模式变化。更改素材库位置**不会自动迁移旧文件**，历史记录可以帮你打开此前的目录。
+这是结构示例，实际目录随采集模式变化。
 
-## 一些常见问题
+</details>
 
-**能把小红书图文保存成 Markdown 吗？**  
-可以，在支持的笔记页面选择「图文笔记」或「纯文字 · Markdown」。评论只涵盖当前已加载、能够识别的部分。
+---
 
-**能保存 Pinterest 画板的参考图吗？**  
-支持从具体画板处理可访问、可识别的 Pin；但不是任意搜索结果或隐藏作品的全量下载。
+**独立第三方项目，非相关平台官方产品。** 仅在拥有相应权利、获得许可或其他合法依据时保存内容；公开可见不等于允许再分发或商用。[版权与隐私](docs/rights-and-privacy.md)
 
-**能把视频变成一组参考画面吗？**  
-支持符合条件的视频保存后抽帧，以及对本地视频抽帧；采样间隔和合并相近画面可能遗漏某些瞬间。
+源代码可公开查看，但**项目尚未选定开源许可证**；第三方组件遵守各自许可。[第三方声明](docs/third-party-notices.md) · [媒体组件说明](docs/third-party-media.md)
 
-**需要云账号吗？图片会上传到项目服务器吗？**  
-当前版本使用本机保存服务，不以把你的素材上传到项目云端为工作方式。但浏览器和后台仍需向来源网站及媒体 CDN 发起正常请求。
-
-**公开的作品都能随便保存和商用吗？**  
-不能。公开可见不等于获得复制、再分发或商业使用许可。仅在拥有相应权利、获得许可或其他合法依据时使用。
-
-更多答案：[中文场景 FAQ](docs/use-cases.md) · [English use cases](docs/use-cases-en.md) · [版权、第三方平台与隐私](docs/rights-and-privacy.md)。
-
-## 项目说明
-
-这是一个**独立第三方项目**，与小红书、Pinterest、Instagram、X、花瓣及 B站没有官方合作、隶属或背书关系；平台名称仅用于兼容性说明。程序不提供绕过登录、付费、DRM 或其他访问控制的能力，请遵守平台规则和内容权利人的授权。
-
-源代码可公开查看，但**项目自身尚未选定开源许可证**，不能因此假定可以自由再分发。部分解析模块使用 CAT·LOGUE 的 MIT 许可代码，媒体组件遵守各自许可，见 [第三方声明](docs/third-party-notices.md) 与 [媒体组件说明](docs/third-party-media.md)。
-
-有反馈可以在 [Issues](https://github.com/iiiiivy123/inspiration-collector/issues) 描述步骤、版本和脱敏截图。不要提交 Cookie、登录凭据、私人资料或受版权保护的完整媒体文件。
-
-维护：[iiiiivy123](https://github.com/iiiiivy123) · [品牌与媒体资料](docs/brand-guide.md) · [项目介绍与发布文案](docs/launch-copy.md) · [发布指南](docs/publishing.md)。开发过程中使用 OpenAI Codex 辅助。
+维护：[iiiiivy123](https://github.com/iiiiivy123) · [提交反馈](https://github.com/iiiiivy123/inspiration-collector/issues)。反馈请附版本、复现步骤与脱敏截图，不要上传 Cookie、凭据、私人资料或受版权保护的完整媒体。开发过程中使用 OpenAI Codex 辅助。
