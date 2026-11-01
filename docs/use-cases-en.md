@@ -30,7 +30,7 @@ Yes. Set a local library destination on first use. Depending on the chosen mode,
 
 ## Does it upload my images and notes to a cloud server?
 
-The current design saves to a local directory through a Windows-local service. It does **not** use an RefTray-hosted media library. However, browsing and collecting still send normal requests to the source website and media CDNs. An internet connection is needed for webpage collection.
+The current design saves to a local directory through a Windows-local service. It does **not** use a RefTray-hosted media library. However, browsing and collecting still send normal requests to the source website and media CDNs. An internet connection is needed for webpage collection.
 
 ## Why might a supported page fail to save?
 
