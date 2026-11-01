@@ -18,7 +18,7 @@
     try {
       const url = new URL(String(value || ""), "https://www.instagram.com/");
       if (url.hostname !== "instagram.com" && url.hostname !== "www.instagram.com") return null;
-      const match = url.pathname.match(/^\/(p|reel|reels)\/([A-Za-z0-9_-]{5,30})(?:\/|$)/);
+      const match = url.pathname.match(/^\/(?:[\w.]+\/)?(p|reel|reels)\/([A-Za-z0-9_-]{5,30})(?:\/|$)/);
       if (!match || match[2] === "audio") return null;
       const type = match[1] === "p" ? "p" : "reel";
       return {

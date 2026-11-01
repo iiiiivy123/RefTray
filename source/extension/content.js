@@ -61,7 +61,9 @@
 
   function cards() {
     const found = new Map();
-    for (const anchor of document.querySelectorAll('a[href]')) {
+    const root=document.querySelector('.feeds-container:not([hidden]),[role="tabpanel"]:not([hidden])');
+    if(!root)return [];
+    for (const anchor of root.querySelectorAll('a[href]')) {
       const id = noteId(anchor.href);
       if (!id || !visible(anchor) || !anchor.querySelector('img')) continue;
       if (new URL(anchor.href).hostname !== location.hostname) continue;

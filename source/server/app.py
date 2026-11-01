@@ -20,6 +20,7 @@ from .legacy_import import scan
 from .storage import Storage
 from .video import VideoDownloads
 from .folder_picker import choose_folder
+from .retention import prune_finished
 
 settings = load_settings()
 if settings.library_configured:
@@ -35,13 +36,22 @@ catalog = storage.catalog
 videos = VideoDownloads(catalog)
 import_previews = {}
 folder_requests = {}
+RELEASE = json.loads((Path(__file__).resolve().parents[1] / 'extension/manifest.json').read_text(encoding='utf-8'))['version']
+
+
+@app.get('/diagnostics')
+def recent_diagnostics(request: Request):
+    authorize_settings(request)
+    from .diagnostics import recent
+    return {'items': recent()}
 
 
 @app.get("/health")
 def health() -> dict[str, object]:
     # Protocol stays compatible; release identifies the deployed capabilities.
     from .bilibili_media import available
-    return {**health_protocol(), "release": "0.5.13", "md_only": True, "bilibili_mux": available(), "library_configured": settings.library_configured, "native_folder_picker": True, "busy": bool(active_urls) or videos.busy()}
+    from .components import capabilities
+    return {**health_protocol(), "download_protection": True, "disk_protection": False, "streaming_capture": True, "release": RELEASE, "md_only": True, "bilibili_mux": available(), "components": capabilities(), "library_configured": settings.library_configured, "native_folder_picker": True, "busy": bool(active_urls) or videos.busy()}
 
 
 def health_protocol() -> dict[str, object]:
@@ -50,7 +60,7 @@ def health_protocol() -> dict[str, object]:
 
 def authorize_settings(request: Request) -> None:
     if not secrets.compare_digest(request.headers.get("X-Collector-Token", ""), settings_token):
-        raise HTTPException(403, "请重新打开采集面板")
+        raise HTTPException(403, "扩展未通过后台校验。升级后请在 chrome://extensions 重新加载「灵感采集」，刷新作品网页并重新打开面板；若仍失败，请确认扩展与后台来自同一安装版本。")
 
 
 @app.get('/settings/defaults')
@@ -67,9 +77,9 @@ def set_defaults(value: CaptureDefaults, request: Request):
 
 
 @app.get('/history')
-def history(request: Request, q: str = '', category: str = '', platform: str = ''):
+def history(request: Request, q: str = '', category: str = '', platform: str = '', page: int = 1, page_size: int = 40):
     authorize_settings(request)
-    return {'items': catalog.search(q, category, platform)}
+    return catalog.search_page(q, category, platform, page, page_size)
 
 
 @app.post('/history/import/preview')
@@ -144,6 +154,18 @@ def video_probe(value: VideoProbe, request: Request):
             'free_bytes':space(value.destination or settings.inbox)}
 
 
+@app.post('/video/reuse')
+def video_reuse(value: VideoDownloadRequest, request: Request):
+    authorize_settings(request)
+    from .video_cache import key, complete_cached
+    try:
+        cached = catalog.cached(key(value)) if value.duplicate_policy != 'refresh' else None
+        cached = complete_cached(cached, value)
+        return {'local': bool(cached), 'bytes': cached.stat().st_size if cached else None}
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
 @app.post('/assets/known')
 def known_assets(value: VideoProbe, request: Request):
     authorize_settings(request)
@@ -163,6 +185,8 @@ def change_directory(value: DirectoryRequest, request: Request):
             raise HTTPException(400, f"目录未修改：{exc}") from exc
         settings = updated
         storage.settings = updated
+        if value.layout is not None:
+            catalog.defaults({**CaptureDefaults(**catalog.defaults()).model_dump(), "layout": value.layout})
         return health()
 
 
@@ -233,6 +257,32 @@ def video_status(job_id: str, request: Request):
     except KeyError:
         raise HTTPException(404, '下载任务已失效或服务已重启')
 
+class ResolveMedia(BaseModel):
+    url: str = Field(max_length=4000)
+    subtitle_language: str = Field(default='auto', pattern='^(auto|zh|en|ja|ko)$')
+    captions: bool = True
+    quality: str = Field(default='best', pattern='^(best|1080|720|480)$')
+    output_format: str = Field(default='original',pattern='^(original|audio)$')
+
+@app.post('/media/resolve')
+def resolve_media(value: ResolveMedia, request: Request):
+    authorize_settings(request)
+    from .media_resolver import resolve
+    try:return resolve(value.url, value.subtitle_language, value.captions, value.quality,value.output_format)
+    except (ValueError, OSError) as exc:raise HTTPException(422, str(exc)) from exc
+
+
+class ResolvedProbe(BaseModel):
+    resolver_id: str = Field(max_length=100)
+
+
+@app.post('/media/probe')
+def resolved_probe(value: ResolvedProbe, request: Request):
+    authorize_settings(request)
+    from .segmented_media import estimate
+    try:return estimate(value.resolver_id)
+    except ValueError as exc:raise HTTPException(422, str(exc)) from exc
+
 
 @app.post('/video/control/{job_id}')
 def video_control(job_id: str, value: VideoControlRequest, request: Request):
@@ -276,6 +326,7 @@ def video_info(asset_id: str, request: Request):
 def collect_start(request: CollectRequest, http_request: Request) -> dict[str, str]:
     authorize_settings(http_request)
     with lock:
+        prune_finished(jobs)
         if request.save_directory is not None and request.save_directory != str(settings.inbox):
             raise HTTPException(409, "保存目录已变更，请停止本批采集后重新开始，避免图片分散")
         current = active_urls.get(str(request.canonical_url))
@@ -299,6 +350,7 @@ def collect_start(request: CollectRequest, http_request: Request) -> dict[str, s
                 jobs[job_id].update(status="failed", message=str(exc))
         finally:
             with lock:
+                jobs[job_id]['finished_at'] = time.monotonic()
                 if active_urls.get(str(request.canonical_url)) == job_id:
                     active_urls.pop(str(request.canonical_url), None)
 
@@ -307,15 +359,18 @@ def collect_start(request: CollectRequest, http_request: Request) -> dict[str, s
 
 
 @app.get("/collect/status/{job_id}")
-def collect_status(job_id: str) -> dict[str, object]:
+def collect_status(job_id: str, http_request: Request) -> dict[str, object]:
+    authorize_settings(http_request)
     with lock:
+        prune_finished(jobs)
         if job_id not in jobs:
             raise HTTPException(404, "任务不存在或服务已重启")
-        return dict(jobs[job_id])
+        return {key: value for key, value in jobs[job_id].items() if key != 'finished_at'}
 
 
 @app.post("/classify/{folder:path}")
-def classify(folder: str, request: ClassifyRequest) -> dict[str, object]:
+def classify(folder: str, request: ClassifyRequest, http_request: Request) -> dict[str, object]:
+    authorize_settings(http_request)
     try:
         return storage.classify(folder, request)
     except FileNotFoundError as exc:

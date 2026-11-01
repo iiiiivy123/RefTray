@@ -1,12 +1,55 @@
 {
   "manifest_version": 3,
-  "options_ui": {"page":"manage.html","open_in_tab":true},
+  "options_ui": {
+    "page": "manage.html",
+    "open_in_tab": true
+  },
   "name": "灵感采集",
-  "version": "0.5.13",
-  "icons": {"16":"icon-16.png","32":"icon-32.png","48":"icon-48.png","128":"icon-128.png"},
+  "version": "0.5.28",
+  "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
   "description": "图片与图文双模式采集到本地文件夹，支持 Markdown、普通视频下载、抽帧、去重和自定义保存位置。",
-  "permissions": ["activeTab", "scripting", "tabs", "storage"],
-  "host_permissions": ["https://*.bilibili.com/*", "https://*.hdslb.com/*", "https://*.instagram.com/*", "https://*.x.com/*", "https://*.twitter.com/*", "https://*.twimg.com/*", "http://127.0.0.1/*", "https://*.xiaohongshu.com/*", "https://*.xhscdn.com/*", "https://*.pinterest.com/*", "https://*.pinterest.cn/*", "https://*.pinimg.com/*", "https://*.huaban.com/*", "https://*.hbimg.com/*"],
-  "background": {"service_worker": "background.js"},
-  "action": {"default_title": "灵感采集", "default_popup": "popup.html", "default_icon":{"16":"icon-16.png","32":"icon-32.png","48":"icon-48.png"}}
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.artstation.com/*",
+    "https://*.youtube.com/*",
+    "https://youtu.be/*",
+    "https://*.bilibili.com/*",
+    "https://*.hdslb.com/*",
+    "https://*.instagram.com/*",
+    "https://*.cdninstagram.com/*",
+    "https://*.fbcdn.net/*",
+    "https://*.x.com/*",
+    "https://*.twitter.com/*",
+    "https://*.twimg.com/*",
+    "http://127.0.0.1/*",
+    "https://*.xiaohongshu.com/*",
+    "https://*.xhscdn.com/*",
+    "https://*.pinterest.com/*",
+    "https://*.pinterest.cn/*",
+    "https://*.pinimg.com/*",
+    "https://*.huaban.com/*",
+    "https://*.hbimg.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "灵感采集",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon-16.png",
+      "32": "icon-32.png",
+      "48": "icon-48.png"
+    }
+  }
 }

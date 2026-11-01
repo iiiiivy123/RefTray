@@ -1,4 +1,6 @@
-#define AppVersion "0.5.13"
+#ifndef AppVersion
+  #error AppVersion must be passed explicitly by the versioned build script
+#endif
 [Setup]
 AppId={{293CFEA9-3205-4D70-96E6-A5F7491438CC}
 AppName=Inspiration Collector
@@ -14,6 +16,7 @@ OutputBaseFilename=InspirationCollector-{#AppVersion}-Windows-x64-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\build-windows\payload\extension\reftray-a.ico
 AppMutex=Local\InspirationCollectorLauncher
 UninstallDisplayIcon={app}\InspirationCollector.exe
 CloseApplications=no

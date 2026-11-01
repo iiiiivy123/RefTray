@@ -10,6 +10,9 @@
 
 | 文档 | 你能找到什么 |
 | --- | --- |
+| [首次安装](install.md) | 下载正确安装包、加载扩展、选择自己的素材库 |
+| [旧版更新](update.md) | 退出后台、覆盖安装、重载扩展与保留数据 |
+| [0.5.28 朋友试用版](release-0.5.28.md) | 本轮实际验收与仍有限制的部分 |
 | [安装与使用教程](usage.md) | 下载安装、加载 Chrome 扩展、选择素材库、日常使用、更新与故障排查 |
 | [使用场景与常见问题](use-cases.md) | 小红书 Markdown、Pinterest 画板、图文、视频与批量采集的适用范围 |
 | [English use cases](use-cases-en.md) | English workflow examples and supported-scope explanations |
@@ -25,7 +28,7 @@
 
 **当前使用：简洁文件图标。** 空心文件轮廓 + 右上实心方块，内部不加横线。[SVG 原稿](assets/icon-clean-file.svg) · [反白版本](assets/icon-clean-file-white.svg)
 
-首页横幅固定使用白底，不随深色模式变黑。安装包与扩展内的图标未更换。
+首页横幅固定使用白底，不随深色模式变黑。0.5.28 构建已把同一款文件图标应用到安装器、程序与扩展。
 
 <details>
 <summary>早期图标候选（归档）</summary>

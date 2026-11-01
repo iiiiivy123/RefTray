@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/latest"><img src="docs/assets/download.svg" alt="下载 Windows 安装包" height="40"></a>
+  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.28"><img src="docs/assets/download.svg" alt="下载 Windows 安装包" height="40"></a>
   &nbsp;
   <a href="docs/README.md"><img src="docs/assets/docs.svg" alt="项目文档" height="40"></a>
 </p>
@@ -39,12 +39,14 @@
 
 **需要 Windows 10/11 64 位 + Chrome。** 安装包内置 Python 与媒体组件，不用自己配置开发环境。
 
-1. **下载安装。** 前往 [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest)，在 **Assets** 下载 Windows 安装包，不要下载源码 ZIP。
+1. **下载安装。** 前往 [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.28)，在 **Assets** 下载 Windows 安装包，不要下载源码 ZIP。
 2. **启动本地程序。** 打开「灵感采集」，程序会在 Windows 右下角系统托盘运行。
 3. **加载 Chrome 扩展。** 打开 `chrome://extensions` → 开启「开发者模式」→「加载已解压的扩展程序」。从托盘菜单复制 `extension` 文件夹的实际地址，选择该文件夹。
 4. **保存第一份素材。** 固定工具栏扩展，选择本地素材库，打开支持的作品页并选择采集内容。
 
-[查看完整安装教程与故障排查 →](docs/usage.md)
+[首次安装 →](docs/install.md) · [旧版更新 →](docs/update.md) · [完整教程与故障排查 →](docs/usage.md)
+
+0.5.28 采用朋友试用版交付，具体下载与本轮验收范围见 [版本说明](docs/release-0.5.28.md)。
 
 > **更新旧版：** 先在系统托盘右键 → **退出灵感采集**，再安装新版，最后到 Chrome 扩展管理页点**重新加载**。仅关闭浏览器或弹窗不会退出后台。
 
@@ -90,7 +92,7 @@
 
 | 想做什么 | 从这里开始 |
 | --- | --- |
-| 安装、更新、解决使用问题 | [使用教程](docs/usage.md) |
+| 安装、更新、解决使用问题 | [首次安装](docs/install.md) · [旧版更新](docs/update.md) · [完整教程](docs/usage.md) |
 | 了解平台适配和实际场景 | [中文场景与 FAQ](docs/use-cases.md) · [English use cases](docs/use-cases-en.md) |
 | 查找全部文档 | [文档导航](docs/README.md) |
 | 介绍项目、查看图标方案 | [品牌与图标](docs/brand-guide.md) |
@@ -98,9 +100,9 @@
 <details>
 <summary><strong>名称、版本与文件位置说明</strong></summary>
 
-**RefTray · 灵感采集** 是本次首页采用的展示名称；较早文档中的 **InspiShelf** 也指这个项目。当前公开安装包为 **v0.5.13**，文件名 `InspirationCollector-0.5.13-Windows-x64-Setup.exe`；安装器、快捷方式、托盘和扩展仍使用「灵感采集 / Inspiration Collector」。本次仅调整文档与视觉资产，不意味着发布了新版本。
+**RefTray · 灵感采集** 是对外展示名称；较早文档中的 **InspiShelf** 也指这个项目。源码版本 **0.5.28**；安装器、快捷方式、托盘和扩展继续使用「灵感采集 / Inspiration Collector」。请按 Release 中的版本、预发布标记与验收说明选择安装包，不把源码变化当作所有平台已经重新验收。
 
-首页采用已选定的简洁文件图标：空心文件轮廓与右上实心方块，不加内部横线。横幅固定使用白底，不随深色模式切换；安装包与扩展内的图标未替换。
+首页采用已选定的简洁文件图标：空心文件轮廓与右上实心方块，不加内部横线。横幅固定使用白底，不随深色模式切换；0.5.28 构建已将同一 A 款标识应用到扩展与 Windows 程序图标。
 
 ```text
 你选择的素材库/

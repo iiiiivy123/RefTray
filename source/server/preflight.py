@@ -26,5 +26,5 @@ def probe(url, opener=None):
 def space(directory):
     path = Path(directory).expanduser()
     if not path.is_absolute(): raise ValueError('请使用完整目标路径')
-    while not path.exists() and path.parent != path: path = path.parent
-    return shutil.disk_usage(path).free
+    # Kept for API compatibility; no disk probing or reserve policy.
+    return None

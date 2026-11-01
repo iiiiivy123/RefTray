@@ -5,7 +5,7 @@
 <p align="center"><strong>Your references. Your folders.</strong></p>
 <p align="center">A local-first reference collector for Windows + Chrome.</p>
 <p align="center">
-  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/latest"><strong>Download for Windows</strong></a> · <a href="docs/README.md">Documentation</a> · <a href="docs/use-cases-en.md">Use cases</a> · <a href="README.md">简体中文</a>
+  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.28"><strong>Download for Windows</strong></a> · <a href="docs/README.md">Documentation</a> · <a href="docs/use-cases-en.md">Use cases</a> · <a href="README.md">简体中文</a>
 </p>
 
 **RefTray / 灵感采集** saves authorized images, Markdown notes, text and supported videos from selected websites into local folders. Selected author pages and boards support batch collection; compatible videos can also become reference frames.
@@ -25,7 +25,7 @@ Not another cloud collection. **Choose a folder. Keep the actual files.**
 
 **Windows 10/11 x64 + Chrome required.** Python and media components are bundled.
 
-1. Download the Windows Setup `.exe` from **Assets** on [GitHub Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest), not the source ZIP.
+1. Download the Windows Setup `.exe` from **Assets** on [GitHub Releases](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.28), not the source ZIP.
 2. Install and launch **灵感采集 / Inspiration Collector**. It runs in the Windows system tray.
 3. Open `chrome://extensions`, enable **Developer mode**, then **Load unpacked**. Choose the installed `extension` folder; copy its path from the tray menu.
 4. Pin the extension, choose a local library folder and open a supported content page.
@@ -80,9 +80,9 @@ In the library folder you choose, grouped by type, platform and item. Changing t
 <details>
 <summary><strong>Name and release notes</strong></summary>
 
-RefTray / 灵感采集 is the display name used in this documentation. Older references to **InspiShelf** refer to the same project. The current public installer is **v0.5.13**, named `InspirationCollector-0.5.13-Windows-x64-Setup.exe`. The installer, tray app and extension still use **Inspiration Collector / 灵感采集**.
+RefTray / 灵感采集 is the display name used in this documentation. Older references to **InspiShelf** refer to the same project. Version **0.5.28** is provided as a friend-preview release, named `InspirationCollector-0.5.28-Windows-x64-Setup.exe`; see the release notes for verified scope and known limitations. The installer, tray app and extension still use **Inspiration Collector / 灵感采集**.
 
-This update changes documentation and presentation assets only. It does not release a new binary or replace the installed extension icons. The homepage uses the selected clean file logo: an outlined file and a detached solid square, without inner text lines. The Chinese README banner stays white in both light and dark modes. Earlier icon concepts remain archived in the brand guide.
+The 0.5.28 build includes the selected icon in the extension, tray application and installer, plus initial-install and upgrade instructions. It does not certify every platform or every link. [Verified scope and limitations](docs/release-0.5.28.md). The homepage uses the selected clean file logo: an outlined file and a detached solid square, without inner text lines. The Chinese README banner stays white in both light and dark modes. Earlier icon concepts remain archived in the brand guide.
 
 </details>
 
