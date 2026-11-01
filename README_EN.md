@@ -1,5 +1,5 @@
 <p align="center">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-a-tray-white.svg"><img src="docs/assets/icon-a-tray.svg" width="64" height="64" alt="RefTray"></picture>
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-clean-file-white.svg"><img src="docs/assets/icon-clean-file.svg" width="64" height="64" alt="RefTray"></picture>
 </p>
 <h1 align="center">RefTray</h1>
 <p align="center"><strong>Your references. Your folders.</strong></p>
@@ -75,14 +75,14 @@ In the library folder you choose, grouped by type, platform and item. Changing t
 
 ## Documentation
 
-[Documentation index](docs/README.md) · [Setup & troubleshooting](docs/usage.md) · [Brand & icon candidates](docs/brand-guide.md) · [Rights & privacy](docs/rights-and-privacy.md)
+[Documentation index](docs/README.md) · [Setup & troubleshooting](docs/usage.md) · [Brand & logo](docs/brand-guide.md) · [Rights & privacy](docs/rights-and-privacy.md)
 
 <details>
 <summary><strong>Name and release notes</strong></summary>
 
 RefTray / 灵感采集 is the display name used in this documentation. Older references to **InspiShelf** refer to the same project. The current public installer is **v0.5.13**, named `InspirationCollector-0.5.13-Windows-x64-Setup.exe`. The installer, tray app and extension still use **Inspiration Collector / 灵感采集**.
 
-This update changes documentation and presentation assets only. It does not release a new binary or replace the installed extension icons. Four icon concepts are available; the homepage currently uses the tray concept.
+This update changes documentation and presentation assets only. It does not release a new binary or replace the installed extension icons. The homepage uses the selected clean file logo: an outlined file and a detached solid square, without inner text lines. The Chinese README banner stays white in both light and dark modes. Earlier icon concepts remain archived in the brand guide.
 
 </details>
 

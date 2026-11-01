@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg">
-    <img src="docs/assets/hero.svg" alt="RefTray · 灵感采集 — 把网页素材，存进自己的文件夹。" width="100%">
-  </picture>
+  <img src="docs/assets/hero.svg" alt="RefTray · 灵感采集 — 把网页素材，存进自己的文件夹。" width="100%">
 </p>
 
 <p align="center">
@@ -103,7 +100,7 @@
 
 **RefTray · 灵感采集** 是本次首页采用的展示名称；较早文档中的 **InspiShelf** 也指这个项目。当前公开安装包为 **v0.5.13**，文件名 `InspirationCollector-0.5.13-Windows-x64-Setup.exe`；安装器、快捷方式、托盘和扩展仍使用「灵感采集 / Inspiration Collector」。本次仅调整文档与视觉资产，不意味着发布了新版本。
 
-图标提供四款设计候选，首页暂用托盘方案；未替换安装包或扩展内的图标。
+首页采用已选定的简洁文件图标：空心文件轮廓与右上实心方块，不加内部横线。横幅固定使用白底，不随深色模式切换；安装包与扩展内的图标未替换。
 
 ```text
 你选择的素材库/

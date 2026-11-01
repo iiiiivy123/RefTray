@@ -19,13 +19,24 @@
 
 ## 名称与视觉
 
-[品牌与表达规范](brand-guide.md) 包括 RefTray / 灵感采集的名称用法、四款图标候选、展示资产与二进制发布的区别。
+[品牌与表达规范](brand-guide.md) 包括 RefTray / 灵感采集的名称用法、已选定的文件图标、早期候选以及展示资产与二进制发布的区别。
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="assets/icon-clean-file-white.svg"><img src="assets/icon-clean-file.svg" width="64" height="64" alt="RefTray 简洁文件图标"></picture>
+
+**当前使用：简洁文件图标。** 空心文件轮廓 + 右上实心方块，内部不加横线。[SVG 原稿](assets/icon-clean-file.svg) · [反白版本](assets/icon-clean-file-white.svg)
+
+首页横幅固定使用白底，不随深色模式变黑。安装包与扩展内的图标未更换。
+
+<details>
+<summary>早期图标候选（归档）</summary>
 
 | A · 托盘 | B · 叠页 | C · 字母标 | D · 框选 |
 | :---: | :---: | :---: | :---: |
 | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/icon-a-tray-white.svg"><img src="assets/icon-a-tray.svg" width="48" alt="托盘图标"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/icon-b-sheets-white.svg"><img src="assets/icon-b-sheets.svg" width="48" alt="叠页图标"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/icon-c-monogram-white.svg"><img src="assets/icon-c-monogram.svg" width="48" alt="字母图标"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/icon-d-frame-white.svg"><img src="assets/icon-d-frame.svg" width="48" alt="框选图标"></picture> |
 
-候选图标为 SVG，可下载编辑。首页暂用 A；安装包与扩展内图标未更换。
+这些 SVG 保留为早期方案，不是当前首页 Logo。
+
+</details>
 
 ## 版权、隐私与组件
 
