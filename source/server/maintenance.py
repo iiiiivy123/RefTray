@@ -102,7 +102,7 @@ def cleanup_upgrade(program, incoming_manifest, state=None, plan_only=False, pre
         actual = digest(target)
         if actual != expected:
             preserved.append(name)
-            if name in incoming['files']:
+            if name in incoming['files'] and previous_manifest is None:
                 backup = root / 'preserved-program-files' / (str(time.time_ns()) + '-' + target.name)
                 plan.append(('backup', target, backup))
         elif name not in incoming['files']:
@@ -171,6 +171,7 @@ def main():
     parser.add_argument('--upgrade-program', type=Path)
     parser.add_argument('--incoming-manifest', type=Path)
     parser.add_argument('--state', type=Path)
+    parser.add_argument('--report', type=Path)
     parser.add_argument('--plan-only', action='store_true')
     parser.add_argument('--previous-manifest', type=Path)
     parser.add_argument('--export-manifest', type=Path)
@@ -178,11 +179,23 @@ def main():
     parser.add_argument('--history', action='store_true')
     parser.add_argument('--cache', action='store_true')
     args = parser.parse_args()
-    if args.upgrade_program:
-        result = cleanup_upgrade(args.upgrade_program, args.incoming_manifest, args.state, args.plan_only, args.previous_manifest, args.export_manifest)
-    else:
-        result = cleanup_state(args.state or user_state(), args.preferences, args.history, args.cache)
+    failed = False
+    try:
+        if args.upgrade_program:
+            result = cleanup_upgrade(args.upgrade_program, args.incoming_manifest, args.state, args.plan_only, args.previous_manifest, args.export_manifest)
+        else:
+            result = cleanup_state(args.state or user_state(), args.preferences, args.history, args.cache)
+    except Exception as exc:
+        failed = True
+        result = {'error': str(exc), 'error_type': type(exc).__name__, 'maintenance_failed': True}
+    if args.report is not None:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        temporary = args.report.with_suffix('.tmp')
+        temporary.write_text(json.dumps(result, ensure_ascii=True, indent=2), encoding='utf-8')
+        temporary.replace(args.report)
     print(json.dumps(result, ensure_ascii=True))
+    if failed: raise SystemExit(1)
+
 
 
 if __name__ == '__main__': main()

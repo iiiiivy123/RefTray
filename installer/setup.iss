@@ -68,10 +68,10 @@ begin
   if FileExists(ExpandConstant('{app}\runtime\python.exe')) then begin
     ExtractTemporaryFile('maintenance.py');
     ExtractTemporaryFile('incoming-managed-files.json');
-    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{tmp}\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{tmp}\incoming-managed-files.json') + '" --state "' + ExpandConstant('{localappdata}\InspirationCollector') + '" --plan-only --export-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{tmp}\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{tmp}\incoming-managed-files.json') + '" --report "' + ExpandConstant('{localappdata}\InspirationCollector\data\inspiration\logs\installer-maintenance.json') + '" --state "' + ExpandConstant('{localappdata}\InspirationCollector') + '" --plan-only --export-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
       Result := '无法检查旧程序清单，尚未替换程序。'
     else if ExitCode <> 0 then
-      Result := '旧程序清单或素材保护检查失败，尚未替换程序。请保留日志并联系维护者。';
+      Result := '旧程序清单或素材保护检查失败，尚未替换程序。详情见状态目录 data/inspiration/logs/installer-maintenance.json。';
   end;
 end;
 
@@ -92,7 +92,7 @@ begin
     end;
   end;
   if Params <> '' then begin
-    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\maintenance.py') + '" --state "' + ExpandConstant('{localappdata}\InspirationCollector') + '"' + Params, '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\maintenance.py') + '" --report "' + ExpandConstant('{localappdata}\InspirationCollector\data\inspiration\logs\installer-maintenance.json') + '" --state "' + ExpandConstant('{localappdata}\InspirationCollector') + '"' + Params, '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
       Error := '无法执行所选数据清理；卸载已停止。'
     else if ExitCode <> 0 then Error := '数据清理保护检查失败，卸载已停止；请保留素材并联系维护者。';
     Result := Error = '';
@@ -111,10 +111,10 @@ var
   ExitCode: Integer;
 begin
   if (CurStep = ssPostInstall) and FileExists(ExpandConstant('{tmp}\previous-managed-files.json')) then begin
-    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{app}\managed-files.json') + '" --previous-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '" --state "' + ExpandConstant('{localappdata}\InspirationCollector') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
-      MsgBox('新版已安装，但旧文件清单清理未执行。素材未移动，请保留安装日志。', mbError, MB_OK)
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{app}\managed-files.json') + '" --previous-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '" --report "' + ExpandConstant('{localappdata}\InspirationCollector\data\inspiration\logs\installer-maintenance.json') + '" --state "' + ExpandConstant('{localappdata}\InspirationCollector') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+      MsgBox('新版已安装，但旧文件清单清理未执行。素材未移动；详情见状态目录 data/inspiration/logs/installer-maintenance.json。', mbError, MB_OK)
     else if ExitCode <> 0 then
-      MsgBox('新版已安装，但旧文件清单清理失败。素材未移动，请保留安装日志。', mbError, MB_OK);
+      MsgBox('新版已安装，但旧文件清单清理失败。素材未移动；详情见状态目录 data/inspiration/logs/installer-maintenance.json。', mbError, MB_OK);
   end;
   if (CurStep = ssDone) and not WizardSilent then
     MsgBox('Chrome 扩展目录：' + ExpandConstant('{app}\extension') + #13#10 + '首次使用：在 chrome://extensions 启用开发者模式，加载此文件夹。' + #13#10 + '更新：在 chrome://extensions 点击灵感采集扩展卡片上的重新加载；刷新管理网页不会更新扩展。', mbInformation, MB_OK);

@@ -46,7 +46,7 @@ def main():
             shutil.copy2(payload / 'extension' / name, app / 'extension' / name)
         shutil.copy2(payload / 'InspirationCollector.exe', app / 'InspirationCollector.exe')
         shutil.copy2(app / 'server/desktop.py', app / 'server/desktop_real.py')
-        (app / 'server/desktop.py').write_text("import os,sys,subprocess\nfrom pathlib import Path\nchild=subprocess.Popen([sys.executable,'-c','import time;time.sleep(120)'],creationflags=subprocess.CREATE_NO_WINDOW)\n(Path(os.environ['LIBLIB_ROOT'])/'child.pid').write_text(str(child.pid))\nfrom .desktop_real import main\nmain()\n", encoding='utf-8')
+        (app / 'server/desktop.py').write_text("import os,sys,subprocess\nfrom pathlib import Path\nchild=subprocess.Popen([sys.executable,'-c','import time;time.sleep(120)'],creationflags=subprocess.CREATE_NO_WINDOW)\n(Path(os.environ['LIBLIB_ROOT'])/'child.pid').write_text(str(child.pid))\nwith (Path(os.environ['LIBLIB_ROOT'])/'children.log').open('a') as log:log.write(str(child.pid)+'\\n')\nfrom .desktop_real import main\nmain()\n", encoding='utf-8')
         port = free_port()
         result = subprocess.run([str(app / 'InspirationCollector.exe'), '--smoke', str(port), str(state)],
                                 cwd=app, capture_output=True, timeout=45)
@@ -59,12 +59,13 @@ def main():
         second_port=free_port()
         crash=subprocess.run([str(app/'InspirationCollector.exe'),'--exit-smoke',str(second_port),str(state)],cwd=app,capture_output=True,timeout=45)
         crash_child=int((state/'child.pid').read_text())
-        crash_report={'mode':'backend-exit-tray-restart','port':second_port,'launcher_exit':crash.returncode,'last_child_alive':alive(crash_child)}
+        child_pids=[int(value) for value in (state/'children.log').read_text().splitlines()]
+        crash_report={'mode':'backend-exit-tray-restart','port':second_port,'launcher_exit':crash.returncode,'last_child_alive':alive(crash_child),'all_owned_children':child_pids,'any_owned_child_alive':any(alive(pid) for pid in child_pids)}
         if (state/'exit-smoke.json').exists():crash_report['result']=json.loads((state/'exit-smoke.json').read_text())
         reports.append(crash_report)
         (ROOT / 'build-windows/runtime-lifecycle-results.json').write_text(json.dumps(reports, indent=2), encoding='utf-8')
         print(json.dumps(reports, indent=2))
-        if crash.returncode or crash_report['last_child_alive']: raise SystemExit('Isolated lifecycle failed; see report')
+        if crash.returncode or crash_report['any_owned_child_alive']: raise SystemExit('Isolated lifecycle failed; see report')
 
 
 if __name__ == '__main__': main()
