@@ -55,44 +55,68 @@ async function history(){
   }
   pager(q('#history-list'),historyPage,result.pages||1,result.total??items.length,async page=>{historyPage=page;await history();});
 }
+async function taskDetail(item){
+  const stored=await chrome.storage.local.get(['collectorCheckpoint','collectorTaskJournal']);
+  const local=[stored.collectorCheckpoint,...Object.values(stored.collectorTaskJournal||{})].filter(Boolean).find(entry=>(entry.task_id||entry.id)===item.id);
+  if(item.localOnly)return local||item;
+  let remote;
+  try{remote=(await Hub.api('/tasks/'+encodeURIComponent(item.id))).item;}
+  catch(error){if(!local)throw error;notice('后台详情读取失败，使用本机较新检查点：'+error.message);}
+  return TaskStore.latest(local,remote);
+}
 async function tasks(){
-  const request=++taskRequest,result=await Hub.api('/tasks');
+  const request=++taskRequest;
+  try{await TaskStore.reconcile();}catch(error){notice('检查点尚未同步：'+error.message);}
+  let result;
+  try{result=await Hub.api('/tasks?page='+taskPage+'&page_size='+pageSize);}
+  catch(error){q('#task-list').replaceChildren();line(q('#task-list'),'任务列表读取失败：'+error.message);throw error;}
   const stored=await chrome.storage.local.get(['liblibActiveJob','liblibProgress','collectorCheckpoint','collectorTaskJournal','collectorDismissedTasks']);
   const combined=new Map((result.items||[]).map(item=>[item.id,{...item}]));
   for(const entry of Object.values(stored.collectorTaskJournal||{})){
     const id=entry.batchId||entry.id,server=combined.get(id);
     if(server){
-      server.updated=Math.max(server.updated||0,entry.updated||0);server.journalId=entry.id;
-      server.directory ||= entry.directory;server.name ||= entry.name;
-      server.resolvedBy ||= entry.resolvedBy;
-      if(['failed','partial'].includes(entry.status)&&!Object.values(server.records||{}).some(r=>['failed','partial'].includes(r.status)))server.error=entry.records?.result?.reason||entry.status;
-    }else combined.set(id,{...entry});
+      if(entry.batchId&&entry.batchId!==entry.id){server.journalId=entry.id;continue;}
+      const latest=TaskStore.latest(entry,server);
+      combined.set(id,{...latest,id,journalId:entry.id});
+    }else if(taskPage===1&&entry.localOnly)combined.set(id,{...entry});
   }
+  const checkpoint=stored.collectorCheckpoint;
+  if(checkpoint?.id&&combined.has(checkpoint.id))combined.set(checkpoint.id,TaskStore.latest(checkpoint,combined.get(checkpoint.id)));
   const items=[...combined.values()];
   if(request!==taskRequest)return;q('#task-list').replaceChildren();
   const rows=[];
   for(const item of items){
     const row=document.createElement('article');row.className='entry';
-    const records=Object.values(item.records||{}),failures=records.filter(r=>['failed','partial'].includes(r.status));
-    if(['failed','partial'].includes(item.status)&&!failures.length&&!item.error){const failure={status:item.status,url:item.source,reason:'任务未完成，请打开原页重试'};failures.push(failure);records.push(failure);}
+    const failureCount=Number(item.failed)||(['failed','partial'].includes(item.status)||item.error?1:0);
     if(item.resolvedBy)continue;
-    if(item.error){const failure={status:'failed',url:item.source,reason:item.error};failures.push(failure);records.push(failure);}
     const currentId=stored.liblibProgress?.context?.id;
     const running=stored.liblibActiveJob&&Boolean(item.id)&&(currentId===item.id||currentId===item.journalId||!currentId&&stored.collectorCheckpoint?.id===item.id);
-    if(item.completed&&!failures.length&&!running)continue;
+    if(item.completed&&!failureCount&&!running)continue;
     const filter=q('#task-state').value;
     const ignored=Boolean(stored.collectorDismissedTasks?.[item.id]);
     if(!running&&(filter==='ignored'?!ignored:ignored))continue;
     if(running&&filter==='ignored')continue;
-    if(filter==='running'&&!running||filter==='unfinished'&&(running||item.completed)||filter==='completed'&&!item.completed||filter==='failed'&&!failures.length)continue;
-    line(row,'{name} · {state} · {count} 篇 · 失败/部分失败 {failures}',{name:item.name||item.source||'',state:{ui:running?'正在运行':ignored?'已忽略':failures.length?(records.some(r=>r.status==='saved')?'部分完成':'失败'):'已暂停'},count:records.length,failures:failures.length});
+    if(filter==='running'&&!running||filter==='unfinished'&&(running||item.completed)||filter==='completed'&&!item.completed||filter==='failed'&&!failureCount)continue;
+    line(row,'{name} · {state} · {count} 篇 · 失败/部分失败 {failures}',{name:item.name||item.title||item.source||'',state:{ui:running?'正在运行':ignored?'已忽略':failureCount?(item.saved?'部分完成':'失败'):'已暂停'},count:item.total??item.done??'待查看',failures:failureCount});
     if(item.directory){const p=document.createElement('p');p.dataset.userContent='';p.textContent=item.directory;row.append(p);}else line(row,'尚未确认保存位置');
     const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='逐项结果';details.append(summary);
-    for(const r of records){const p=document.createElement('p');UI.message(p,'{state} · {url} · {reason}',{state:{ui:({saved:'成功',completed:'成功',failed:'失败',partial:'部分完成',skipped:'已跳过',planned:'待保存',stopped:'已停止'})[r.status]||r.status},url:(r.url||'').replace(/([?&](?:token|xsec_token|signature)=)[^&#]*/gi,'$1[hidden]'),reason:r.reason||''});details.append(p);}
+    let loaded=false,loading=false;
+    details.addEventListener('toggle',async()=>{
+      if(!details.open||loaded||loading)return;loading=true;
+      const content=document.createElement('div');content.textContent='正在读取逐项结果…';details.append(content);
+      try{
+        const full=await taskDetail(item);content.replaceChildren();
+        const records=Object.values(full.records||{});
+        if(!records.length)line(content,'暂无逐项结果');
+        for(const r of records){const p=document.createElement('p');UI.message(p,'{state} · {url} · {reason}',{state:{ui:({saved:'成功',completed:'成功',failed:'失败',partial:'部分完成',skipped:'已跳过',planned:'待保存',stopped:'已停止'})[r.status]||r.status},url:(r.url||'').replace(/([?&](?:token|xsec_token|signature)=)[^&#]*/gi,'$1[hidden]'),reason:r.reason||''});content.append(p);}
+        loaded=true;
+      }catch(error){content.textContent='详情读取失败，重新展开可重试：'+error.message;}
+      finally{loading=false;if(!loaded)details.addEventListener('toggle',()=>content.remove(),{once:true});}
+    });
     row.append(details);
     if(item.localOnly){row.append(button('打开原页重试',()=>chrome.tabs.create({url:item.source})));}
     if(!item.localOnly&&!running&&!item.completed)row.append(button('回原页续采',()=>restore(item,false)));
-    if(!item.localOnly&&!item.error&&!running&&failures.length)row.append(button('只重试失败项',()=>restore(item,true)));
+    if(!item.localOnly&&!item.error&&!running&&failureCount)row.append(button('只重试失败项',()=>restore(item,true)));
     if(!running&&item.id){
       const choose=document.createElement('input');choose.type='checkbox';choose.dataset.taskId=item.id;choose.setAttribute('aria-label','选择此任务');const label=document.createElement('label');label.className='task-selection';label.append(choose,document.createTextNode('选择此任务'));row.prepend(label);
       row.append(button(ignored?'恢复到待处理':'不再处理（保留文件）',()=>dismissTasks([item.id],!ignored)));
@@ -100,27 +124,40 @@ async function tasks(){
     rows.push({row,running,updated:item.updated||0});
   }
   rows.sort((a,b)=>Number(b.running)-Number(a.running)||b.updated-a.updated);
-  const pages=Math.max(1,Math.ceil(rows.length/pageSize));taskPage=Math.min(taskPage,pages);
-  for(const entry of rows.slice((taskPage-1)*pageSize,taskPage*pageSize))q('#task-list').append(entry.row);
-  if(!rows.length)line(q('#task-list'),'暂无匹配的任务记录');
-  pager(q('#task-list'),taskPage,pages,rows.length,async page=>{taskPage=page;await tasks();});
+  const pages=Math.max(1,Math.ceil(result.total/pageSize));
+  for(const entry of rows)q('#task-list').append(entry.row);
+  if(!rows.length)line(q('#task-list'),'本页暂无匹配的待处理任务，可翻页查看其他记录');
+  pager(q('#task-list'),taskPage,pages,result.total,async page=>{taskPage=page;await tasks();});
   selectionChanged();
 }
 async function restore(item,retry){
   const state=await chrome.storage.local.get(['liblibActiveJob']);if(state.liblibActiveJob)throw new Error('请先停止当前任务');
+  item=await taskDetail(item);
   if(retry&&!Object.values(item.records||{}).some(r=>['failed','partial'].includes(r.status)))throw new Error('没有失败项');
   const checkpoint=structuredClone(item);checkpoint.completed=false;delete checkpoint.error;
   if(retry)checkpoint.image_used=0;
   if(retry){checkpoint.retryKeys=Object.entries(checkpoint.records).filter(([,r])=>['failed','partial'].includes(r.status)).map(([k])=>k);for(const key of checkpoint.retryKeys)delete checkpoint.records[key];}
-  await chrome.storage.local.set({collectorCheckpoint:checkpoint,collectorResumeRequested:true});await chrome.tabs.create({url:checkpoint.source});notice('已恢复任务。打开原页采集面板，确认继续上次任务后开始。');
+  await TaskStore.save(checkpoint);await chrome.storage.local.set({collectorResumeRequested:true});await chrome.tabs.create({url:checkpoint.source});notice('已恢复任务。打开原页采集面板，确认继续上次任务后开始。');
 }
 async function approval(){const {collectorApproval:a}=await chrome.storage.local.get(['collectorApproval']);q('#approval').hidden=!a||a.state!=='pending';if(a)UI.feedback(q('#approval-text'),a.message,'等待下载确认');}
 q('#approve').onclick=guard(async()=>{await chrome.runtime.sendMessage({type:'APPROVE_DOWNLOAD',approve:true});await approval();});
 q('#reject').onclick=guard(async()=>{await chrome.runtime.sendMessage({type:'APPROVE_DOWNLOAD',approve:false});await approval();});
+let savedDefaults=null;
+const defaultsState=document.createElement('p');defaultsState.id='defaults-state';defaultsState.setAttribute('role','status');q('#defaults-form').before(defaultsState);
+const undoDefaults=button('撤销未保存修改',()=>{if(savedDefaults)paintDefaults(savedDefaults);});undoDefaults.type='button';undoDefaults.disabled=true;q('#defaults-form').append(undoDefaults);
+function paintDefaults(values){
+  savedDefaults=structuredClone(values);
+  for(const [key,value] of Object.entries(values)){const input=q('#defaults-form').elements.namedItem(key);if(input)input.type==='checkbox'?input.checked=value:input.value=value;}
+  for(const fieldset of q('#defaults-form').querySelectorAll('fieldset'))fieldset.disabled=false;
+  globalThis.refreshSelects?.();
+  q('#defaults-form').querySelector('[type=submit]').disabled=false;undoDefaults.disabled=true;
+  UI.message(defaultsState,'当前生效：后台默认值 · 每次 {limit} 篇 · 图片上限 {images} · 只影响之后的新任务，续采保留原设置。',{limit:values.limit,images:values.max_images||'不限'});
+}
+q('#defaults-form').addEventListener('input',()=>{undoDefaults.disabled=!savedDefaults;UI.message(defaultsState,'有未保存修改；新任务仍使用已保存的后台默认值。');});
 q('#defaults-form').onsubmit=guard(async e=>{
   e.preventDefault();const data={};for(const input of e.target.elements){if(!input.name)continue;data[input.name]=input.type==='checkbox'?input.checked:input.type==='number'?Number(input.value):input.value;}
   const submit=e.target.querySelector('[type=submit]');submit.disabled=true;
-  try{const current=await Hub.defaults();await Hub.api('/settings/defaults',{...current,...data,min_free_mb:0,include_images:true});await chrome.storage.local.remove(['collectorLastOptions','collectorModePreferences']);notice('默认设置已保存；正在运行的任务不变。');}finally{submit.disabled=false;}
+  try{const current=await Hub.defaults();const saved=await Hub.api('/settings/defaults',{...current,...data,min_free_mb:0,include_images:true});await Hub.invalidateOptions();paintDefaults(saved);notice('默认设置已保存；正在运行和恢复的任务保留原设置。');}finally{submit.disabled=false;}
 });
 q('#query').addEventListener('input',()=>{historyRequest++;});
 q('#history-category').onchange=q('#history-platform').onchange=guard(async()=>{historyPage=1;await history();});
@@ -161,4 +198,14 @@ chrome.storage.onChanged.addListener((changes,area)=>{
     clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>tasks().catch(e=>notice(e.message)),150);
   }
 });
-guard(async()=>{const d=await Hub.defaults();for(const [k,v]of Object.entries(d)){const input=q('#defaults-form').elements.namedItem(k);if(input)input.type==='checkbox'?input.checked=v:input.value=v;}globalThis.refreshSelects?.();await history();await tasks();await approval();const {liblibProgress:p}=await chrome.storage.local.get(['liblibProgress']);q('#diagnostic-text').textContent=[p?.message,p?.details].filter(Boolean).join('\n');})();
+q('#defaults-form').querySelector('[type=submit]').disabled=true;
+for(const fieldset of q('#defaults-form').querySelectorAll('fieldset'))fieldset.disabled=true;
+// Independent blocks settle independently: history errors must not hide defaults or approval.
+const initializeBlock=async(action,target)=>{try{await action();}catch(error){UI.feedback(target,error.message);}};
+Promise.allSettled([
+  initializeBlock(async()=>paintDefaults(await Hub.defaults()),defaultsState),
+  initializeBlock(history,q('#history-list')),
+  initializeBlock(tasks,q('#task-list')),
+  initializeBlock(approval,q('#approval-text')),
+  initializeBlock(async()=>{const {liblibProgress:p}=await chrome.storage.local.get(['liblibProgress']);q('#diagnostic-text').textContent=[p?.message,p?.details].filter(Boolean).join('\n');},q('#diagnostic-text'))
+]);

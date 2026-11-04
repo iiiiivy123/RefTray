@@ -46,3 +46,34 @@ form#defaults-form{max-width:none;width:100%}
 #defaults-form legend{font-size:17px}#defaults-form label{font-size:14px}
 
 .layout-settings{margin-top:18px;display:grid;gap:10px}.layout-settings label{font-weight:600}.layout-settings select{width:100%}.layout-settings .hint{font-size:13px;line-height:1.6;color:#62736c;margin:0}.layout-settings #layout-preview{overflow-wrap:anywhere;padding:10px;background:#f2f6f3;border-radius:8px}.layout-settings button{justify-self:start}
+
+/* Warm, separate settings units; the page itself stays light and quiet. */
+body{background:#f2f0eb;color:#292824;font-size:13px;line-height:1.65;padding:24px 28px}
+header h1{font-size:20px;line-height:1.4;font-weight:650;margin:8px 0}
+nav{background:#f2f0eb;border-bottom:1px solid #dcd8ce;gap:12px}
+a,button{color:#4c584b}nav a:hover{background:#e6e3da}
+section{background:#faf8f3;border-color:#dedad0;border-radius:10px;box-shadow:none}
+#defaults{background:transparent;border:0;padding:0}
+#defaults>h2{margin:24px 0 12px;font-size:17px}
+.destination{background:#eae7df;border:1px solid #d8d3c7;padding:20px;margin:0 0 24px}
+.destination h3{font-size:15px;margin:0 0 6px}
+#defaults-form fieldset{background:#faf8f3;border:1px solid #dedad0;border-radius:8px;margin:0 0 18px;padding:16px 20px 20px}
+#defaults-form fieldset:nth-of-type(2){background:#eeece5}
+#defaults-form fieldset:nth-of-type(3){background:#e9e6dd}
+#defaults-form legend{font-size:15px;line-height:1.4;font-weight:650;padding:0 6px}
+#defaults-form label{font-size:13px;min-height:36px;margin:12px 0 8px}
+#defaults>p,#defaults-form p,.destination>p,#history-content>p,#tasks>p,.layout-settings .hint{font-size:12px;line-height:1.65;color:#6b6860}
+#defaults-state{padding:8px 0;margin:0 0 12px;color:#505a4b}
+input:not([type=checkbox]),select,button{background:#fdfcf9;border-color:#d7d2c7;color:#292824;min-height:36px}
+button{padding:8px 14px;font-size:13px}
+button:hover:enabled{background:#ece9df;border-color:#aaa796}
+button:disabled{opacity:1;color:#918d84;background:#edeae3;cursor:default;border-color:#dedad1}
+#defaults-form button[type=submit]{width:auto;min-width:180px;background:#535d4e;color:white;border-color:#535d4e;margin-right:12px}
+#defaults-form button[type=submit]:disabled{background:#d3d2c8;color:#77766f;border-color:#d3d2c8}
+.layout-settings #layout-preview{background:#f5f3ed;color:#57554f;border:1px solid #dcd7cb}
+.record-tabs{border-color:#dedad0}.record-tabs button{font-size:15px;color:#6b6860}
+.record-tabs button[aria-selected=true]{border-color:#626d57;color:#343c2e}
+#history .entry{border-color:#dedad0;background:#fdfcf9}
+#notice{color:#7a583c;font-size:13px}.entry details{margin-top:12px}.entry details>div{padding:8px 12px;border-left:2px solid #d6d0c3}
+:focus-visible{outline:2px solid #737d64;outline-offset:3px}
+@media(max-width:650px){body{padding:12px}#defaults-form fieldset{padding:12px}#defaults-form .rounded-select,#defaults-form input[type=number]{max-width:55%;width:220px}}
