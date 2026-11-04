@@ -176,7 +176,23 @@ class Catalog:
             rows = db.execute('SELECT * FROM captures WHERE source=? ORDER BY updated DESC', (source_id(url),)).fetchall()
         for row in rows:
             item = self.describe(row)
-            if item['available'] and all(item['coverage'].get(k) is True for k in required) and all(f.get('sha') and fingerprint(f['path'])==f['sha'] for f in item['files']): return item
+            if not (item['available'] and all(item['coverage'].get(k) is True for k in required)
+                    and all(f.get('sha') and fingerprint(f['path']) == f['sha'] for f in item['files'])):
+                continue
+            if 'images' in required:
+                # Older versions marked OCR-only or verification pages as images.
+                # A legacy coverage flag alone must never cause skip/fill to reuse it.
+                from .image_validation import validate_image
+                attachments = [f for f in item['files'] if Path(f['path']).suffix.lower() in
+                               ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.bmp', '.tif', '.tiff')]
+                if not attachments:
+                    continue
+                try:
+                    for attachment in attachments:
+                        validate_image(Path(attachment['path']).read_bytes())
+                except (OSError, ValueError):
+                    continue
+            return item
         return None
 
     def get(self, identity):

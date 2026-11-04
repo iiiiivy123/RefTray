@@ -70,6 +70,18 @@ class StorageIntegrityTests(unittest.TestCase):
         self.storage.collect(self.request(body_text='Changed'))
         self.assertEqual(target.read_text(encoding='utf-8'), 'My edits')
 
+    def test_legacy_coverage_cannot_skip_missing_or_invalid_attachments(self):
+        folder = self.root / 'old'
+        folder.mkdir()
+        document = folder / 'note.md'
+        document.write_text('OCR text', encoding='utf-8')
+        self.storage.catalog.record('https://example.org/old', 'Old', '', 'text', folder, ['note.md'], {'images': True, 'text': True})
+        self.assertIsNone(self.storage.catalog.lookup('https://example.org/old', ['images']))
+        invalid = folder / 'bad.jpg'
+        invalid.write_bytes(b'<html>login</html>')
+        self.storage.catalog.record('https://example.org/old', 'Old', '', 'text', folder, ['bad.jpg'], {'images': True})
+        self.assertIsNone(self.storage.catalog.lookup('https://example.org/old', ['images']))
+
     def test_invalid_media_rejected_and_actual_format_used(self):
         for bad in (b'<html>login</html>', b'{"status":"denied"}', picture('JPEG')[:-20]):
             with self.subTest(data=bad[:10]), self.assertRaises(ValueError):
