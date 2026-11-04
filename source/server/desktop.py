@@ -6,12 +6,13 @@ import threading
 import uvicorn
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from .app import app, active_urls, videos, folder_requests
+from .app import app
 
 
 def configure_shutdown(application, stop):
     secret = os.environ.get('COLLECTOR_LAUNCHER_SECRET', '')
     state = {'draining': False, 'requests': 0}
+    runtime = application.state.runtime
 
     @application.middleware('http')
     async def upgrade_gate(request: Request, call_next):
@@ -19,8 +20,8 @@ def configure_shutdown(application, stop):
             if request.method != 'POST' or not secret or not secrets.compare_digest(
                     request.headers.get('X-Launcher-Secret', ''), secret):
                 return JSONResponse({'detail': 'Forbidden'}, status_code=403)
-            if (state['requests'] or active_urls or videos.busy()
-                    or any(item.get('state') == 'pending' for item in folder_requests.values())):
+            if (state['requests'] or runtime.active_urls or runtime.videos.busy()
+                    or any(item.get('state') == 'pending' for item in runtime.folder_requests.values())):
                 return JSONResponse({'detail': '正在采集或处理请求，请结束任务后重试'}, status_code=409)
             if not state['draining']:
                 state['draining'] = True

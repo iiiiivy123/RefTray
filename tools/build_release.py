@@ -11,7 +11,7 @@ def build(channel,output):
     target=output/f'inspiration-collector-{version}-{channel}.zip'
     with zipfile.ZipFile(target,'w',zipfile.ZIP_DEFLATED) as archive:
         for folder,extensions in [('extension',{'.js','.html','.css','.json','.png','.svg','.ico'}),('server',{'.py','.txt','.ps1'})]:
-            for file in sorted((ROOT/'source'/folder).iterdir()):
+            for file in sorted((ROOT/'source'/folder).rglob('*')):
                 if not file.is_file() or file.suffix not in extensions:continue
                 if channel=='user' and file.name.startswith('live-test.'):continue
                 if folder=='extension' and file.suffix=='.json' and file.name!='manifest.json':continue
@@ -20,7 +20,7 @@ def build(channel,output):
                 data=file.read_bytes()
                 if channel=='dev' and file.name=='manage.html' and (ROOT/'source/extension/live-test.html').exists():
                     data=data.decode('utf-8').replace('<!-- LOCAL_DEV_TOOLS -->','<button id="live-test">Chrome 实测助手</button>').encode('utf-8')
-                archive.writestr(f'{folder}/{file.name}',data)
+                archive.writestr(f'{folder}/{file.relative_to(ROOT/"source"/folder).as_posix()}',data)
         archive.write(ROOT/'docs/usage.md','使用说明.md')
         for name in DOCS:archive.write(ROOT/'docs'/name,'docs/'+name)
         for name in LICENSE_DOCS:archive.write(ROOT/'docs'/name,'licenses/'+name)

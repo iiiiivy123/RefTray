@@ -34,3 +34,35 @@ def capabilities():
             'youtube_js_runtime': bool(node and Path(node).is_file()),
             'local_transcription': runtime.is_file() and (model/'model.bin').is_file(),
             'loaded_captions': True}
+
+
+class CapabilityCache:
+    """One background probe per TTL; failures are cached too. Never blocks health."""
+    def __init__(self, probe=capabilities, ttl=60):
+        import threading
+        self.probe, self.ttl = probe, ttl
+        self.lock = threading.Lock()
+        self.value = None
+        self.checked_at = 0
+        self.running = False
+        self.error = False
+
+    def snapshot(self):
+        import threading
+        import time
+        with self.lock:
+            if not self.running and (not self.checked_at or time.monotonic() - self.checked_at >= self.ttl):
+                self.running = True
+                threading.Thread(target=self._refresh, daemon=True).start()
+            return {'state': 'checking' if self.value is None and not self.error else ('unavailable' if self.error else 'ready'),
+                    'values': dict(self.value or {}), 'refreshing': self.running}
+
+    def _refresh(self):
+        import time
+        try:
+            value, error = self.probe(), False
+        except Exception:
+            value, error = None, True
+        with self.lock:
+            self.value, self.error = value, error
+            self.checked_at, self.running = time.monotonic(), False
