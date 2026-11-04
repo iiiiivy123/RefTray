@@ -72,3 +72,4 @@
 !/tests/collector/test_storage_integrity.py
 !/tests/collector/test_task_catalog.py
 !/tests/collector/test_capture_options.cjs
+!/tests/collector/test_task_store.cjs
