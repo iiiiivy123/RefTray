@@ -40,6 +40,29 @@ class TaskCatalogTests(unittest.TestCase):
             outcomes = list(pool.map(write, ['one', 'two']))
         self.assertCountEqual(outcomes, [2, 'conflict'])
 
+    def test_coalesced_offline_revisions_keep_identity_and_replay_after_lost_response(self):
+        pending = {'id': 'offline', 'task_id': 'offline', 'schema_version': 1, 'revision': 3, 'records': {'three': {'status': 'saved'}}}
+        saved = self.catalog.save_task(pending, expected_revision=0)
+        self.assertEqual(saved['revision'], 3)
+        replay = self.catalog.save_task(pending, expected_revision=3)
+        self.assertEqual(replay['revision'], 3)
+        with self.assertRaises(ValueError):
+            self.catalog.save_task({**pending, 'revision': 4}, expected_revision=0)
+        self.assertEqual(self.catalog.save_task({**pending, 'revision': 5}, expected_revision=3)['revision'], 5)
+
+    def test_legacy_summary_derives_failure_status_in_sql_without_loading_records(self):
+        legacy = {'id': 'old-failure', 'completed': True, 'records': {
+            'a': {'status': 'saved'}, 'b': {'status': 'failed'}, 'c': {'status': 'partial'},
+            'd': {'status': 'skipped'}, 'e': {'status': 'pending'}}, 'queue': ['e']}
+        with self.catalog.connect() as db:
+            db.execute('INSERT INTO tasks VALUES(?,?,?)', (legacy['id'], json.dumps(legacy), 123))
+        from unittest.mock import patch
+        with patch('server.catalog.json.loads', side_effect=AssertionError('full checkpoint decoded')):
+            item = self.catalog.task_page()['items'][0]
+        self.assertEqual((item['total'], item['done'], item['failed'], item['saved'], item['skipped'], item['status']), (5, 4, 2, 2, 1, 'partial'))
+        self.assertNotIn('records', item)
+        self.assertEqual(self.catalog.get_task(legacy['id'])['records'], legacy['records'])
+
     def test_legacy_records_read_and_upgrade_without_schema_rebuild(self):
         legacy = {'id': 'old', 'records': {'one': 'saved'}, 'queue': ['two'], 'status': 'paused'}
         with self.catalog.connect() as db:

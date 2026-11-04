@@ -232,15 +232,18 @@ class Catalog:
             value = {**record, 'id': identity, 'task_id': identity, 'schema_version': 1}
             if incoming is not None and incoming < current:
                 raise ValueError('任务版本过旧，未覆盖新检查点')
-            if row and incoming == current and expected_revision is None:
+            if row and incoming == current:
                 normalized = {**previous, 'id': identity, 'task_id': identity, 'schema_version': 1, 'revision': current}
-                if {k: v for k, v in value.items() if k != 'updated'} != {k: v for k, v in normalized.items() if k != 'updated'}:
+                if {k: v for k, v in value.items() if k != 'updated'} == {k: v for k, v in normalized.items() if k != 'updated'}:
+                    return {**normalized, 'updated': row['updated'] * 1000}
+                if expected_revision is None:
                     raise ValueError('任务同版本内容冲突，未覆盖检查点')
-                return {**normalized, 'updated': row['updated'] * 1000}
-            if incoming is not None and incoming > current + 1:
+            if expected_revision is None and incoming is not None and incoming > current + 1:
                 raise ValueError('任务版本不连续，请先读取最新检查点')
             updated = time.time()
-            value.update(revision=current + 1, updated=updated * 1000)
+            # An offline outbox may coalesce several locally durable revisions.
+            # An explicit matching server revision makes that jump a safe CAS write.
+            value.update(revision=max(current + 1, incoming or 0), updated=updated * 1000)
             db.execute('INSERT INTO tasks(id,data,updated) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,updated=excluded.updated',
                        (identity, json.dumps(value, ensure_ascii=False), updated))
         return value
@@ -257,14 +260,28 @@ class Catalog:
         page_size = page_size if page_size in (20, 40, 80) else 20
         page = max(1, page)
         # Project only summary keys in SQLite; never load every checkpoint/queue to slice in Python.
-        fields = ('status', 'progress', 'title', 'label', 'name', 'source', 'mode', 'created',
-                  'completed', 'directory', 'batchId', 'localOnly', 'total', 'done', 'failed', 'saved', 'skipped')
+        fields = ('progress', 'title', 'label', 'name', 'source', 'mode', 'created',
+                  'completed', 'directory', 'batchId', 'localOnly')
         projection = ','.join("json_extract(data, '$." + name + "') AS \"" + name + '\"' for name in fields)
+        def count_records(condition='1'):
+            return "(SELECT COUNT(*) FROM json_each(page.data,'$.records') WHERE " + condition + ')'
+        record_status = "CASE WHEN type='object' THEN json_extract(value,'$.status') END"
+        failed = "COALESCE(json_extract(data,'$.failed')," + count_records(record_status + " IN ('failed','partial')") + ')'
+        saved = "COALESCE(json_extract(data,'$.saved')," + count_records(record_status + " IN ('saved','completed','partial')") + ')'
+        counters = {
+            'total': "COALESCE(json_extract(data,'$.total')," + count_records() + ')',
+            'done': "COALESCE(json_extract(data,'$.done')," + count_records(record_status + " NOT IN ('pending','planned')") + ')',
+            'failed': failed,
+            'saved': saved,
+            'skipped': "COALESCE(json_extract(data,'$.skipped')," + count_records(record_status + "='skipped'") + ')',
+        }
+        projection += ',' + ','.join(expression + ' AS ' + name for name, expression in counters.items())
+        projection += ",COALESCE(json_extract(data,'$.status'),CASE WHEN " + failed + '>0 THEN CASE WHEN ' + saved + ">0 THEN 'partial' ELSE 'failed' END WHEN json_extract(data,'$.completed')=1 THEN 'completed' ELSE 'paused' END) AS status"
         with self.connect() as db:
             total = db.execute('SELECT COUNT(*) FROM tasks').fetchone()[0]
             rows = db.execute("SELECT id,updated,COALESCE(json_extract(data,'$.schema_version'),1) AS schema_version,"
                               "COALESCE(json_extract(data,'$.revision'),0) AS revision," + projection +
-                              ' FROM tasks ORDER BY updated DESC,id DESC LIMIT ? OFFSET ?',
+                              ' FROM (SELECT id,data,updated FROM tasks ORDER BY updated DESC,id DESC LIMIT ? OFFSET ?) AS page ORDER BY updated DESC,id DESC',
                               (page_size, (page - 1) * page_size)).fetchall()
         items = []
         for row in rows:
