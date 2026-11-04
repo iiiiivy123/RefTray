@@ -435,9 +435,16 @@ def create_app(runtime=None):
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
 
+    def request_stop_all():
+        with lock:
+            for job in jobs.values():
+                if job['status'] == 'running':
+                    job.update(status='stopping', message='本篇结束后停止，正在收尾', cancel_acknowledged=False)
+        videos.request_stop_all()
+
     from types import SimpleNamespace
     app.state.runtime = SimpleNamespace(settings=settings, storage=storage, videos=videos, jobs=jobs, active_urls=active_urls,
-                                        folder_requests=folder_requests, capability_cache=capability_cache)
+                                        folder_requests=folder_requests, capability_cache=capability_cache, request_stop_all=request_stop_all)
     return app
 
 

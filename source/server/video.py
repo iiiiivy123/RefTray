@@ -113,6 +113,13 @@ class VideoDownloads:
             if previous != action:
                 job['message'] = {'paused': '下载已暂停', 'running': '正在恢复下载…', 'stopped': '正在停止下载…'}[action]
 
+    def request_stop_all(self):
+        """Queue cancellation; busy stays true until each worker acknowledges cleanup."""
+        with self.lock:
+            for job in self.jobs.values():
+                if job['status'] in ('running', 'paused'):
+                    job.update(control='stopped', status='running', lease=time.monotonic(), message='正在停止下载…')
+
     def _point(self, job_id):
         while True:
             with self.lock:

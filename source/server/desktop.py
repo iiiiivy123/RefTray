@@ -2,6 +2,7 @@
 import os
 import secrets
 import threading
+import time
 
 import uvicorn
 from fastapi import Request
@@ -11,7 +12,7 @@ from .app import app
 
 def configure_shutdown(application, stop):
     secret = os.environ.get('COLLECTOR_LAUNCHER_SECRET', '')
-    state = {'draining': False, 'requests': 0}
+    state = {'draining': False, 'requests': 0, 'lease': 0, 'exit_scheduled': False}
     runtime = application.state.runtime
 
     @application.middleware('http')
@@ -20,17 +21,33 @@ def configure_shutdown(application, stop):
             if request.method != 'POST' or not secret or not secrets.compare_digest(
                     request.headers.get('X-Launcher-Secret', ''), secret):
                 return JSONResponse({'detail': 'Forbidden'}, status_code=403)
-            if (state['requests'] or runtime.active_urls or runtime.videos.busy()
-                    or any(item.get('state') == 'pending' for item in runtime.folder_requests.values())):
-                return JSONResponse({'detail': '正在采集或处理请求，请结束任务后重试'}, status_code=409)
-            if not state['draining']:
-                state['draining'] = True
+            mode = request.query_params.get('mode', '')
+            if mode == 'resume' and not state['exit_scheduled']:
+                state.update(draining=False, lease=0)
+                return JSONResponse({'ready': False, 'resumed': True})
+            if mode not in ('', 'wait', 'stop'):
+                return JSONResponse({'detail': 'Invalid shutdown mode'}, status_code=422)
+            busy = (state['requests'] or runtime.active_urls or runtime.videos.busy()
+                    or any(item.get('state') == 'pending' for item in runtime.folder_requests.values()))
+            if busy and not mode:
+                return JSONResponse({'detail': '正在采集或处理请求，请选择等待或本篇结束后停止'}, status_code=409)
+            state.update(draining=True, lease=time.monotonic() + 30)
+            if mode == 'stop':
+                runtime.request_stop_all()
+            if busy:
+                return JSONResponse({'ready': False, 'phase': 'draining', 'mode': mode,
+                                     'message': '正在收尾；目录选择窗口请完成或取消'}, status_code=202)
+            if not state['exit_scheduled']:
+                state['exit_scheduled'] = True
                 timer = threading.Timer(.5, stop)
                 timer.daemon = True
                 timer.start()
             return JSONResponse({'ready': True})
-        if state['draining'] and request.url.path != '/health':
-            return JSONResponse({'detail': '后台正在退出，请等待更新完成'}, status_code=503)
+        if state['draining'] and not state['exit_scheduled'] and time.monotonic() > state['lease']:
+            state['draining'] = False
+        controls = request.url.path.startswith(('/collect/control/', '/video/control/'))
+        if state['draining'] and request.method != 'GET' and not controls and request.url.path != '/tasks':
+            return JSONResponse({'detail': '后台正在收尾，请等待更新或取消退出'}, status_code=503)
         if request.url.path == '/health':
             return await call_next(request)
         state['requests'] += 1

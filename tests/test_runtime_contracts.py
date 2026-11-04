@@ -63,7 +63,7 @@ class RuntimeContracts(unittest.TestCase):
                 output.write_text(request.collection_mode)
                 return {'directory': str(owner.root), 'files': [str(output)]}
         self.app = create_app(SimpleNamespace(settings=Settings(self.root, save_directory=self.root),
-            storage=Storage(), videos=SimpleNamespace(busy=lambda: False)))
+            storage=Storage(), videos=SimpleNamespace(busy=lambda: False, request_stop_all=lambda: None)))
         self.app.state.runtime.capability_cache.probe = lambda: {}
         self.client = TestClient(self.app)
         self.headers = {'X-Collector-Token': self.client.get('/health').json()['settings_token']}
@@ -186,6 +186,33 @@ class RuntimeContracts(unittest.TestCase):
         self.assertNotIn('records', page['items'][0])
         detail = self.client.get('/tasks/979', headers=self.headers).json()['item']
         self.assertEqual(list(range(100)), detail['records'])
+
+    def test_upgrade_stop_drains_at_boundary_allows_checkpoint_and_blocks_new_capture(self):
+        from server.desktop import configure_shutdown
+        stopped = []
+        self.app.middleware_stack = None
+        with patch.dict(os.environ, {'COLLECTOR_LAUNCHER_SECRET': 'isolated-secret'}):
+            configure_shutdown(self.app, lambda: stopped.append(True))
+        job = self.submit().json()['job_id']
+        self.assertTrue(self.started.wait(1))
+        headers = {'X-Launcher-Secret': 'isolated-secret'}
+        draining = self.client.post('/internal/prepare-upgrade?mode=stop', headers=headers)
+        self.assertEqual(202, draining.status_code)
+        self.assertFalse(draining.json()['ready'])
+        self.assertEqual(503, self.submit(idempotency_key='blocked').status_code)
+        saved = self.client.post('/tasks', headers=self.headers,
+                                 json={'id': 'checkpoint', 'data': {'status': 'stopping'}})
+        self.assertEqual(200, saved.status_code)
+        self.assertEqual('stopping', self.client.get('/collect/status/' + job, headers=self.headers).json()['status'])
+        self.assertFalse(stopped)
+        self.finish.set()
+        for _ in range(100):
+            if not self.app.state.runtime.active_urls: break
+            time.sleep(.01)
+        self.assertEqual('stopped', self.client.get('/collect/status/' + job, headers=self.headers).json()['status'])
+        self.assertTrue(self.client.post('/internal/prepare-upgrade?mode=wait', headers=headers).json()['ready'])
+        time.sleep(.6)
+        self.assertEqual([True], stopped)
 
     def test_upgrade_gate_refuses_unknown_or_busy_without_requesting_exit(self):
         from server.desktop import configure_shutdown
