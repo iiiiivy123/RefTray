@@ -1,0 +1,6 @@
+{
+  "mode": "isolated-launcher-smoke",
+  "port": 55065,
+  "exit": 0,
+  "smoke-result.json": "{\"release_ok\":true,\"service_stopped\":true}"
+}

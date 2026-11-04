@@ -1,0 +1,29 @@
+[
+  {
+    "mode": "owned-child-tree",
+    "port": 58484,
+    "launcher_exit": 0,
+    "child_pid": 37228,
+    "child_alive": false,
+    "result": {
+      "release_ok": true,
+      "service_stopped": true
+    }
+  },
+  {
+    "mode": "backend-exit-tray-restart",
+    "port": 58502,
+    "launcher_exit": 0,
+    "last_child_alive": false,
+    "all_owned_children": [
+      37228,
+      42984,
+      40116
+    ],
+    "any_owned_child_alive": false,
+    "result": {
+      "stopped_state": true,
+      "restart_ok": true
+    }
+  }
+]

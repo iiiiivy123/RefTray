@@ -2,6 +2,7 @@ import threading
 import os
 import secrets
 import hashlib
+import tempfile
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
@@ -63,6 +64,31 @@ def create_app(runtime=None):
     def authorize_settings(request: Request) -> None:
         if not secrets.compare_digest(request.headers.get("X-Collector-Token", ""), settings_token):
             raise HTTPException(403, "扩展未通过后台校验。升级后请在 chrome://extensions 重新加载「灵感采集」，刷新作品网页并重新打开面板；若仍失败，请确认扩展与后台来自同一安装版本。")
+
+
+    @app.get('/settings/library/check')
+    def check_library(request: Request):
+        authorize_settings(request)
+        # This checks the current selection without creating folders or saving defaults.
+        with lock:
+            directory = settings.inbox
+            if not directory.is_dir():
+                raise HTTPException(409, '素材库目录不存在或尚未选择，请重新选择文件夹')
+            try:
+                with os.scandir(directory) as entries:
+                    next(entries, None)
+                # The unique marker is closed and deleted before reporting success.
+                with tempfile.NamedTemporaryFile(prefix='.reftray-write-check-', dir=directory) as marker:
+                    payload = b'RefTray library access check'
+                    marker.write(payload)
+                    marker.flush()
+                    os.fsync(marker.fileno())
+                    marker.seek(0)
+                    if marker.read() != payload:
+                        raise OSError('临时检查文件读回不一致')
+            except OSError as exc:
+                raise HTTPException(400, f'素材库读写检查失败，请检查目录权限或重新选择文件夹：{exc}') from exc
+        return {'directory': str(directory), 'writable': True}
 
 
     @app.get('/settings/defaults')

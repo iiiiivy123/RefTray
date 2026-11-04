@@ -1,0 +1,10 @@
+{
+  "mode": "filesystem-clean-payload-vs-managed-upgrade-simulation",
+  "managed_files": 1767,
+  "mismatches": [],
+  "obsolete_removed": true,
+  "unmanaged_preserved": true,
+  "edited_program_backed_up": true,
+  "materials_and_preferences_unchanged": true,
+  "real_inno_install": false
+}

@@ -187,6 +187,34 @@ class RuntimeContracts(unittest.TestCase):
         detail = self.client.get('/tasks/979', headers=self.headers).json()['item']
         self.assertEqual(list(range(100)), detail['records'])
 
+    def test_library_check_uses_new_directory_and_preserves_files_and_preferences(self):
+        library = self.root / 'new-library'
+        library.mkdir()
+        artwork = library / 'hand-edited.md'
+        artwork.write_text('user material')
+        changed = self.client.post('/settings/directory', headers=self.headers,
+                                   json={'directory': str(library)})
+        self.assertEqual(200, changed.status_code)
+        config = self.root / 'data/inspiration/collector-settings.json'
+        settings_before = config.read_bytes()
+        contents_before = sorted(str(path.relative_to(library)) for path in library.rglob('*'))
+        checked = self.client.get('/settings/library/check', headers=self.headers)
+        self.assertEqual(200, checked.status_code)
+        self.assertEqual({'directory': str(library), 'writable': True}, checked.json())
+        self.assertEqual('user material', artwork.read_text())
+        self.assertEqual(settings_before, config.read_bytes())
+        self.assertEqual(contents_before, sorted(str(path.relative_to(library)) for path in library.rglob('*')))
+        self.assertEqual([], list(library.glob('.reftray-write-check-*')))
+
+    def test_library_check_auth_failure_and_permission_failure_are_explicit(self):
+        self.assertEqual(403, self.client.get('/settings/library/check').status_code)
+        with patch('server.app.tempfile.NamedTemporaryFile', side_effect=PermissionError('access denied')):
+            failed = self.client.get('/settings/library/check', headers=self.headers)
+        self.assertEqual(400, failed.status_code)
+        self.assertIn('access denied', failed.json()['detail'])
+        self.assertNotIn('writable', failed.json())
+        self.assertEqual([], list(self.root.glob('.reftray-write-check-*')))
+
     def test_upgrade_stop_drains_at_boundary_allows_checkpoint_and_blocks_new_capture(self):
         from server.desktop import configure_shutdown
         stopped = []
