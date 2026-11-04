@@ -57,6 +57,7 @@ class Catalog:
                 CREATE TABLE IF NOT EXISTS preferences (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT);
                 CREATE INDEX IF NOT EXISTS captures_updated ON captures(updated DESC, id DESC);
                 CREATE INDEX IF NOT EXISTS captures_source ON captures(source, updated DESC);
+                CREATE INDEX IF NOT EXISTS tasks_updated ON tasks(updated DESC, id DESC);
                 PRAGMA user_version=1;''')
 
     @contextmanager
@@ -208,8 +209,69 @@ class Catalog:
         return json.loads(row[0]) if row else {}
 
     def task(self, value):
+        return self.save_task(value)
+
+    def save_task(self, record, expected_revision=None):
+        identity = record.get('task_id') or record.get('id')
+        if not isinstance(identity, str) or not identity or record.get('id', identity) != identity:
+            raise ValueError('任务身份缺失或冲突')
+        if record.get('schema_version', 1) != 1:
+            raise ValueError('任务格式版本不兼容')
+        incoming = record.get('revision')
+        for revision in (incoming, expected_revision):
+            if revision is not None and (type(revision) is not int or revision < 0):
+                raise ValueError('任务版本无效')
         with self.connect() as db:
-            db.execute('INSERT OR REPLACE INTO tasks VALUES(?,?,?)', (value['id'], json.dumps(value, ensure_ascii=False), time.time()))
+            # Check and write under one writer transaction, including across app instances.
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT data,updated FROM tasks WHERE id=?', (identity,)).fetchone()
+            previous = json.loads(row['data']) if row else None
+            current = previous.get('revision', 0) if previous else 0
+            if expected_revision is not None and expected_revision != current:
+                raise ValueError('任务版本冲突，请先读取最新检查点')
+            value = {**record, 'id': identity, 'task_id': identity, 'schema_version': 1}
+            if incoming is not None and incoming < current:
+                raise ValueError('任务版本过旧，未覆盖新检查点')
+            if row and incoming == current and expected_revision is None:
+                normalized = {**previous, 'id': identity, 'task_id': identity, 'schema_version': 1, 'revision': current}
+                if {k: v for k, v in value.items() if k != 'updated'} != {k: v for k, v in normalized.items() if k != 'updated'}:
+                    raise ValueError('任务同版本内容冲突，未覆盖检查点')
+                return {**normalized, 'updated': row['updated'] * 1000}
+            if incoming is not None and incoming > current + 1:
+                raise ValueError('任务版本不连续，请先读取最新检查点')
+            updated = time.time()
+            value.update(revision=current + 1, updated=updated * 1000)
+            db.execute('INSERT INTO tasks(id,data,updated) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,updated=excluded.updated',
+                       (identity, json.dumps(value, ensure_ascii=False), updated))
+        return value
+
+    def get_task(self, task_id):
+        with self.connect() as db:
+            row = db.execute('SELECT data,updated FROM tasks WHERE id=?', (task_id,)).fetchone()
+        if not row:
+            return None
+        return {'schema_version': 1, 'task_id': task_id, 'id': task_id, 'revision': 0,
+                **json.loads(row['data']), 'updated': row['updated'] * 1000}
+
+    def task_page(self, page=1, page_size=20):
+        page_size = page_size if page_size in (20, 40, 80) else 20
+        page = max(1, page)
+        # Project only summary keys in SQLite; never load every checkpoint/queue to slice in Python.
+        fields = ('status', 'progress', 'title', 'label', 'name', 'source', 'mode', 'created',
+                  'completed', 'directory', 'batchId', 'localOnly', 'total', 'done', 'failed', 'saved', 'skipped')
+        projection = ','.join("json_extract(data, '$." + name + "') AS \"" + name + '\"' for name in fields)
+        with self.connect() as db:
+            total = db.execute('SELECT COUNT(*) FROM tasks').fetchone()[0]
+            rows = db.execute("SELECT id,updated,COALESCE(json_extract(data,'$.schema_version'),1) AS schema_version,"
+                              "COALESCE(json_extract(data,'$.revision'),0) AS revision," + projection +
+                              ' FROM tasks ORDER BY updated DESC,id DESC LIMIT ? OFFSET ?',
+                              (page_size, (page - 1) * page_size)).fetchall()
+        items = []
+        for row in rows:
+            item = dict(row)
+            item.update(task_id=row['id'], updated=row['updated'] * 1000)
+            items.append(item)
+        return {'items': items, 'total': total, 'page': page, 'page_size': page_size}
 
     def tasks(self):
         with self.connect() as db:

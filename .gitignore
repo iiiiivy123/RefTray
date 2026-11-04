@@ -70,3 +70,4 @@
 !/tests/collector/test_pinterest_identity.cjs
 !/tests/collector/test_twitter_identity.py
 !/tests/collector/test_storage_integrity.py
+!/tests/collector/test_task_catalog.py
