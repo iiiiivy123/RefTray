@@ -6,7 +6,7 @@ import sqlite3
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 
 
 def source_id(value):
@@ -31,17 +31,8 @@ def source_id(value):
 
 
 def public_url(value):
-    u = urlsplit(value)
-    if u.hostname in ('youtube.com','www.youtube.com','m.youtube.com','youtu.be'):
-        from .media_resolver import canonical
-        return canonical(value)[0]
-    if u.hostname in ('bilibili.com','www.bilibili.com'):
-        from .destinations import source_key
-        return source_key(value)
-    if u.path.endswith('/index.php'):
-        from .destinations import source_key
-        return source_key(value)
-    return urlunsplit((u.scheme, u.netloc, u.path, '', ''))
+    from .destinations import source_key
+    return source_key(value)
 
 
 def fingerprint(path):
@@ -107,14 +98,22 @@ class Catalog:
             db.execute('INSERT OR REPLACE INTO assets VALUES(?,?,?,?)',
                        (hashlib.sha256(url.encode()).hexdigest(), str(path.resolve()), sha, path.stat().st_size))
 
-    def cached(self, url):
+    def cached(self, url, *, image=False):
         with self.connect() as db:
             rows = db.execute('SELECT * FROM assets WHERE url_hash=?', (hashlib.sha256(url.encode()).hexdigest(),)).fetchall()
         for row in rows:
             p = Path(row['path'])
             try:
-                if p.is_file() and p.stat().st_size == row['size'] and fingerprint(p) == row['sha']: return p
-            except OSError: continue
+                if p.is_file() and p.stat().st_size == row['size'] and fingerprint(p) == row['sha']:
+                    if image or p.suffix.lower() in ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.bmp', '.tif', '.tiff'):
+                        from .image_validation import validate_image
+                        validate_image(p.read_bytes())
+                    return p
+            except (OSError, ValueError):
+                pass
+            # Forget the broken cache reference, preserving the user's old file.
+            with self.connect() as db:
+                db.execute('DELETE FROM assets WHERE url_hash=? AND path=?', (row['url_hash'], row['path']))
         return None
 
     @staticmethod

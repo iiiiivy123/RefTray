@@ -3,7 +3,7 @@ import hashlib
 import re
 import json
 from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit, parse_qs, urlencode
+from urllib.parse import urlsplit, urlunsplit, parse_qs, parse_qsl, urlencode
 
 def safe(value):
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', '_', value).strip(' ._')[:80] or '未命名'
@@ -21,8 +21,18 @@ def source_key(url):
     if (u.hostname or '').endswith('xiaohongshu.com'):
         note = re.search(r'/([a-f0-9]{24})/?$', u.path, re.I)
         if note: return 'https://www.xiaohongshu.com/explore/' + note[1]
-    query=parse_qs(u.query)
-    identity_query=urlencode({'title':query['title'][0]}) if u.path.endswith('/index.php') and query.get('title') else ''
+    host = (u.hostname or '').lower()
+    for domain, pattern in (('x.com', r'/status/\d+'), ('twitter.com', r'/status/\d+'),
+                            ('instagram.com', r'^/(?:[\w.]+/)?(?:p|reels?)/[\w-]+'),
+                            ('pinterest.com', r'^/pin/\d+'), ('pinterest.cn', r'^/pin/\d+')):
+        if (host == domain or host.endswith('.' + domain)) and re.search(pattern, u.path):
+            return urlunsplit((u.scheme, u.netloc, u.path.rstrip('/'), '', ''))
+    # Unknown parameters may identify content (id, title, oldid, page, ...).
+    # Remove only known tracking keys; sorting makes harmless key order stable.
+    tracking = {'fbclid', 'gclid', 'dclid', 'msclkid', 'igshid', 'mc_cid', 'mc_eid'}
+    query = [(key, value) for key, value in parse_qsl(u.query, keep_blank_values=True)
+             if not key.lower().startswith('utm_') and key.lower() not in tracking]
+    identity_query = urlencode(sorted(query, key=lambda pair: pair[0]))
     return urlunsplit((u.scheme, u.netloc, u.path.rstrip('/'), identity_query, ''))
 
 def note_media_layout(value):

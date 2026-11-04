@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import base64
 import json
-import mimetypes
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -19,6 +18,7 @@ from .models import ClassifyRequest, CollectRequest, ImageItem
 from .destinations import resolve_destination, text_assets, note_media_layout
 from .ocr import recognize
 from .catalog import Catalog, fingerprint
+from .image_validation import validate_image
 import shutil
 
 
@@ -91,8 +91,11 @@ class Storage:
             def load(item):
                 nonlocal read_count
                 try:
-                    cached = self.catalog.cached(item.url) if request.duplicate_policy != 'refresh' and not item.data_base64 else None
-                    return (cached.read_bytes(), cached.suffix) if cached else self._download(item)
+                    cached = self.catalog.cached(item.url, image=True) if request.duplicate_policy != 'refresh' and not item.data_base64 else None
+                    if cached:
+                        data = cached.read_bytes()
+                        return data, validate_image(data)
+                    return self._download(item)
                 finally:
                     with progress_lock:
                         read_count += 1
@@ -117,7 +120,8 @@ class Storage:
                                 temporary_image.write_bytes(data)
                                 known_images[digest] = {'sha256': digest, 'ocr': recognize(temporary_image)}
                         continue
-                    if digest in known_images and (not note_media_layout(request) or Path(known_images[digest]['file']).parent == Path('.')) and (page_dir / known_images[digest]['file']).is_file() and fingerprint(page_dir / known_images[digest]['file']) == digest:
+                    previous_image = known_images.get(digest, {})
+                    if previous_image.get('file') and (not note_media_layout(request) or Path(previous_image['file']).parent == Path('.')) and (page_dir / previous_image['file']).is_file() and fingerprint(page_dir / previous_image['file']) == digest:
                         confirmed_files.add(known_images[digest]["file"])
                         continue
                     filename = f"{page_id}_{digest[:16]}{suffix}" if author_dir else f"{len(known_images) + 1:03d}_{digest[:10]}{suffix}"
@@ -132,7 +136,7 @@ class Storage:
                     temporary = path.with_suffix(path.suffix + '.part')
                     temporary.write_bytes(data)
                     temporary.replace(path)
-                    record = {"file": str(path.relative_to(page_dir)), "sha256": digest, "url": item.url, "alt": item.alt}
+                    record = {**previous_image, "file": str(path.relative_to(page_dir)), "sha256": digest, "url": item.url, "alt": item.alt}
                     if item.source_kind == 'video_frame':
                         record.update(source_kind='video_frame', frame_time=item.frame_time)
                     saved.append(record)
@@ -243,7 +247,7 @@ class Storage:
             result['message'] = f"新增 {len(saved)} 张 · 重复 {result['duplicate_images']} 张 · 失败 {result['failed_images']} 张\n保存位置：{page_dir}"
         if omitted:
             result['message'] += f'\n达到本次图片上限，另有 {omitted} 张未处理'
-        coverage = {'images': not omitted and bool(request.images) and all(i.source_kind=='image' for i in request.images) and result['failed_images'] == 0,
+        coverage = {'images': not text_only_images and not omitted and bool(confirmed_files) and all(i.source_kind=='image' for i in request.images) and result['failed_images'] == 0,
                     'text': request.collection_mode == 'text',
                     'comments': request.comments_requested and bool(metadata.get('comments')),
                     'ocr': request.collection_mode == 'text' and metadata.get('ocr_status') == 'completed'}
@@ -263,7 +267,8 @@ class Storage:
         # Ignore unexpected media fields at the storage boundary, not just in the UI.
         request = request.model_copy(update={'images': [], 'media_files': [], 'ocr_enabled': False, 'capture_kind': 'text'})
         directory, grouped, page_id = resolve_destination(self.settings.inbox, request)
-        index_key = hashlib.sha256((str(directory.resolve()) + request.canonical_url).encode()).hexdigest()
+        from .destinations import source_key
+        index_key = hashlib.sha256((str(directory.resolve()) + source_key(request.canonical_url)).encode()).hexdigest()
         metadata_path = self.settings.root / 'data/inspiration/md-only' / (index_key + '.json')
         old = self._load(metadata_path, {})
         filename = old.get('reading_file') or safe(request.page_title or '笔记') + '_' + page_id + '.md'
@@ -381,15 +386,11 @@ class Storage:
             if len(item.data_base64) > 40 * 1024 * 1024:
                 raise ValueError('image exceeds 30MB')
             data = base64.b64decode(item.data_base64, validate=True)
-            suffix = mimetypes.guess_extension(item.content_type or "") or Path(urlparse(item.url).path).suffix or ".jpg"
-            return data, ".jpg" if suffix == ".jpe" else suffix.lower()
+            return data, validate_image(data)
         if item.source_kind == 'video_frame':
             raise ValueError('video frame data missing')
         data, content_type = download_image(item.url, self.settings.timeout)
-        suffix = mimetypes.guess_extension(content_type) or Path(urlparse(item.url).path).suffix or ".jpg"
-        if suffix == ".jpe":
-            suffix = ".jpg"
-        return data, suffix.lower()
+        return data, validate_image(data)
 
     @staticmethod
     def _load(path: Path, default):
