@@ -67,10 +67,18 @@ async function taskDetail(item){
 async function tasks(){
   const request=++taskRequest;
   try{await TaskStore.reconcile();}catch(error){notice('检查点尚未同步：'+error.message);}
-  let result;
-  try{result=await Hub.api('/tasks?page='+taskPage+'&page_size='+pageSize);}
-  catch(error){q('#task-list').replaceChildren();line(q('#task-list'),'任务列表读取失败：'+error.message);throw error;}
   const stored=await chrome.storage.local.get(['liblibActiveJob','liblibProgress','collectorCheckpoint','collectorTaskJournal','collectorDismissedTasks']);
+  let result,listError='';
+  try{result=await Hub.api('/tasks?page='+taskPage+'&page_size='+pageSize);}
+  catch(error){
+    listError='后台任务列表读取失败；以下仅为本机保留的任务：'+error.message;
+    const local=new Map();
+    for(const item of [stored.collectorCheckpoint,...Object.values(stored.collectorTaskJournal||{})].filter(Boolean)){
+      const id=item.task_id||item.id;if(id)local.set(id,TaskStore.latest(local.get(id),item));
+    }
+    const entries=[...local.values()].sort((a,b)=>(b.updated||0)-(a.updated||0));
+    result={items:entries.slice((taskPage-1)*pageSize,taskPage*pageSize),total:entries.length};
+  }
   const combined=new Map((result.items||[]).map(item=>[item.id,{...item}]));
   for(const entry of Object.values(stored.collectorTaskJournal||{})){
     const id=entry.batchId||entry.id,server=combined.get(id);
@@ -84,6 +92,7 @@ async function tasks(){
   if(checkpoint?.id&&combined.has(checkpoint.id))combined.set(checkpoint.id,TaskStore.latest(checkpoint,combined.get(checkpoint.id)));
   const items=[...combined.values()];
   if(request!==taskRequest)return;q('#task-list').replaceChildren();
+  if(listError)line(q('#task-list'),listError);
   const rows=[];
   for(const item of items){
     const row=document.createElement('article');row.className='entry';
