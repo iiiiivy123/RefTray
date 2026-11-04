@@ -13,6 +13,7 @@ def build(channel,output):
         for folder,extensions in [('extension',{'.js','.html','.css','.json','.png','.svg','.ico'}),('server',{'.py','.txt','.ps1'})]:
             for file in sorted((ROOT/'source'/folder).rglob('*')):
                 if not file.is_file() or file.suffix not in extensions:continue
+                if any(part.startswith('.') or part in ('__pycache__','node_modules') for part in file.relative_to(ROOT/'source'/folder).parts):continue
                 if channel=='user' and file.name.startswith('live-test.'):continue
                 if folder=='extension' and file.suffix=='.json' and file.name!='manifest.json':continue
                 if file.suffix=='.png' and not file.name.startswith('icon-'):continue

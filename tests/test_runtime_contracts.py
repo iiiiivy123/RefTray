@@ -52,8 +52,9 @@ class RuntimeContracts(unittest.TestCase):
         self.started, self.finish = threading.Event(), threading.Event()
         self.calls = []
         owner = self
+        from server.catalog import Catalog
         class Storage:
-            catalog = SimpleNamespace()
+            catalog = Catalog(owner.root)
             def collect(self, request, progress):
                 owner.calls.append(request)
                 owner.started.set()
@@ -153,6 +154,38 @@ class RuntimeContracts(unittest.TestCase):
             self.assertNotEqual(token, self.headers['X-Collector-Token'])
             self.assertEqual(403, client.get('/tasks', headers=self.headers).status_code)
             self.assertEqual({}, app.state.runtime.jobs)
+
+    def test_task_revision_conflicts_never_overwrite_newer_checkpoint(self):
+        path = '/tasks'
+        record = {'id': 'checkpoint', 'data': {'revision': 1, 'status': 'running', 'records': [1]}}
+        saved = self.client.post(path, headers=self.headers, json=record)
+        self.assertEqual(1, saved.json()['revision'])
+        self.assertEqual(200, self.client.post(path, headers=self.headers, json=record).status_code)
+        record['data'].update(revision=2, records=[1, 2])
+        self.assertEqual(2, self.client.post(path, headers=self.headers, json=record).json()['revision'])
+        record['data'].update(revision=1, records=[])
+        self.assertEqual(409, self.client.post(path, headers=self.headers, json=record).status_code)
+        current = self.client.get('/tasks/checkpoint', headers=self.headers).json()['item']
+        self.assertEqual([1, 2], current['records'])
+        self.assertEqual(2, current['revision'])
+        record['data']['schema_version'] = 2
+        self.assertEqual(409, self.client.post(path, headers=self.headers, json=record).status_code)
+        self.assertEqual(404, self.client.get('/tasks/missing', headers=self.headers).status_code)
+
+    def test_task_page_of_thousand_returns_only_summaries_and_details_are_lazy(self):
+        catalog = self.app.state.runtime.storage.catalog
+        with catalog.connect() as db:
+            db.executemany('INSERT INTO tasks(id,data,updated) VALUES(?,?,?)',
+                [(str(index), json.dumps({'id': str(index), 'revision': 1, 'records': list(range(100)),
+                  'title': 'Task ' + str(index), 'status': 'completed'}), index) for index in range(1000)])
+        with patch.object(catalog, 'tasks', side_effect=AssertionError('must not read every checkpoint')):
+            page = self.client.get('/tasks?page=2&page_size=20', headers=self.headers).json()
+        self.assertEqual(1000, page['total'])
+        self.assertEqual(20, len(page['items']))
+        self.assertEqual('979', page['items'][0]['id'])
+        self.assertNotIn('records', page['items'][0])
+        detail = self.client.get('/tasks/979', headers=self.headers).json()['item']
+        self.assertEqual(list(range(100)), detail['records'])
 
     def test_upgrade_gate_refuses_unknown_or_busy_without_requesting_exit(self):
         from server.desktop import configure_shutdown

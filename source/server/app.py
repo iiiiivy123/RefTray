@@ -124,7 +124,7 @@ def create_app(runtime=None):
 
 
     class TaskRecord(BaseModel):
-        id: str = Field(max_length=100)
+        id: str = Field(min_length=1, max_length=100)
         data: dict
         expected_revision: int | None = Field(default=None, ge=0)
 
@@ -133,6 +133,8 @@ def create_app(runtime=None):
     def save_task(value: TaskRecord, request: Request):
         authorize_settings(request)
         if len(json.dumps(value.data)) > 4000000: raise HTTPException(400, '任务记录过大')
+        if value.data.get('schema_version', 1) != 1 or value.data.get('task_id', value.id) != value.id:
+            raise HTTPException(409, '任务格式版本或身份冲突')
         record = {**value.data, 'id': value.id, 'task_id': value.id, 'schema_version': 1}
         try:
             saved = catalog.save_task(record, expected_revision=value.expected_revision)
@@ -293,7 +295,7 @@ def create_app(runtime=None):
 
 
     class ResolvedProbe(BaseModel):
-        resolver_id: str = Field(max_length=100)
+        resolver_id: str = Field(min_length=1, max_length=100)
 
 
     @app.post('/media/probe')
