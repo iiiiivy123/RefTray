@@ -21,9 +21,32 @@ class MainPostTwitterIE(TwitterIE):
     @classmethod
     def ie_key(cls):return 'Twitter'
 
+    def _graphql_to_legacy(self, data, tweet_id):
+        status = super()._graphql_to_legacy(data, tweet_id)
+        # yt-dlp 2026.10.26 drops the main result's rest_id during conversion.
+        # Read only its documented direct envelope, never IDs in quoted results.
+        result = data.get('tweetResult', {}).get('result', {})
+        if result.get('__typename') == 'TweetWithVisibilityResults':
+            result = result.get('tweet', {})
+        rest_id = result.get('rest_id')
+        if status.get('id_str') in (None, '') and status.get('id') in (None, '') and rest_id not in (None, ''):
+            status['id_str'] = str(rest_id)
+        return status
+
+    def _call_syndication_api(self, tweet_id):
+        status = super()._call_syndication_api(tweet_id)
+        # Upstream combines quoted_tweet.mediaDetails with the main media list.
+        # Keep only the main tweet's own, already converted media objects.
+        status['extended_entities'] = {'media': status.get('mediaDetails') or []}
+        status.pop('quoted_tweet', None)
+        return status
+
     def _extract_status(self, tweet_id):
         status=super()._extract_status(tweet_id)
-        if str(status.get('id_str') or status.get('id') or '') != tweet_id:
+        ids = [str(status[key]) for key in ('id_str', 'id') if status.get(key) not in (None, '')]
+        if not ids:
+            raise ValueError('主帖身份字段缺失，无法确认当前作品；请打开原帖详情后重试')
+        if any(value != str(tweet_id) for value in ids):
             raise ValueError('主帖身份不匹配，拒绝转帖或其他作品')
         status.pop('quoted_status',None)
         status.pop('card',None)

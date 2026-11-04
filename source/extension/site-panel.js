@@ -1,4 +1,5 @@
 (() => {
+  const pinterest = globalThis.CollectorPinterest || (typeof require === 'function' ? require('./pinterest-identity.js') : null);
   function describe(value) {
     let u; try { u = new URL(value); } catch (_) { return {site: '未知页面', bulk: null, current: '当前页'}; }
     const host = u.hostname;
@@ -34,7 +35,12 @@
       }
     }
     else if(result.site==='Instagram'){single=/^\/(p|reels?)\/[\w-]+/.test(p);bulk=/^\/[^/]+(?:\/reels)?\/?$/.test(p)&&!/^\/(explore|accounts|direct|reels)(\/|$)/.test(p)?'author':null;}
-    else if(result.site==='Pinterest'){single=/^\/pin\/\d+/.test(p);bulk=/^\/[^/]+\/[^/]+\/?$/.test(p)&&!/^\/(pin|search|ideas|settings)(\/|$)/.test(p)?'board':null;}
+    else if(result.site==='Pinterest'){
+      single=Boolean(pinterest?.pinId(value));
+      bulk=/^\/[^/]+\/[^/]+\/?$/.test(p)&&!/^\/(pin|search|visual-search|ideas|settings)(\/|$)/.test(p)?'board':null;
+      if(/^\/visual-search\/?$/.test(p))return {...result,single:false,bulk:null,reason:'请打开原 Pin 详情页后再采集；视觉搜索的相似结果和推荐图不会保存。',hint:'仅原 Pin 身份可确认时支持采集，不保存视觉搜索结果'};
+      if(single)result.hint='仅保存当前 Pin 的已加载正文；视觉搜索中的相似结果不会保存';
+    }
     else if(result.site==='花瓣'){single=/^\/pins\/\d+/.test(p);bulk=/^\/(?:user|boards)\//.test(p)?'author':null;}
     return {...result,single,bulk,reason:bulk?'这是列表页，请选择「批量保存」。':'此处无法采集，请打开一篇作品详情；批量保存请打开作者列表或具体画板。'};
   }

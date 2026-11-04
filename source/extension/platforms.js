@@ -41,22 +41,37 @@
       return url.href;
     } catch (_) { return ''; }
   }
+  const pinterest = globalThis.CollectorPinterest || (typeof require === 'function' ? require('./pinterest-identity.js') : null);
+  const pinterestGuidance = '请打开原 Pin 详情页后再采集；视觉搜索的相似结果和推荐图不会保存。';
   function pinterestImages(doc, pageUrl) {
-    const pinId = new URL(pageUrl).pathname.match(/^\/pin\/(\d+)\/?$/)?.[1];
-    if (!pinId) return {images: [], inferred: false};
+    const identity = pinterest?.resolvePage(doc, pageUrl);
+    const pinId = identity?.id;
+    if (!pinId) return {images: [], inferred: false, guidance: pinterestGuidance};
     const eligible = img => {
       try {
         const url = new URL(imageUrl(img, 'pinterest'));
         if (!hostIs(url.hostname, 'pinimg.com') || /avatar|profile|75x75|30x30/.test(url.pathname)) return false;
         const link = img.closest('a[href]');
-        const linkedId = link && new URL(link.href, pageUrl).pathname.match(/^\/pin\/(\d+)\/?$/)?.[1];
-        if (img.closest('[data-test-id="related-pins"],[data-test-id="more-ideas"],[data-test-id="promoted-pin"]')) return false;
+        const linkedId = link && pinterest.pinId(new URL(link.href, pageUrl).href);
+        if (img.closest('[data-test-id="related-pins"],[data-test-id="more-ideas"],[data-test-id="promoted-pin"],[data-test-id="visual-search-results"],[data-test-id="masonry-container"],[role="listitem"]')) return false;
         return (!linkedId || linkedId === pinId) && Math.max(img.naturalWidth || 0, img.width || 0) >= 180;
       } catch (_) { return false; }
     };
-    const toImages = nodes => [...new Map(nodes.filter(eligible).map(img => {
-      const url = imageUrl(img, 'pinterest'); return [url, {url, alt: img.alt || ''}];
-    })).values()];
+    const toImages = nodes => pinterest.mergeImages(nodes.filter(eligible).flatMap(img => {
+      const srcsets = [img.getAttribute?.('data-srcset'), img.srcset].filter(Boolean);
+      const candidates = srcsets.flatMap(set => set.split(',').map(part => {
+        const [url, descriptor] = part.trim().split(/\s+/);
+        return {url, width: descriptor?.endsWith('w') ? parseFloat(descriptor) : 0};
+      }));
+      for (const url of [img.getAttribute?.('data-original'), img.getAttribute?.('data-src'), img.currentSrc, img.src]) if (url) candidates.push({url});
+      return candidates.flatMap(item => {
+        try {
+          const url = new URL(item.url, pageUrl);
+          return url.protocol === 'https:' && hostIs(url.hostname, 'pinimg.com') && !/avatar|profile|75x75|30x30/.test(url.pathname)
+            ? [{...item, url: url.href, alt: img.alt || ''}] : [];
+        } catch (_) { return []; }
+      });
+    }));
     // A marker can be the image itself, not necessarily a wrapper containing img.
     const marked = [...doc.querySelectorAll('[data-test-id="pin-closeup-image"],[data-test-id="closeup-image"],[data-test-id="pin-closeup-image-container"]')];
     const explicit = toImages(marked.flatMap(node => node.tagName === 'IMG' ? [node] : [...node.querySelectorAll('img')]));
@@ -91,6 +106,7 @@
       }
       for (const child of Object.values(value).slice(0, 500)) if (child && typeof child === 'object') stack.push(child);
     }
+    if (identity.visual) return {images: [], inferred: false, guidance: pinterestGuidance};
     // Fallback for product/detail layouts: select only a clearly dominant visible image.
     // Never dump all page images; ties or scrolling into recommendations return no guess.
     const candidates = [...doc.querySelectorAll('img')].filter(eligible).filter(img => !img.closest('[data-test-id="pin"],[data-test-id="related-pins"],[data-test-id="masonry-container"],[role="listitem"]'))
@@ -105,7 +121,9 @@
   function extract(options = {}) {
     const kind = platform(location.hostname), cfg = configs[kind];
     if(kind==='bilibili')throw new Error('B站必须通过专用稿件提取器读取，不采集整页广告或推荐图');
-    if (cfg.post && !cfg.post.test(location.pathname)) throw new Error('请单独打开一篇帖子再采集；当前是主页或列表，未保存推荐图。');
+    const pinterestPage = kind === 'pinterest' ? pinterest?.resolvePage(document, location.href) : null;
+    if (kind === 'pinterest' && !pinterestPage) throw new Error(pinterestGuidance);
+    if (kind !== 'pinterest' && cfg.post && !cfg.post.test(location.pathname)) throw new Error('请单独打开一篇帖子再采集；当前是主页或列表，未保存推荐图。');
     const visible = node => node.getBoundingClientRect().width > 0 && getComputedStyle(node).display !== 'none' && getComputedStyle(node).visibility !== 'hidden';
     let roots = [...document.querySelectorAll(cfg.root)].filter(visible);
     if (kind === 'x') {
@@ -130,6 +148,7 @@
     if (kind === 'pinterest') {
       const found = pinterestImages(document, location.href);
       blockedPinterestStateMedia = Boolean(found.blockedStateMedia);
+      if (found.guidance) warnings.push(found.guidance);
       if (blockedPinterestStateMedia) warnings.push('当前 Pin 页面数据包含视频、动图或故事标记，未将封面当作静态图片保存；请等待正文媒体加载。');
       found.images.forEach(item => add(item.url, item.alt));
       if (found.fromState) warnings.push('图片来自与当前 Pin 编号匹配的已加载页面数据。');
@@ -158,14 +177,14 @@
     let matchingMeta = false;
     try { matchingMeta = new URL(ogUrl).pathname.replace(/\/$/, '') === location.pathname.replace(/\/$/, ''); } catch (_) {}
     if (kind === 'pinterest') {
-      try { matchingMeta = matchingMeta && platform(new URL(ogUrl).hostname) === 'pinterest' && /^\/pin\/\d+\/?$/.test(location.pathname); } catch (_) { matchingMeta = false; }
+      try { matchingMeta = Boolean(pinterestPage && pinterest.pinId(ogUrl) === pinterestPage.id); } catch (_) { matchingMeta = false; }
     }
     if (!images.length && matchingMeta && !blockedPinterestStateMedia && !(root && root.querySelector('video'))) {
       const ogImage = meta('og:image');
       if (kind !== 'pinterest' || (() => { try { const u = new URL(ogImage); return u.protocol === 'https:' && hostIs(u.hostname, 'pinimg.com'); } catch (_) { return false; } })()) add(ogImage);
       if (images.length) warnings.push('仅取得帖子分享图，不能据此确认轮播全部图片已保存。');
     }
-    const canonical = new URL(location.href); canonical.hash = '';
+    const canonical = new URL(pinterestPage?.url || location.href); canonical.hash = '';
     if (!['xhs','generic'].includes(kind)) canonical.search = '';
     const genericTitle=()=>{const heading=text(document.querySelector('#firstHeading,h1'))||document.title;const site=meta('og:site_name')||location.hostname;return heading.toLowerCase().includes(site.toLowerCase())?heading:site+' · '+heading;};
     const payload = {has_live_photo:kind==='xhs'&&Boolean(root?.querySelector('video.live-video')),canonical_url: canonical.href, page_title: kind==='generic'?genericTitle():text(first('h1,#detail-title'))||document.title,
@@ -210,5 +229,5 @@
     return payload;
   }
   globalThis.InspirationPlatforms = {platform, imageUrl, extract};
-  if (typeof module !== 'undefined') module.exports = {platform, imageUrl, pinterestImages};
+  if (typeof module !== 'undefined') module.exports = {platform, imageUrl, pinterestImages, extract};
 })();
