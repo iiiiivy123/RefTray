@@ -1,6 +1,7 @@
 // UI strings only. Captured titles, paths, OCR and source documents stay unchanged.
 (() => {
   const en={
+ '当前作品':'Current post','批量采集':'Batch capture','媒体过滤':'Media filters','跳过 GIF':'Skip GIFs','附带内容':'Include','正文图片':'Images','待开始':'Ready','处理中':'Processing','部分完成':'Partially complete','已完成':'Complete','已停止':'Stopped','正在收尾':'Finishing','失败':'Failed','跳过':'Skipped','选择采集内容后开始':'Choose content to begin','重新识别当前页':'Identify this page again','正在识别已加载正文…':'Checking loaded main content…','已确认图片 {images} · 视频 {videos}':'Confirmed images {images} · videos {videos}','未能识别，可手动选择采集内容。':'Could not identify content. Choose manually.',
     '后台已连接':'Backend connected',
     '下载保护':'Download protection','单个下载上限':'Download size limit','单个下载上限（MB）':'Download size limit (MB)',
     '跳过前几篇':'Skip first posts','最短时长（秒）':'Minimum duration (sec)','最长时长（秒）':'Maximum duration (sec)',
@@ -210,7 +211,7 @@
     for(const el of document.querySelectorAll('[data-ui-message]'))renderMessage(el);
     const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;
     while(n=walker.nextNode()){
-      if(n.parentElement.closest('script,style,#diagnostic-text,#result-heading,#save-path,.select-trigger,.select-menu,[data-ui-message],[data-user-content]'))continue;
+      if(n.parentElement.closest('script,style,.brand-wordmark,#diagnostic-text,#result-heading,#save-path,.select-trigger,.select-menu,[data-ui-message],[data-user-content]'))continue;
       const old=originals.get(n);const source=old && n.textContent===old.rendered?old.source:n.textContent;
       const rendered=source.replace(source.trim(),translate(source.trim()));originals.set(n,{source,rendered});if(n.textContent!==rendered)n.textContent=rendered;
     }

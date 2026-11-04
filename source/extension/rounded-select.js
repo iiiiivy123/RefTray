@@ -11,14 +11,14 @@
     select.before(wrap);wrap.append(select,trigger,menu);select.hidden=true;
     const buttons=[...select.options].map(option=>{
       const b=document.createElement('button');b.type='button';b.setAttribute('role','option');b.textContent=option.textContent;
-      b.addEventListener('click',()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));close();refresh();trigger.focus();});menu.append(b);return b;
+      b.addEventListener('click',()=>{if(select.disabled||select.closest('fieldset:disabled')||option.disabled||option.hidden)return;select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));close();refresh();trigger.focus();});menu.append(b);return b;
     });
     function close(){menu.hidden=true;trigger.setAttribute('aria-expanded','false');}
     function refresh(){
       while(buttons.length<select.options.length){
         const option=select.options[buttons.length],b=document.createElement('button');
         b.type='button';b.setAttribute('role','option');
-        b.addEventListener('click',()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));close();refresh();trigger.focus();});
+        b.addEventListener('click',()=>{if(select.disabled||select.closest('fieldset:disabled')||option.disabled||option.hidden)return;select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));close();refresh();trigger.focus();});
         menu.append(b);buttons.push(b);
       }
       const label=select.selectedOptions[0]?.textContent||'请选择';if(trigger.textContent!==label)trigger.textContent=label;
@@ -50,12 +50,14 @@
       if(e.key==='Escape'){e.preventDefault();close();trigger.focus();return;}
       if(menu.hidden&&e.target===trigger&&['ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();trigger.click();return;}
       if(!menu.hidden&&['ArrowDown','ArrowUp','Home','End'].includes(e.key)){
-        e.preventDefault();const enabled=buttons.filter(b=>!b.disabled);if(!enabled.length)return;
+        e.preventDefault();const enabled=buttons.filter(b=>!b.disabled&&!b.hidden);if(!enabled.length)return;
         const i=enabled.indexOf(document.activeElement);enabled[e.key==='Home'?0:e.key==='End'?enabled.length-1:(i+(e.key==='ArrowDown'?1:-1)+enabled.length)%enabled.length].focus();
       }
     });
     wrap.addEventListener('focusout',e=>{if(!wrap.contains(e.relatedTarget))close();});
     document.addEventListener('click',e=>{if(!wrap.contains(e.target))close();});
+    new MutationObserver(refresh).observe(select,{attributes:true,attributeFilter:['disabled'],subtree:true});
+    const fieldset=select.closest('fieldset');if(fieldset)new MutationObserver(refresh).observe(fieldset,{attributes:true,attributeFilter:['disabled']});
     select.addEventListener('change',refresh);controls.push({close,refresh});refresh();
   }
   globalThis.refreshSelects=()=>controls.forEach(c=>c.refresh());

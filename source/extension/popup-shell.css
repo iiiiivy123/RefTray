@@ -31,3 +31,40 @@ body:has(>#scroll-content){width:320px;background:var(--paper)}
 .popup-redesign #scroll-content::-webkit-scrollbar-thumb{background:#b4aea3}
 .popup-redesign #task-options:disabled{opacity:1}
 .popup-redesign #task-options:disabled .select-trigger,.popup-redesign #task-options:disabled input,.popup-redesign #task-options:disabled button{color:var(--muted);opacity:1}
+
+/* Approved prototype rows, with the original controls still wired. */
+.popup-redesign .app-header{margin-bottom:14px;gap:8px}
+.popup-redesign .brand{gap:7px}.popup-redesign .brand img{width:28px;height:28px;filter:none}
+.popup-redesign .brand-wordmark{display:flex;flex-direction:column;line-height:1.15;gap:3px}
+.popup-redesign .brand-wordmark strong{font-size:23px;font-weight:750;letter-spacing:-1px;color:var(--ink)}
+.popup-redesign .brand-wordmark span{font-size:10px;color:var(--muted);letter-spacing:1px}
+.popup-redesign .header-actions{gap:8px}.popup-redesign .languages{display:flex;gap:5px;align-items:center;white-space:nowrap;font-size:11px}
+.popup-redesign .languages button{border:0;min-width:20px;min-height:26px;padding:0;color:var(--muted)}
+.popup-redesign .languages button[aria-pressed=true]{color:var(--ink);border-bottom:1px solid var(--ink);font-weight:600}
+.popup-redesign .languages>span{color:#a49e93}.popup-redesign .field{grid-template-columns:79px minmax(0,1fr);gap:8px;min-height:39px;margin:0}
+.popup-redesign .checks{display:flex;align-items:center;flex-wrap:wrap;gap:3px 9px;min-width:0}
+.popup-redesign .checks label,.popup-redesign #skip-gifs-option{display:inline-flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;margin:0;min-height:31px;color:var(--ink)}
+.popup-redesign #text-options{display:flex;flex-wrap:wrap;gap:4px 9px;padding:0;margin:0}
+.popup-redesign #text-options label{font-size:11px;white-space:nowrap}
+.popup-redesign #batch-limit{width:90px;font-variant-numeric:tabular-nums}
+.popup-redesign .destination-field{margin:4px 0;min-height:39px}
+.popup-redesign .path-button{display:flex;align-items:center;gap:6px;border:0;width:100%;padding:0;min-width:0;min-height:32px;text-align:left}
+.popup-redesign .path-button svg{flex:none}.popup-redesign #save-path{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.popup-redesign .path-button>span:last-child{color:var(--muted)}
+.popup-redesign #advanced-summary{margin-left:auto;font-weight:400;font-size:10px;color:var(--muted);max-width:125px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.popup-redesign .advanced-options>summary{gap:8px;font-weight:400}.popup-redesign .advanced-options>summary::after{display:none}
+.popup-redesign #summary{display:none}.popup-redesign #start{margin:3px 0 12px}
+.popup-redesign #result-title{font-size:14px;font-weight:550;line-height:1.4;margin:0 0 3px}
+.popup-redesign #result-aggregate,.popup-redesign #result-counts,.popup-redesign #result-current{font-size:10px;line-height:1.7;color:var(--muted);margin:0;overflow-wrap:anywhere}
+.popup-redesign #result-current{max-height:34px;overflow:auto}
+.popup-redesign .result-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:5px;padding-top:5px;border-top:1px solid var(--line)}
+.popup-redesign .result-actions button{font-size:10px;min-height:23px;padding:0;margin:0!important}
+.popup-redesign .result-actions button+button{border-left:1px solid var(--line);padding-left:8px}
+.popup-redesign #task-log-drawer>summary{font-weight:400;gap:8px}.popup-redesign #task-log-count{margin-left:auto}
+.popup-redesign #recent-list p{cursor:pointer;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.popup-redesign #scroll-content{max-height:290px;padding-top:0}
+.popup-redesign #scroll-content:focus-visible{outline:1px solid var(--muted);outline-offset:-1px}
+
+.popup-redesign #result-context{display:none!important}
+
+.popup-redesign #task-result-summary{white-space:pre-wrap;font-family:inherit;font-size:11px;line-height:1.65;overflow-wrap:anywhere;max-height:260px;overflow:auto;margin:6px 0 12px}.popup-redesign #raw-diagnostics{font-size:11px}

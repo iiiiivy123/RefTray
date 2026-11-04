@@ -52,7 +52,7 @@ internal static class Launcher {
  }
  static readonly object logLock=new object();
  static string app=AppDomain.CurrentDomain.BaseDirectory;
- static string state=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"InspirationCollector");
+ static string state=Environment.GetEnvironmentVariable("LIBLIB_ROOT")??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"InspirationCollector");
  static int port=8766; static bool traySmoke,exitSmoke;
  class LocalClient:WebClient {protected override WebRequest GetWebRequest(Uri uri){var request=base.GetWebRequest(uri);request.Timeout=3000;return request;}}
  static string Release(){var match=Regex.Match(File.ReadAllText(Path.Combine(app,"extension","manifest.json")),"\"version\"\\s*:\\s*\"([0-9.]+)\"");if(!match.Success)throw new Exception("扩展版本信息缺失，请重新安装完整安装包。");return match.Groups[1].Value;}

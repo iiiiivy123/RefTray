@@ -11,7 +11,7 @@ function pageMedia(){
   let resolves=0;
   const context=vm.createContext({URL,Map,Error,chrome:{tabs:{get:async()=>({url:'https://x.com/user/status/123'})},scripting:{executeScript:async()=>[{result:{media:[]}}]}},
     service:async()=>{resolves++;if(resolves===1)throw new Error('resolver failure');return {media:[{kind:'video',url:'https://example.org/video'}]};}});
-  vm.runInContext('let batchOptions={};let healthCache={};let resolvedMedia=new Map();async function setMediaQuality(){};'+functionSource('matureMedia','reportProgress')+functionSource('loadedPageMedia','includeProtectedImages'),context);
+  vm.runInContext('let taskContext={options:{}};let healthCache={};let resolvedMedia=new Map();async function setMediaQuality(){};'+functionSource('matureMedia','reportProgress')+functionSource('loadedPageMedia','includeProtectedImages'),context);
   return {context,calls:()=>resolves};
 }
 test('X1 image-only page read never invokes the mature video resolver',async()=>{

@@ -474,8 +474,14 @@ def create_app(runtime=None):
     return app
 
 
-app = create_app()
-settings = app.state.runtime.settings
-active_urls = app.state.runtime.active_urls
-videos = app.state.runtime.videos
-folder_requests = app.state.runtime.folder_requests
+# Importing the factory must not create user folders or open the real catalog.
+# Uvicorn and the legacy tray obtain this lazy default only when they request app.
+_default_application = None
+
+def __getattr__(name):
+    global _default_application
+    if name not in ('app', 'settings', 'active_urls', 'videos', 'folder_requests'):
+        raise AttributeError(name)
+    if _default_application is None:
+        _default_application = create_app()
+    return _default_application if name == 'app' else getattr(_default_application.state.runtime, name)

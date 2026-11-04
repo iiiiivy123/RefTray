@@ -1,38 +1,41 @@
 const BUILD = '0.5.0';
-if (typeof importScripts === 'function') importScripts('batch.js','task-services.js');
-let batchOptions = {}, healthCache, taskContext;
-let batchDirectory;
+if (typeof importScripts === 'function') importScripts('task-progress.js','task-store.js','capture-options.js','batch.js','task-services.js');
+let healthCache,taskContext={options:{},imageQuotaUsed:0};
+
 let videoSession;
 let taskRunning = false;
 let downloadSession;
 let resolvedMedia=new Map();
-let imageQuotaUsed=0;
-const imagesRemaining=()=>batchOptions.max_images>0?Math.max(0,batchOptions.max_images-imageQuotaUsed):Infinity;
-function reserveImages(count){imageQuotaUsed+=count;if(typeof batchJob!=='undefined'&&batchJob)batchJob.image_used=imageQuotaUsed;}
+
+const imagesRemaining=()=>taskContext.options.max_images>0?Math.max(0,taskContext.options.max_images-taskContext.imageQuotaUsed):Infinity;
+function reserveImages(count){taskContext.imageQuotaUsed+=count;if(typeof taskContext.batch!=='undefined'&&taskContext.batch)taskContext.batch.image_used=taskContext.imageQuotaUsed;}
 async function matureMedia(url){
-  if(!resolvedMedia.has(url))resolvedMedia.set(url,service('/media/resolve',{url,output_format:batchOptions.output_format==='audio'?'audio':'original',quality:batchOptions.video_quality||'best',subtitle_language:batchOptions.subtitle_language||'auto',captions:batchOptions.output_format!=='audio'&&batchOptions.subtitle_mode!=='none'}));
+  if(!resolvedMedia.has(url))resolvedMedia.set(url,service('/media/resolve',{url,output_format:taskContext.options.output_format==='audio'?'audio':'original',quality:taskContext.options.video_quality||'best',subtitle_language:taskContext.options.subtitle_language||'auto',captions:taskContext.options.output_format!=='audio'&&taskContext.options.subtitle_mode!=='none'}).catch(error=>{resolvedMedia.delete(url);throw error;}));
   return resolvedMedia.get(url);
 }
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function reportProgress(value) {
-  if(typeof batchDownloadItem!=='undefined'&&batchDownloadItem){const item=batchDownloadItem;value={...value,message:`第 ${item.index}/${item.total} 条 · ${item.title} · ${value.message||''}`,percent:Number.isFinite(value.percent)?Math.round(((item.index-1)+value.percent/100)/item.total*100):Math.round((item.index-1)/item.total*100)};}
+  const old=(await chrome.storage.local.get(['liblibProgress'])).liblibProgress;
+  if(old?.context?.id!==taskContext?.id)value=TaskProgress.reduce({},value,taskContext.batch);
+  else value=TaskProgress.reduce(old,value,taskContext.batch);
+  if(batchDownloadItem)value.current={...value.current,index:batchDownloadItem.index,title:batchDownloadItem.title};
   const detail = String(value.details || '').replace(/([?&](?:xsec_token|token|signature|auth)[^=]*=)[^\s&#]+/gi,'$1[已隐藏]');
-  await chrome.storage.local.set({liblibProgress: {...value, details: detail, context: taskContext, build: BUILD, updatedAt: Date.now()}});
+  await chrome.storage.local.set({liblibProgress: {...value, details: detail, context:taskContext?{id:taskContext.id,url:taskContext.url,title:taskContext.title,mode:taskContext.mode}:null, build: BUILD, updatedAt: Date.now()}});
   if(taskContext?.id){
     const {collectorTaskJournal:journal={}}=await chrome.storage.local.get(['collectorTaskJournal']);
     const terminal=['completed','failed','partial','stopped'].includes(value.status);
     const previous=journal[taskContext.id]||{};
-    journal[taskContext.id]={...previous,id:taskContext.id,source:taskContext.url,name:taskContext.title,mode:taskContext.mode,localOnly:true,batchId:batchJob?.id,options:{...batchOptions},completed:terminal,status:value.status||'running',updated:Date.now(),directory:value.directory||previous.directory,records:terminal?{result:{status:value.status==='completed'?'saved':value.status,url:taskContext.url,reason:detail||value.message}}:previous.records||{}};
-    if(value.status==='completed'&&!batchJob){
-      const key=url=>{try{const u=new URL(url);return u.origin+u.pathname.replace(/\/$/,'')+(/(^|\.)youtube\.com$/.test(u.hostname)&&u.pathname==='/watch'?'?v='+u.searchParams.get('v'):'');}catch(_){return url;}};
+    journal[taskContext.id]={...previous,id:taskContext.id,source:taskContext.url,name:taskContext.title,mode:taskContext.mode,localOnly:true,batchId:taskContext.batch?.id,options:{...taskContext.options},completed:terminal,status:value.status||'running',updated:Date.now(),directory:value.directory||previous.directory,records:terminal?{result:{status:value.status==='completed'?'saved':value.status,url:taskContext.url,reason:detail||value.message}}:previous.records||{}};
+    if(value.status==='completed'&&!taskContext.batch){
+      const key=url=>{try{const u=new URL(url);u.hash='';for(const k of [...u.searchParams.keys()])if(/^utm_/i.test(k)||['fbclid','gclid','dclid','msclkid','igshid','mc_cid','mc_eid'].includes(k.toLowerCase()))u.searchParams.delete(k);u.searchParams.sort();return u.href;}catch(_){return url;}};
       const signature=options=>JSON.stringify(['capture_kind','collection_mode','include_images','include_comments','ocr_enabled','subtitle_mode','video_action','destination'].map(k=>options?.[k]??null));
-      for(const entry of Object.values(journal))if(entry.id!==taskContext.id&&!entry.batchId&&entry.status==='failed'&&key(entry.source)===key(taskContext.url)&&signature(entry.options)===signature(batchOptions))entry.resolvedBy=taskContext.id;
+      for(const entry of Object.values(journal))if(entry.id!==taskContext.id&&!entry.batchId&&entry.status==='failed'&&key(entry.source)===key(taskContext.url)&&signature(entry.options)===signature(taskContext.options))entry.resolvedBy=taskContext.id;
     }
     const keep=Object.fromEntries(Object.entries(journal).sort((a,b)=>b[1].updated-a[1].updated).slice(0,200));
     await chrome.storage.local.set({collectorTaskJournal:keep});
-    if(terminal&&!batchJob&&healthCache?.capture_history){
-      try{await service('/tasks',{id:taskContext.id,data:journal[taskContext.id]});}
+    if(terminal&&!taskContext.batch&&healthCache?.capture_history){
+      try{await TaskStore.save(journal[taskContext.id],{checkpoint:false});}
       catch(error){
         const warning='后台任务记录同步失败；已保留浏览器中的记录：'+error.message;
         const current=(await chrome.storage.local.get(['liblibProgress'])).liblibProgress;
@@ -100,7 +103,7 @@ async function readPagePayload(tabId, options, current) {
   if(pageData?.author_handle)payload.author_handle=pageData.author_handle;
   if(pageData?.media?.some(item=>item.kind==='video'||item.kind==='gif'))payload.has_video=true;
   if (!options.md_only) {
-    const found = pageData?.media || await loadedMedia(tabId);
+    const found = pageData?.media || (await loadedPageMedia(tabId,false)).media || [];
     const media = options.skip_gifs?found.filter(m=>m.kind!=='gif'&&m.extension!=='gif'&&!m.live_missing):found;
     if(found.length)payload.images=[];
     payload._skippedMotion=found.length>media.length;
@@ -122,9 +125,9 @@ async function loadedMedia(tabId) {
   return (await loadedPageMedia(tabId)).media || [];
 }
 async function setMediaQuality(tabId){
-  await chrome.scripting.executeScript({target:{tabId},world:'MAIN',args:[batchOptions.video_quality||'best',batchOptions.output_format||'original'],func:(value,format)=>{globalThis.__collectorVideoQuality=['best','1080','720','480'].includes(value)?value:'best';globalThis.__collectorOutputFormat=format==='audio'?'audio':'original';}});
+  await chrome.scripting.executeScript({target:{tabId},world:'MAIN',args:[taskContext.options.video_quality||'best',taskContext.options.output_format||'original'],func:(value,format)=>{globalThis.__collectorVideoQuality=['best','1080','720','480'].includes(value)?value:'best';globalThis.__collectorOutputFormat=format==='audio'?'audio':'original';}});
 }
-async function loadedPageMedia(tabId) {
+async function loadedPageMedia(tabId, resolveVideo=true) {
   await setMediaQuality(tabId);
   const tab=await chrome.tabs.get(tabId);
   if(/(^|\.)bilibili\.com$/.test(new URL(tab.url).hostname)) {
@@ -136,9 +139,9 @@ async function loadedPageMedia(tabId) {
   try {
     await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['cat-instagram.js', 'cat-xhs.js', 'cat-media.js']});
     const [{result}] = await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['page-media.js']});
-    if(!result?.media?.length&&healthCache&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)&&/\/status\/\d+/.test(new URL(tab.url).pathname))return await matureMedia(tab.url);
+    if(resolveVideo&&!result?.media?.length&&healthCache&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)&&/\/status\/\d+/.test(new URL(tab.url).pathname))return await matureMedia(tab.url);
     return result || {media:[]};
-  } catch (error) { if(resolvedMedia.has(tab.url))throw error;return {media:[]}; } // DOM extraction remains available if page state is absent.
+  } catch(error){if(resolveVideo&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname))throw error;return {media:[]};} // DOM extraction remains available if page state is absent.
 }
 
 async function includeProtectedImages(payload, pageUrl) {
@@ -175,8 +178,8 @@ async function includeProtectedImages(payload, pageUrl) {
 }
 
 async function submit(payload, pageUrl, port) {
-  payload.md_only ??= Boolean(batchOptions.md_only);
-  if(batchOptions.skip_gifs)payload.images=(payload.images||[]).filter(i=>! /\.gif(?:[?#]|$)/i.test(i.url));
+  payload.md_only ??= Boolean(taskContext.options.md_only);
+  if(taskContext.options.skip_gifs)payload.images=(payload.images||[]).filter(i=>! /\.gif(?:[?#]|$)/i.test(i.url));
   if(payload.md_only){payload.images=[];payload.media_files=[];payload.ocr_enabled=false;}
   const allowed=Math.min(payload.images?.length||0,imagesRemaining());
   payload.omitted_images=(payload.images?.length||0)-allowed;
@@ -184,16 +187,16 @@ async function submit(payload, pageUrl, port) {
   payload.max_images=Number.isFinite(imagesRemaining())?imagesRemaining():0;
   if(payload.omitted_images&&!allowed&&!(payload.collection_mode==='text'&&payload.body_text?.trim()))return {new_images:0,partial:true,omitted_images:payload.omitted_images,warnings:['达到本次图片上限，剩余图片未处理'],message:'达到本次图片上限，剩余图片未处理'};
   reserveImages(allowed);
-  payload.directory_schema ??= batchOptions.directory_schema || 'four-categories-v1';
-  payload.capture_scope ??= batchOptions.capture_scope;
-  payload.capture_kind ??= batchOptions.capture_kind;
-  payload.layout ??= batchOptions.layout || 'organized';
-  payload.ocr_enabled ??= batchOptions.ocr_enabled !== false;
-  payload.include_images ??= batchOptions.include_images !== false;
-  payload.destination ??= batchOptions.destination || null;
-  payload.duplicate_policy ??= batchOptions.duplicate_policy || 'fill';
-  payload.min_free_mb ??= batchOptions.min_free_mb ?? 256;
-  if (batchDirectory) payload.save_directory = batchDirectory;
+  payload.directory_schema ??= taskContext.options.directory_schema || 'four-categories-v1';
+  payload.capture_scope ??= taskContext.options.capture_scope;
+  payload.capture_kind ??= taskContext.options.capture_kind;
+  payload.layout ??= taskContext.options.layout || 'organized';
+  payload.ocr_enabled ??= taskContext.options.ocr_enabled !== false;
+  payload.include_images ??= taskContext.options.include_images !== false;
+  payload.destination ??= taskContext.options.destination || null;
+  payload.duplicate_policy ??= taskContext.options.duplicate_policy || 'fill';
+  payload.min_free_mb ??= taskContext.options.min_free_mb ?? 256;
+  if (taskContext.directory) payload.save_directory = taskContext.directory;
   if (!payload?.images?.length && !(payload.collection_mode === 'text' && payload.body_text?.trim())) throw new Error("页面没有找到可保存正文或图片");
   if(pageUrl.includes('xiaohongshu.com')){
     const known=payload.duplicate_policy==='refresh'?[]:(await service('/assets/known',{urls:payload.images.map(i=>i.url).slice(0,100)})).known;
@@ -210,18 +213,27 @@ async function submit(payload, pageUrl, port) {
     const enriched=new Map(browserImages.images.map(item=>[item.url,item]));
     payload.images=payload.images.map(item=>enriched.get(item.url)||item);
   }
+  await controlPoint();
+  payload.task_id=taskContext.id;payload.idempotency_key=crypto.randomUUID();
   const response = await fetch(`http://127.0.0.1:${port}/collect/start`, {method: "POST", headers: {"Content-Type": "application/json", ...(healthCache ? {'X-Collector-Token':healthCache.settings_token} : {})}, body: JSON.stringify(payload), signal:AbortSignal.timeout(15000)});
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.detail || "采集提交失败");
   const deadline = Date.now() + (payload.collection_mode==='text' && payload.ocr_enabled ? 1800000 : 180000);
+  taskContext.backendJobId=body.job_id;await chrome.storage.local.set({collectorBackendPending:{jobId:body.job_id,taskId:taskContext.id,kind:'collect'}});
+  let stopping=false;
   while (Date.now() < deadline) {
-    await controlPoint();
+    const state=await chrome.storage.local.get(['liblibControl']);
+    if(state.liblibControl==='stopped'&&!stopping){
+      stopping=true;await service('/collect/control/'+body.job_id,{action:'stopped'});
+      await reportProgress({status:'stopping',message:'本篇结束后停止，正在确认已保存内容'});
+    }
     await wait(1000);
     const statusResponse = await fetch(`http://127.0.0.1:${port}/collect/status/${body.job_id}`, {headers: {'X-Collector-Token':healthCache?.settings_token || ''},signal:AbortSignal.timeout(15000)});
     const job = await statusResponse.json().catch(() => ({}));
     if (!statusResponse.ok) throw new Error(job.detail || '无法读取任务状态，请重新打开扩展');
-    if (job.status === "completed") return job.result;
-    if (job.status === "failed") throw new Error(job.message || "采集失败");
+    if(job.status==='stopped'){await chrome.storage.local.remove('collectorBackendPending');taskContext.stopResult=job.result;throw new Error('USER_STOPPED');}
+    if (job.status === 'completed') {await chrome.storage.local.remove('collectorBackendPending');if(stopping){taskContext.stopResult=job.result;throw new Error('USER_STOPPED');}return job.result;}
+    if(job.status==='failed'){await chrome.storage.local.remove('collectorBackendPending');throw new Error(job.message||'采集失败');}
     if(job.message)await reportProgress({percent:job.percent,message:job.message});
   }
   throw new Error("单篇采集超时");
@@ -378,7 +390,7 @@ async function browserYouTubeCaptions(tab,canonical){
 async function downloadVideo(tab, port, options, health, extractAfter) {
   if (!health.video_download) throw new Error('保存服务未加载视频下载功能，请重启保存服务。');
   const source=await videoSource(tab,options);
-  if(batchJob && (batchOptions.min_duration||batchOptions.max_duration)){
+  if(taskContext.batch && (taskContext.options.min_duration||taskContext.options.max_duration)){
     if(!Number.isFinite(Number(source.duration))||Number(source.duration)<=0){
       const [{result}]=await chrome.scripting.executeScript({target:{tabId:tab.id},args:[source.canonical_url],func:canonical=>{
         if(new URL(canonical).pathname!==location.pathname)return null;
@@ -392,7 +404,7 @@ async function downloadVideo(tab, port, options, health, extractAfter) {
     if(imagesRemaining()<1)return {new_images:0,partial:true,message:'达到本次图片上限，剩余 GIF 未处理'};
     reserveImages(1);
   }
-  source.subtitle_mode=source.kind==='gif'||options.output_format==='audio'?'none':options.subtitle_mode||batchOptions.subtitle_mode||'with_video';
+  source.subtitle_mode=source.kind==='gif'||options.output_format==='audio'?'none':options.subtitle_mode||taskContext.options.subtitle_mode||'with_video';
   source.trim_start=options.trim_start||0;source.trim_end=options.trim_end||0;
   if(source.subtitle_mode!=='none'&&/(^|\.)youtube\.com$/.test(new URL(source.canonical_url).hostname)){
     let captions=source._browserCaptions;
@@ -417,8 +429,9 @@ async function downloadVideo(tab, port, options, health, extractAfter) {
     await approveDownloads([{estimates:[{source,...estimate}]}]);
   }
   await controlPoint();
-  const started = await downloadApi(port, health.settings_token, '/video/start', {...source, ...options.group, output_format:options.output_format==='audio'?'audio':source.kind==='gif'?'gif':'original',directory_schema:batchOptions.directory_schema||'four-categories-v1',capture_scope:batchOptions.capture_scope,capture_kind:source.kind==='gif'?'images':batchOptions.capture_kind, duplicate_policy:batchOptions.duplicate_policy||'fill',max_video_mb:batchOptions.max_video_mb||512,min_free_mb:batchOptions.min_free_mb??256,approved_bytes:typeof approvedSizes!=='undefined'?approvedSizes.get(source.url):null, ocr_enabled:batchOptions.ocr_enabled !== false, collection_mode:batchOptions.collection_mode || 'images', layout:batchOptions.layout || 'organized', destination:batchOptions.destination || null, save_directory: batchDirectory});
-  downloadSession = {jobId: started.job_id, port, token: health.settings_token};
+  const started = await downloadApi(port, health.settings_token, '/video/start', {...source, ...options.group, output_format:options.output_format==='audio'?'audio':source.kind==='gif'?'gif':'original',directory_schema:taskContext.options.directory_schema||'four-categories-v1',capture_scope:taskContext.options.capture_scope,capture_kind:source.kind==='gif'?'images':taskContext.options.capture_kind, duplicate_policy:taskContext.options.duplicate_policy||'fill',max_video_mb:taskContext.options.max_video_mb||512,min_free_mb:taskContext.options.min_free_mb??256,approved_bytes:typeof approvedSizes!=='undefined'?approvedSizes.get(source.url):null, ocr_enabled:taskContext.options.ocr_enabled !== false, collection_mode:taskContext.options.collection_mode || 'images', layout:taskContext.options.layout || 'organized', destination:taskContext.options.destination || null, save_directory: taskContext.directory});
+  taskContext.backendJobId=started.job_id;downloadSession = {jobId:started.job_id,port,token:health.settings_token};
+  await chrome.storage.local.set({collectorBackendPending:{jobId:started.job_id,taskId:taskContext.id,kind:'video'}});
   let result, completed = false;
   try {
     while (true) {
@@ -427,8 +440,8 @@ async function downloadVideo(tab, port, options, health, extractAfter) {
       await downloadApi(port, health.settings_token, `/video/control/${started.job_id}`, {action});
       const state = await downloadApi(port, health.settings_token, `/video/status/${started.job_id}`);
       await reportProgress({percent: state.percent || 0, message: state.message});
-      if (state.status === 'completed') {result = state.result; completed = true; break;}
-      if (state.status === 'failed' || state.status === 'stopped') throw new Error(state.message);
+      if(state.status==='completed'){await chrome.storage.local.remove('collectorBackendPending');result=state.result;completed=true;break;}
+      if(['failed','stopped'].includes(state.status)){await chrome.storage.local.remove('collectorBackendPending');throw new Error(state.status==='stopped'?'USER_STOPPED':state.message);}
       await wait(800);
     }
   } finally {
@@ -482,8 +495,8 @@ async function collectVideo(tab, port, options, sourcePage) {
     const message = {type: 'EXTRACT_VIDEO', tabId: tab.id, session: videoSession.id, options};
     const result = await (local ? chrome.runtime.sendMessage(message) : chrome.tabs.sendMessage(tab.id, message));
     if (!result?.ok) throw new Error(result?.error || '抽帧连接中断，已保存图片保留。');
-    return {new_images: videoSession.newImages, total_images: videoSession.total,
-      message: `抽帧完成，新增 ${videoSession.newImages} 张；合并相近画面 ${result.result.skipped} 张。图片为视频帧，不是原图。`};
+    return {directory:videoSession.directory,new_images:videoSession.newImages,total_images:videoSession.total,partial:Boolean(result.result.partial),omitted_images:result.result.omitted||0,
+      message:result.result.partial?`抽帧部分完成，新增 ${videoSession.newImages} 张，剩余 ${result.result.omitted} 个采样点未保存。`: `抽帧完成，新增 ${videoSession.newImages} 张；合并相近画面 ${result.result.skipped} 张。图片为视频帧，不是原图。`};
   } finally { videoSession = undefined; }
 }
 
@@ -504,10 +517,11 @@ async function videoMessage(message, sender) {
   const frame = message.frame;
   if (!frame || !Number.isFinite(frame.frame_time) || frame.frame_time < 0 || frame.content_type !== 'image/jpeg' || typeof frame.data_base64 !== 'string' || frame.data_base64.length > 20000000) throw new Error('视频帧数据无效');
   const result = await submit({...page, ...session.sourcePage, images: [{...frame, source_kind: 'video_frame', url: `${page.canonical_url}#t=${frame.frame_time}`, alt: `视频抽帧 ${frame.frame_time} 秒`}]}, page.canonical_url, session.port);
+  session.directory=result.directory||session.directory;
   session.newImages += result.new_images;
   session.total = result.total_images;
   if (result.failed_images) throw new Error(result.warnings.join('\n'));
-  return {ok: true};
+  return {ok:true,new_images:result.new_images,duplicate_images:result.duplicate_images||0,partial:Boolean(result.partial),omitted_images:result.omitted_images||0};
 }
 
 async function authorContext(tab, port) {
@@ -593,7 +607,7 @@ async function collectAuthor(tab, port) {
   if (discovered?.error === "USER_STOPPED") throw new Error("采集已停止");
   if (discovered?.error) throw new Error(discovered.error);
   const urls = discovered?.urls || [];
-  if(batchOptions.limit) urls.splice(batchLimit(batchOptions.limit));
+  if(taskContext.options.limit) urls.splice(batchLimit(taskContext.options.limit));
   if (!urls.length) throw new Error("当前页未识别到作者作品，请先打开作者主页");
   let newImages = 0;
   let totalImages = 0;
@@ -689,17 +703,24 @@ async function collect(mode, port, options = {}, testTarget) {
     if(!['author','board'].includes(mode))throw new Error('独立视频批量需要作者或画板入口');
     options={...options,collection_mode:'images',include_images:false,include_comments:false,include_videos:true};
   }
-  batchOptions = options;
-  imageQuotaUsed=0;
+  taskContext.options = options;
+  taskContext.imageQuotaUsed=0;
   resolvedMedia=new Map();
+  const pending=(await chrome.storage.local.get(['collectorBackendPending'])).collectorBackendPending;
+  if(pending){
+    const h=await fetch('http://127.0.0.1:'+port+'/health').then(r=>r.json());healthCache=h;
+    const status=await service((pending.kind==='video'?'/video/status/':'/collect/status/')+pending.jobId).catch(error=>{if(/不存在|重启|404/.test(error.message))return {status:'missing'};throw error;});
+    if(['running','stopping'].includes(status.status))throw new Error('上一篇后台仍在收尾，请等待完成后再开始');
+    await chrome.storage.local.remove('collectorBackendPending');
+  }
   const stored = await chrome.storage.local.get(["liblibActiveJob"]);
   const active = stored.liblibActiveJob;
   if (active?.startedAt && Date.now() - active.startedAt < 15 * 60 * 1000) throw new Error("当前已有采集任务，请稍候");
   if (active) await chrome.storage.local.remove("liblibActiveJob");
   const tab = testTarget ? await chrome.tabs.get(testTarget.id) : (await chrome.tabs.query({active: true, currentWindow: true}))[0];
   if(testTarget && tab.url !== testTarget.url) throw new Error('测试目标页面已改变，请重新选择标签页。');
-  batchJob=undefined;
-  taskContext = {id:crypto.randomUUID(),url:tab?.url?.replace(/([?&])(?:xsec_token|xsec_source)=[^&#]*/g,'$1'), mode, title:tab?.title};
+  taskContext.batch=undefined;
+  taskContext = {imageQuotaUsed:0,options:CaptureOptions.snapshot(options),control:'running',backendJobId:null,id:crypto.randomUUID(),url:tab?.url?.replace(/([?&])(?:xsec_token|xsec_source)=[^&#]*/g,'$1'), mode, title:tab?.title};
   if (!tab?.id || (!/^https?:/i.test(tab.url || "") && !(mode === 'video' && tab.url === chrome.runtime.getURL('video.html')))) throw new Error("请打开普通网页后再采集");
   await chrome.storage.local.set({liblibActiveJob: {mode, startedAt: Date.now(), build: BUILD, testRunId:testTarget?.runId}});
   await chrome.storage.local.set({liblibControl: "running"});
@@ -716,7 +737,7 @@ async function collect(mode, port, options = {}, testTarget) {
     if (!health.directory_settings) throw new Error('保存服务尚未更新，请重启保存服务后再采集。');
     if (options.collection_mode === 'text' && !health.text_collection) throw new Error('图文模式需要 0.2.17 保存服务，请重启新版服务。');
     if (mode === 'video' && !health.video_frames) throw new Error('保存服务尚未支持视频帧，请更新并重启保存服务。');
-    batchDirectory = health.inbox;
+    taskContext.directory = health.inbox;
     if (mode === 'board') {
       if (!health.board_collection) throw new Error('保存服务尚未支持画板，请更新并重启保存服务。');
       return await runBoardBatch(tab, port, options);
@@ -734,10 +755,10 @@ async function collect(mode, port, options = {}, testTarget) {
     }
     return mode === 'video' ? await collectVideo(tab, port, options) : mode === "author" ? await collectAuthor(tab, port) : await collectCurrent(tab, port, options);
   } catch(error) {
-    if(batchJob){batchJob.error=error.message;batchJob.completed=false;try{await saveBatch();}catch(persistError){error.message+='；任务记录同步失败：'+persistError.message;}}
+    if(taskContext.batch){taskContext.batch.error=error.message;taskContext.batch.completed=false;try{await saveBatch();}catch(persistError){error.message+='；任务记录同步失败：'+persistError.message;}}
     throw error;
   } finally {
-    batchDirectory = undefined;
+    taskContext.directory = undefined;
     await chrome.storage.local.remove(["liblibActiveJob", "liblibControl"]);
     await chrome.storage.local.remove('collectorApproval');
   }
@@ -798,7 +819,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     })().catch(error=>sendResponse({ok:false,error:error.message}));return true;
   }
   if (message.type === "CONTROL_COLLECTOR") {
-    chrome.storage.local.set({liblibControl: message.action}).then(() => sendResponse({ok: true}));
+    (taskContext.control=message.action,chrome.storage.local.set({liblibControl: message.action})).then(() => sendResponse({ok: true}));
     return true;
   }
   if (message.type === "RESET_COLLECTOR") {
@@ -824,11 +845,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (taskRunning) {sendResponse({ok: false, error: '任务仍在结束中，请稍候。'}); return false;}
   taskRunning = true;
   collect(message.mode || "current", message.port || 8766, message.options, message.testTarget).then(async (result) => {
-    await reportProgress({percent: 100, status: result.status==='partial'||result.partial||result.failed_images&&result.new_images?'partial':result.failed_images||result.status==='failed'?'failed':'completed', message: result.message || `保存完成，新增 ${result.new_images} 张`, directory:result.directory, details:result.details || result.warnings?.join('\n')});
+    await reportProgress({percent: 100, status: result.status==='partial'||result.partial||result.failed_images&&result.new_images?'partial':result.failed_images||result.status==='failed'?'failed':'completed', message: result.message || `保存完成，新增 ${result.new_images} 张`, directory:taskContext.batch?.directory||result.directory, details:result.details || result.warnings?.join('\n')});
     sendResponse({ok: true, result});
   }).catch(async (error) => {
     const reason = error.message === 'USER_STOPPED' ? '已停止，已保存内容和断点保留。' : error.message.includes('NEEDS_ATTENTION') ? '页面需要验证或登录，任务已暂停。处理后回到原主页续采。' : error.message || '这次未能完成，请查看详情。';
-    await reportProgress({status:error.message==='USER_STOPPED'?'stopped':error.message.includes('NEEDS_ATTENTION')?'paused':'failed', message: reason, details:error.message});
+    await reportProgress({status:error.message==='USER_STOPPED'?'stopped':error.message.includes('NEEDS_ATTENTION')?'paused':'failed', message:reason,directory:taskContext.batch?.directory||taskContext?.stopResult?.directory,details:error.message});
     sendResponse({ok: false, error: reason});
   }).finally(() => {taskRunning = false;});
   return true;

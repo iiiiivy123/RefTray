@@ -41,7 +41,7 @@
     const originalTime = video.currentTime;
     const wasPaused = video.paused;
     const originalSource = video.currentSrc;
-    let previous, saved = 0, skipped = 0;
+    let previous, saved = 0, skipped = 0, omitted = 0, partial=false;
     video.pause();
     try {
       for (let index = 0; index < count; index++) {
@@ -59,13 +59,15 @@
           const image = canvas.toDataURL('image/jpeg', .94);
           if (!image.startsWith('data:image/jpeg;base64,')) throw new Error('视频画面导出失败。');
           await control();
-          await save({data_base64: image.split(',')[1], content_type: 'image/jpeg', frame_time: Number(time.toFixed(3))});
+          const result=await save({data_base64:image.split(',')[1],content_type:'image/jpeg',frame_time:Number(time.toFixed(3))});
+          if(result?.partial||result?.omitted_images){partial=true;omitted=count-index;break;}
+          if(result&&result.new_images===0&&!result.duplicate_images)throw new Error('抽帧未确认保存，已停止');
           previous = new Uint8ClampedArray(pixels);
           saved++;
         }
         await progress({percent: Math.round((index + 1) / count * 100), message: `视频抽帧 ${index + 1}/${count}\n已处理 ${saved} 张，合并相近画面 ${skipped} 张`});
       }
-      return {saved, skipped};
+      return {saved,skipped,omitted,partial};
     } catch (error) {
       if (error.name === 'SecurityError') throw new Error('网页禁止直接读取视频画面。请尝试“下载后自动抽帧”；若网页不提供可下载视频地址，可选择已有的本地视频。已保存图片保留。');
       throw error;

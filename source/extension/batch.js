@@ -1,19 +1,19 @@
 // Persistent, one-task-at-a-time batch journal. Content navigation stays platform-specific.
-let batchJob;
-const videoBatch = () => Boolean(batchJob?.options?.video_only);
-const batchRecorded = key => Boolean(batchJob.records[key] && batchJob.records[key].status !== 'pending');
-const batchScannedCount = () => Object.values(batchJob.records).filter(r=>r.status!=='pending').length;
-const batchCount = () => Object.values(batchJob.records).filter(r=>r.status!=='pending').reduce((n,r)=>n+(videoBatch()?(r.video_count||0):r.quota_exempt?0:1),0);
-const batchFull = () => batchCount() >= batchJob.limit || batchScannedCount() >= 500;
+
+const videoBatch = () => Boolean(taskContext.batch?.options?.video_only);
+const batchRecorded = key => Boolean(taskContext.batch.records[key] && taskContext.batch.records[key].status !== 'pending');
+const batchScannedCount = () => Object.values(taskContext.batch.records).filter(r=>r.status!=='pending').length;
+const batchCount = () => Object.values(taskContext.batch.records).filter(r=>r.status!=='pending').reduce((n,r)=>n+(videoBatch()?(r.video_count||0):r.quota_exempt?0:1),0);
+const batchFull = () => batchCount() >= taskContext.batch.limit || batchScannedCount() >= 500;
 function skipLeadingPost(key){
-  const limit=Math.max(0,Math.min(499,Number(batchJob.options.skip_posts)||0));
-  batchJob.leading_keys ||= [];
-  if(batchJob.leading_keys.includes(key))return true;
-  if(batchJob.leading_keys.length>=limit)return false;
-  batchJob.leading_keys.push(key);return true;
+  const limit=Math.max(0,Math.min(499,Number(taskContext.batch.options.skip_posts)||0));
+  taskContext.batch.leading_keys ||= [];
+  if(taskContext.batch.leading_keys.includes(key))return true;
+  if(taskContext.batch.leading_keys.length>=limit)return false;
+  taskContext.batch.leading_keys.push(key);return true;
 }
 function durationRejection(source){
-  const min=Number(batchJob?.options?.min_duration)||0,max=Number(batchJob?.options?.max_duration)||0;
+  const min=Number(taskContext.batch?.options?.min_duration)||0,max=Number(taskContext.batch?.options?.max_duration)||0;
   if(!min&&!max)return '';
   const duration=Number(source.duration);
   if(!Number.isFinite(duration)||duration<=0)return '已跳过：无法确认媒体时长，不猜测是否符合范围';
@@ -34,34 +34,38 @@ function batchSummary(job) {
   return `符合范围 ${records.filter(r=>!r.quota_exempt).length}/${job.limit} 篇 · 已检查 ${records.length} 篇 · 图文 ${sum('documents')} 篇 · 新增图片 ${sum('images')} · 重复图片 ${sum('duplicates')} · 视频 ${sum('videos')}\n跳过 ${records.filter(r => r.status === 'skipped').length} 篇 · 失败/部分失败 ${records.filter(r => r.status === 'failed' || r.status === 'partial').length} 篇\n${job.directory ? '保存位置：' + job.directory : '尚未确认文件落盘'}`;
 }
 async function saveBatch() {
-  if(typeof service==='function'&&healthCache?.capture_history)batchJob.id ||= crypto.randomUUID();
-  await chrome.storage.local.set({collectorCheckpoint: batchJob});
-  if(typeof service==='function'&&healthCache?.capture_history)await service('/tasks',{id:batchJob.id,data:batchJob});
+ taskContext.batch.id ||= taskContext?.id||crypto.randomUUID();
+ await TaskStore.save(taskContext.batch);
 }
 async function beginBatch(tab, mode, options) {
   const url = new URL(tab.url);const playlist=/(^|\.)youtube\.com$/.test(url.hostname)&&url.pathname==='/playlist'?url.searchParams.get('list'):null;url.search = '';if(playlist)url.searchParams.set('list',playlist); url.hash = ''; url.pathname = url.pathname.replace(/\/$/, '');
+  await TaskStore.reconcile().catch(()=>{});
   const previous = (await chrome.storage.local.get(['collectorCheckpoint'])).collectorCheckpoint;
   if (options.resume && previous && !previous.completed) {
     if(['organized','organized_flat'].includes(options.layout) && !['four-categories-v1','function-platform-v2'].includes(previous.options.directory_schema))throw new Error('旧版任务使用不同目录结构。已保存文件保留；请取消续采并开始新任务，避免同一任务分散到两个目录。');
     if (previous.source !== url.href || previous.mode !== mode || Boolean(previous.options.video_only)!==Boolean(options.video_only) || (previous.options.collection_mode || 'images') !== (options.collection_mode || 'images')) throw new Error('待续任务属于其他页面或采集模式，请回到原页面和模式；或取消续采开始新任务。');
     // A resumed task pins its original root, independent of the new library default.
     previous.options.destination ||= previous.root;
-    batchJob = previous;
-  } else batchJob = {source: url.href, mode, name: tab.title, root: batchDirectory, options: {...options}, limit: batchLimit(options.limit), records: {}, queue: [], completed: false};
-  delete batchJob.error;
-  batchOptions = batchJob.options;
-  if(typeof imageQuotaUsed!=='undefined')imageQuotaUsed=batchJob.image_used||0;
-  for(const record of Object.values(batchJob.records))if(record.status==='planned'){record.status='pending';record.reason='恢复后重新确认临时媒体地址与大小，尚未下载';}
+    taskContext.batch = previous;
+  } else taskContext.batch = {source: url.href, mode, name: tab.title, root: taskContext.directory, options: {...options}, limit: batchLimit(options.limit), records: {}, queue: [], completed: false};
+  delete taskContext.batch.error;
+  taskContext.options=CaptureOptions.snapshot(taskContext.batch.options);taskContext.batch.options=taskContext.options;
+  if(typeof taskContext.imageQuotaUsed!=='undefined')taskContext.imageQuotaUsed=taskContext.batch.image_used||0;
+  for(const record of Object.values(taskContext.batch.records))if(record.status==='planned'){record.status='pending';record.reason='恢复后重新确认临时媒体地址与大小，尚未下载';}
   // Never persist resolved URLs or approval tokens; resume revalidates unfinished works.
-  if(options.resume && Object.values(batchJob.records).some(r=>r.status==='pending'))await reportProgress({message:'正在恢复未完成作品；已保存作品保留，未下载作品将重新预检并确认'});
+  if(options.resume && Object.values(taskContext.batch.records).some(r=>r.status==='pending'))await reportProgress({message:'正在恢复未完成作品；已保存作品保留，未下载作品将重新预检并确认'});
   if(typeof startPreparation==='function')startPreparation();
   await saveBatch();
 }
 async function recordPost(key, record) {
-  batchJob.records[key] = record;
-  if (record.directory) batchJob.directory = record.directory;
+  taskContext.batch.records[key] = record;
+  if(record.directory){
+    const normalized=record.directory.replace(/\\/g,'/').replace(/\/$/,'');
+    const parent=normalized.substring(0,normalized.lastIndexOf('/'));
+    taskContext.batch.directory ||= parent;
+  }
   await saveBatch();
-  await reportProgress({percent:Math.min(100,Math.round(batchCount()/batchJob.limit*100)),message: batchSummary(batchJob), details: Object.values(batchJob.records).filter(r => r.reason).map(r => r.reason).join('\n')});
+  await reportProgress({percent:Math.min(100,Math.round(batchCount()/taskContext.batch.limit*100)),message: batchSummary(taskContext.batch), details: Object.values(taskContext.batch.records).filter(r => r.reason).map(r => r.reason).join('\n')});
 }
 async function batchProblem(tabId) {
   const problem = await pageProblem(tabId);
@@ -70,28 +74,28 @@ async function batchProblem(tabId) {
 }
 async function processBatchPost(tab, port, group, payload) {
   let images = 0, duplicates = 0, videos = 0, existingVideos = 0, documents = 0, filteredVideos=0, directory, failed = false;
-  const textMode = batchOptions.collection_mode === 'text';
+  const textMode = taskContext.options.collection_mode === 'text';
   const reasons = [];
-  let media = payload._preparedMedia || payload._media || await loadedMedia(tab.id);
+  let media = payload._preparedMedia || payload._media || (await loadedPageMedia(tab.id,Boolean(taskContext.options.video_only))).media;
   const foundMedia=media;
-  if(batchOptions.skip_gifs)media=media.filter(m=>m.kind!=='gif'&&m.extension!=='gif'&&!m.live_missing);
-  if(!batchOptions.video_only&&!batchOptions.md_only&&!batchOptions.include_videos&&payload.has_video&&media.some(m=>m.kind==='video')&&!media.some(m=>m.kind==='photo'||m.kind==='gif'))return {status:'skipped',quota_exempt:true,url:payload.canonical_url,reason:'已跳过视频，不占目标篇数'};
-  if(batchOptions.skip_gifs&&(foundMedia.length>media.length||payload._skippedMotion)){
+  if(taskContext.options.skip_gifs)media=media.filter(m=>m.kind!=='gif'&&m.extension!=='gif'&&!m.live_missing);
+  if(!taskContext.options.video_only&&!taskContext.options.md_only&&!taskContext.options.include_videos&&payload.has_video&&media.some(m=>m.kind==='video')&&!media.some(m=>m.kind==='photo'||m.kind==='gif'))return {status:'skipped',quota_exempt:true,url:payload.canonical_url,reason:'已跳过视频，不占目标篇数'};
+  if(taskContext.options.skip_gifs&&(foundMedia.length>media.length||payload._skippedMotion)){
     payload.has_live_photo=false;payload.images=media.filter(m=>m.kind==='photo').map(m=>({url:m.url,alt:''}));
     payload.has_video=media.some(m=>m.kind==='video');
     if(!media.length&&(!textMode||!payload.body_text?.trim()))return {status:'skipped',quota_exempt:true,url:payload.canonical_url,reason:'已按设置跳过动图，不占目标篇数'};
   }
-  if(!batchOptions.md_only&&(media.some(m=>m.live_missing)||payload.has_live_photo&&!media.some(m=>m.live_photo))){failed=true;reasons.push('部分实况动图动态源尚未确认，静态封面不代表完整动图');}
+  if(!taskContext.options.md_only&&(media.some(m=>m.live_missing)||payload.has_live_photo&&!media.some(m=>m.live_photo))){failed=true;reasons.push('部分实况动图动态源尚未确认，静态封面不代表完整动图');}
   let videoMeta={};
-  if(batchOptions.video_only){
+  if(taskContext.options.video_only){
     media=media.filter(m=>m.kind==='video'||m.kind==='gif');
     if(!media.length&&payload.has_video&&!payload._preflightIssue){
       try{const source=await videoSource(tab,{});media=[{...source,kind:'video'}];}
       catch(error){return {status:'failed',video_count:1,url:payload.canonical_url,reason:error.message};}
     }
     if(!payload._preparedMedia){
-      const seen=new Set(Object.values(batchJob.records).flatMap(r=>r.video_urls||[]));
-      media=media.filter(m=>m.url&&!seen.has(m.url)&&(seen.add(m.url),true)).slice(0,Math.max(0,batchJob.limit-batchCount()));
+      const seen=new Set(Object.values(taskContext.batch.records).flatMap(r=>r.video_urls||[]));
+      media=media.filter(m=>m.url&&!seen.has(m.url)&&(seen.add(m.url),true)).slice(0,Math.max(0,taskContext.batch.limit-batchCount()));
     }
     if(!media.length)return {status:'skipped',video_count:0,url:payload.canonical_url,reason:'没有新的可采视频；图片帖不占额度'};
     videoMeta={video_count:media.length,video_urls:media.map(m=>m.url)};
@@ -100,9 +104,9 @@ async function processBatchPost(tab, port, group, payload) {
   // Persist this post now; media downloads use their own per-source protection.
   if(payload._preflightIssue){failed=true;reasons.push(payload._preflightIssue);}
   const photos = media.filter(m => m.kind === 'photo').map(m => ({url: m.url, alt: ''}));
-  if ((photos.length || media.length || payload._media?.length || payload._preparedMedia?.length) && (!textMode || batchOptions.include_images)) payload.images = photos;
-  if(batchOptions.skip_gifs)payload.images=(payload.images||[]).filter(i=>! /\.gif(?:[?#]|$)/i.test(i.url));
-  if(textMode && !batchOptions.include_images && !batchOptions.ocr_enabled)payload.images=[];
+  if ((photos.length || media.length || payload._media?.length || payload._preparedMedia?.length) && (!textMode || taskContext.options.include_images)) payload.images = photos;
+  if(taskContext.options.skip_gifs)payload.images=(payload.images||[]).filter(i=>! /\.gif(?:[?#]|$)/i.test(i.url));
+  if(textMode && !taskContext.options.include_images && !taskContext.options.ocr_enabled)payload.images=[];
   if (payload.images?.length || (textMode && payload.body_text?.trim())) {
     const result = await submit({...payload, ...group}, payload.canonical_url, port);
     images += result.new_images || 0; duplicates += result.duplicate_images || 0; directory = result.directory;
@@ -112,11 +116,11 @@ async function processBatchPost(tab, port, group, payload) {
   }
   const candidates = media.filter(m => m.kind === 'video' || m.kind === 'gif');
   if (payload.has_video && !candidates.length && !payload._preflightIssue) candidates.push({});
-  if (candidates.some(m=>m.kind!=='gif') && !batchOptions.include_videos) reasons.push('已跳过视频：批量视频开关关闭');
-  for (const candidate of candidates.filter(m=>batchOptions.include_videos||!batchOptions.md_only&&(!textMode||batchOptions.include_images)&&m.kind==='gif')) {
+  if (candidates.some(m=>m.kind!=='gif') && !taskContext.options.include_videos) reasons.push('已跳过视频：批量视频开关关闭');
+  for (const candidate of candidates.filter(m=>taskContext.options.include_videos||!taskContext.options.md_only&&(!textMode||taskContext.options.include_images)&&m.kind==='gif')) {
     await controlPoint();
     try {
-      const result = await downloadVideo(tab, port, {...batchOptions, group, source: candidate.url ? {...candidate, canonical_url: payload.canonical_url, page_title: payload.page_title} : null}, healthCache, batchOptions.extract_frames);
+      const result = await downloadVideo(tab, port, {...taskContext.options, group, source: candidate.url ? {...candidate, canonical_url: payload.canonical_url, page_title: payload.page_title} : null}, healthCache, taskContext.options.extract_frames);
       if(result.skipped){filteredVideos++;reasons.push(result.message);continue;}
       if(candidate.kind==='gif')reasons.push('动态源已转换为 GIF 动图保存。');
       videos += result.new_videos || 0;
@@ -138,10 +142,12 @@ async function processBatchPost(tab, port, group, payload) {
 }
 async function finishBatch() {
   // Every post has already been committed; there is no deferred whole-batch pass.
-  batchJob.completed = !Object.values(batchJob.records).some(r=>r.status==='pending'); await saveBatch();
-  if(!batchJob.completed)return {status:'partial',directory:batchJob.directory,message:'部分待恢复作品尚未重新加载，断点已保留，请回原列表加载后续采。'};
-  const records=Object.values(batchJob.records),failed=records.some(r=>['failed','partial'].includes(r.status));
-  return {status:failed?(records.some(r=>['saved','partial'].includes(r.status))?'partial':'failed'):'saved',directory:batchJob.directory,message: batchSummary(batchJob) + '\n仅表示本轮已处理的内容，未确认全部轮播或全部历史作品。', details: records.filter(r => r.reason).map(r => `${r.url}: ${r.reason}`).join('\n')};
+  taskContext.batch.completed = !Object.values(taskContext.batch.records).some(r=>r.status==='pending'); await saveBatch();
+  if(!taskContext.batch.completed)return {status:'partial',directory:taskContext.batch.directory,message:'部分待恢复作品尚未重新加载，断点已保留，请回原列表加载后续采。'};
+  const records=Object.values(taskContext.batch.records),failed=records.some(r=>['failed','partial'].includes(r.status));
+  const unmet=batchCount()<taskContext.batch.limit&&!taskContext.batch.retryKeys;
+  if(unmet)return {status:failed&&!records.some(r=>['saved','partial'].includes(r.status))?'failed':'partial',end_reason:'limit_unreached',directory:taskContext.batch.directory,message:'已结束：未达到本次上限 '+batchCount()+'/'+taskContext.batch.limit+' 篇\n'+batchSummary(taskContext.batch),details:records.filter(r=>r.reason).map(r=>r.url+': '+r.reason).join('\n')};
+  return {status:failed?(records.some(r=>['saved','partial'].includes(r.status))?'partial':'failed'):'saved',directory:taskContext.batch.directory,message: batchSummary(taskContext.batch) + '\n仅表示本轮已处理的内容，未确认全部轮播或全部历史作品。', details: records.filter(r => r.reason).map(r => `${r.url}: ${r.reason}`).join('\n')};
 }
 async function runXhsBatch(tab, port, options) {
   const snapshot=async()=>{const [{result}]=await chrome.scripting.executeScript({target:{tabId:tab.id},files:['xhs-list.js']});if(!result||result.error)throw Error(result?.error||'未确认列表范围');return result;};
@@ -155,7 +161,7 @@ async function runXhsBatch(tab, port, options) {
     if(currentList.list_url!==group.list_url)throw Error('当前列表已切换，已停止并保留断点');
     const data = await chrome.tabs.sendMessage(tab.id, {type:'LIBLIB_CARDS'});
     if (!Array.isArray(data?.cards)) throw new Error('无法读取作者卡片，已保留断点。');
-    const card = data.cards.find(c => !batchRecorded(c.id) && (!batchJob.retryKeys || batchJob.retryKeys.includes(c.id)));
+    const card = data.cards.find(c => !batchRecorded(c.id) && (!taskContext.batch.retryKeys || taskContext.batch.retryKeys.includes(c.id)));
     if (!card) { idle++; await chrome.tabs.sendMessage(tab.id,{type:'LIBLIB_SCROLL'}); await controlledWait(2500); continue; }
     idle = 0;
     if(skipLeadingPost(card.id)){await recordPost(card.id,{status:'skipped',quota_exempt:true,video_count:0,url:card.url,reason:'按设置跳过列表前部作品'});continue;}
@@ -168,7 +174,7 @@ async function runXhsBatch(tab, port, options) {
     for (let i=0;i<12;i++) {
       await controlledWait(1000);
       if (await batchProblem(tab.id) === 'unavailable') { unavailable = true; break; }
-      const detail = await chrome.tabs.sendMessage(tab.id,{type:'LIBLIB_DETAIL',id:card.id,options:batchOptions});
+      const detail = await chrome.tabs.sendMessage(tab.id,{type:'LIBLIB_DETAIL',id:card.id,options:taskContext.options});
       payload = detail?.payload;
       if (payload?.images?.length || payload?.has_video || payload?.body_text?.trim()) break;
     }
@@ -196,18 +202,18 @@ async function runBoardBatch(tab, port, options) {
     return result;
   };
   const board = await snapshot();
-  const queue = new Set(batchJob.queue);
+  const queue = new Set(taskContext.batch.queue);
   let idle = 0;
-  const scanLimit=videoBatch()?500:Math.min(500,batchJob.limit+(Number(batchJob.options.skip_posts)||0));
+  const scanLimit=videoBatch()?500:Math.min(500,taskContext.batch.limit+(Number(taskContext.batch.options.skip_posts)||0));
   for (let round=0;round<80 && idle<4 && queue.size<scanLimit;round++) {
     await controlPoint();
     const data = await snapshot();
     if (data.board_url !== board.board_url) throw new Error('页面离开画板，已停止扫描。');
     const before=queue.size;
     data.urls.forEach(url=>{if(queue.size<scanLimit)queue.add(url);});
-    batchJob.queue=[...queue]; await saveBatch();
+    taskContext.batch.queue=[...queue]; await saveBatch();
     idle=queue.size===before?idle+1:0;
-    await reportProgress({message:videoBatch()?`扫描「${board.board_name}」 · 已找到 ${queue.size} 篇待检查，视频上限 ${batchJob.limit} 个`:`扫描「${board.board_name}」 · 已找到 ${queue.size}/${batchJob.limit} 篇`});
+    await reportProgress({message:videoBatch()?`扫描「${board.board_name}」 · 已找到 ${queue.size} 篇待检查，视频上限 ${taskContext.batch.limit} 个`:`扫描「${board.board_name}」 · 已找到 ${queue.size}/${taskContext.batch.limit} 篇`});
     if(queue.size>=scanLimit)break;
     await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>window.scrollBy(0,Math.max(400,innerHeight*.85))});
     await controlledWait(2000);
@@ -218,11 +224,11 @@ async function runBoardBatch(tab, port, options) {
     for(const url of queue) {
       if(batchFull())break;
       if(batchRecorded(url))continue;
-      if(batchJob.retryKeys&&!batchJob.retryKeys.includes(url))continue;
+      if(taskContext.batch.retryKeys&&!taskContext.batch.retryKeys.includes(url))continue;
       if(skipLeadingPost(url)){await recordPost(url,{status:'skipped',quota_exempt:true,video_count:0,url,reason:'按设置跳过列表前部作品'});continue;}
       if(typeof existingCapture==='function'){const old=await existingCapture(url);if(old){await recordPost(url,old);continue;}}
       await controlPoint();
-      await reportProgress({message:`读取画板作品 ${Object.keys(batchJob.records).length+1}/${queue.size} · 已满足 ${batchCount()}/${batchJob.limit}`,details:url});
+      await reportProgress({message:`读取画板作品 ${Object.keys(taskContext.batch.records).length+1}/${queue.size} · 已满足 ${batchCount()}/${taskContext.batch.limit}`,details:url});
       if(!workTab) workTab=await chrome.tabs.create({url,active:false}); else await chrome.tabs.update(workTab.id,{url});
       let payload;
       for(let attempt=0;attempt<15;attempt++) {
@@ -234,7 +240,7 @@ async function runBoardBatch(tab, port, options) {
         const samePin = value => {try {const u=new URL(value);return /(^|\.)pinterest\.(com|cn)$/.test(u.hostname)&&u.pathname.replace(/\/$/,'')===new URL(url).pathname.replace(/\/$/,'');}catch(_){return false;}};
         if(!samePin(current.url))continue;
         try {
-          const candidate=await pagePayload(workTab.id,batchOptions);
+          const candidate=await pagePayload(workTab.id,taskContext.options);
           if(samePin(candidate?.canonical_url)&&(candidate.images?.length||candidate.has_video||candidate._skippedMotion)) {payload=candidate;break;}
         } catch(error) {if(/超时|USER_STOPPED/.test(error.message))throw error;continue;}
       }
@@ -244,7 +250,7 @@ async function runBoardBatch(tab, port, options) {
         if(error.message==='USER_STOPPED'||error.message.includes('NEEDS_ATTENTION')||/fetch|保存服务|超时/i.test(error.message))throw error;
         await recordPost(url,{status:'failed',url,reason:error.message});
       }
-      await controlledWait(Object.keys(batchJob.records).length%10===0?20000:2000);
+      await controlledWait(Object.keys(taskContext.batch.records).length%10===0?20000:2000);
     }
     return await finishBatch();
   } catch(error) { keep=error.message.includes('NEEDS_ATTENTION'); if(keep&&workTab)await chrome.tabs.update(workTab.id,{active:true}); throw error; }
@@ -274,7 +280,7 @@ async function runSocialBatch(tab, port, options, platform) {
   const profile = await snapshot();
   await beginBatch({...tab,url:profile.author_url+(instagram&&profile.view==='reels'?'/reels':'')},platform+'-author',options);
   const group = {author_url:profile.author_url,author_name:profile.author_name,...Object.fromEntries(Object.entries(profile).filter(([k])=>k.startsWith('list_')))};
-  const queue = new Set(batchJob.queue);
+  const queue = new Set(taskContext.batch.queue);
   let idle = 0, workTab, keep = false;
   try {
     for(let round=0;round<100 && idle<5 && !batchFull();round++) {
@@ -283,12 +289,12 @@ async function runSocialBatch(tab, port, options, platform) {
       if(data.author_url!==profile.author_url || (instagram&&data.view!==profile.view))throw new Error('已离开原作者主页或列表，停止并保留断点。');
       const before = queue.size;
       for(const url of data.urls)if(queue.size<500)queue.add(url);
-      batchJob.queue=[...queue]; await saveBatch();
+      taskContext.batch.queue=[...queue]; await saveBatch();
       idle=before===queue.size?idle+1:0;
       for(const url of queue) {
         if(batchFull())break;
         if(batchRecorded(url))continue;
-        if(batchJob.retryKeys&&!batchJob.retryKeys.includes(url))continue;
+        if(taskContext.batch.retryKeys&&!taskContext.batch.retryKeys.includes(url))continue;
       if(skipLeadingPost(url)){await recordPost(url,{status:'skipped',quota_exempt:true,video_count:0,url,reason:'按设置跳过列表前部作品'});continue;}
         if(typeof existingCapture==='function'){const old=await existingCapture(url);if(old){await recordPost(url,old);continue;}}
         await controlPoint();
@@ -304,7 +310,7 @@ async function runSocialBatch(tab, port, options, platform) {
           const targetId=postId(url);
           if(!targetId || postId(current.url)!==targetId)continue;
           try {
-            const candidate=await pagePayload(workTab.id,batchOptions);
+            const candidate=await pagePayload(workTab.id,taskContext.options);
             if(postId(candidate.canonical_url)!==targetId)continue;
             if(youtube)candidate.has_video=true;
             if((instagram||bilibili&&profile.handle) && candidate.author_handle?.toLowerCase()!==profile.handle) {
@@ -324,10 +330,10 @@ async function runSocialBatch(tab, port, options, platform) {
           if(error.message==='USER_STOPPED'||error.message.includes('NEEDS_ATTENTION')||/fetch|保存服务|超时/i.test(error.message))throw error;
           await recordPost(url,{status:'failed',url,reason:error.message});
         }
-        await controlledWait(Object.keys(batchJob.records).length%10===0?20000:2500);
+        await controlledWait(Object.keys(taskContext.batch.records).length%10===0?20000:2500);
       }
       if(batchFull())break;
-      await reportProgress({message:videoBatch()?`扫描 ${label} 作者主页 · 视频额度 ${batchCount()}/${batchJob.limit} · 已检查 ${Object.keys(batchJob.records).length} 篇`:`扫描 ${label} 作者主页 · 已处理 ${Object.keys(batchJob.records).length}/${batchJob.limit} 篇`});
+      await reportProgress({message:videoBatch()?`扫描 ${label} 作者主页 · 视频额度 ${batchCount()}/${taskContext.batch.limit} · 已检查 ${Object.keys(taskContext.batch.records).length} 篇`:`扫描 ${label} 作者主页 · 已处理 ${Object.keys(taskContext.batch.records).length}/${taskContext.batch.limit} 篇`});
       if(bilibili&&idle>=1){
         await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>{
           const next=document.querySelector('.be-pager-next:not(.be-pager-disabled),.vui_pagenation--btn-side:not([disabled])[title="下一页"]');

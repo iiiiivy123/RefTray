@@ -1,44 +1,46 @@
 # RefTray 当前交接
 
-更新：2026-11-04。状态：0.5.28 修改说明执行中，尚未部署或发布；不要把此阶段误报成整份说明完成。
+更新：2026-11-05（Asia/Shanghai）。源码整合版 **0.5.29**；本机实际仍为 **0.5.28**，尚未覆盖、未 push。
 
-## 入口与基线
+## 唯一入口与决定
 
-- 当前集成源码：`F:/Codex/Workspaces/2026-09-02/referenced-chatgpt-conversation-this-is-an/reftray-0528-review`
-- 分支：`fix/reftray-0528-review`；Hermes 应用基线 `acafb7346f835a834842a831f386ad4b537acfd2`，文档基线 `ed948dd`。当前提交用 `git log -1 --oneline` 查，改动用 `git status --short` 查。
-- 当前安装：`F:/LibLib自动化/plugins/liblib-automation/scripts/collector`，manifest 0.5.28；本轮修改尚未覆盖此处。
-- 已按换行归一核对安装代码与基线。requirements 有版本差异，禁止盲目重装依赖。旧 collector-repair 分支及其他 0.5.26 副本不作交付基线。
-- 任务依据：`E:/下载/RefTray_0.5.28_修改说明.docx`。最新补充：弹窗 320px、暖灰底色，每次交付留短交接。旧素材和偏好保留，未获本轮推送授权。
-- Ivy v0.5：`C:/Users/Admin/.codex/ivy-dev-system/AGENTS.md`，SHA256 `CF3F4F57E9FFB39F91453FC5FA0AA21C58B46F08D3253668C9AE2953C2783C02`。
+- 当前源码：`F:/Codex/Workspaces/2026-09-02/referenced-chatgpt-conversation-this-is-an/reftray-0528-review`，分支 `fix/reftray-0528-review`。提交查 `git log -1 --oneline`，变更查 `git status --short`。
+- 正在运行：`F:/LibLib自动化/plugins/liblib-automation/scripts/collector`；health 返回 release0.5.28、root/inbox 均 F:/LibLib自动化、busy=false。
+- 基线 Hermes acafb7346f835a834842a831f386ad4b537acfd2，文档 ed948dd。勿回到旧 collector-repair/0.5.26 开发。
+- 依据：`E:/下载/RefTray_0.5.28_修改说明.docx`；UI 追加依据 `E:/下载/popup-preview.html` 与用户 RefTray 整体标识。确定 320px、暖灰 #f2f0eb、中/EN 按钮、原型行对齐。保留旧素材与偏好。
+- Ivy v0.5：C:/Users/Admin/.codex/ivy-dev-system/AGENTS.md，SHA256 CF3F4F57E9FFB39F91453FC5FA0AA21C58B46F08D3253668C9AE2953C2783C02。按动作读取；不重复扫描旧版本和历史。
 
-## 已修改，待整合验收
+## 按原文 01—11 的交付
 
-- P1/P2/X2：Pinterest 同源尺寸/格式合并、Pin/嵌套 visual-search 身份；X 上游 rest_id 缺失与错误身份区分、排除引用媒体。集成提交 `17118be`，源提交 `7a0928aa`。新增 helper 已接入 popup 和采集注入顺序。
-- 弹窗宽度改为 320px，暖灰底色 #f2f0eb、浮层 #faf8f3、文字 #292824、说明 #6b6860。字号沿用明确层级 17/15/13/12/11px；菜单、对话框适配宽度，避免禁用透明度叠加。
-- 开发入口改为本短交接优先；交付前必须更新状态与证据。
+“代码已实施”不等于真实网站/安装器所有交互均验收。下表明确证据范围。
 
-## 全量任务队列（仍有效，不能遗漏）
+| 编号 | 已实施 | 验证与边界 |
+|---|---|---|
+| 01 Pinterest/预识别 | Pin同源尺寸格式合并；统一Pin与嵌套路由；顶层visual-search不能确认原Pin时引导详情；单页读取已加载正文，支持未知/重试/手动选择，保存前核对URL | Pinterest7项离线通过；真实2个Pin均HTTP200但登录墙，正文图片0，在线去重与下载未能验证。预识别不下载原图/不调用视频解析器，批量开窗不扫作者全部内容。 |
+| 02 X/任务日志 | 图片不依赖视频解析，错误Promise不复用；权威主帖ID适配，引用媒体排除；任务详情/可点日志、原始日志折叠、复制脱敏 | X身份、解析失败重试及图片独立路径离线通过；原失败视频未在登录环境重下，不能宣称已修好全部X视频。 |
+| 03 进度/停止/恢复 | 整批统计与当前篇百分比分离，未知总量不显示虚假百分比；图片篇末停止确认/幂等；未完成后台保护；检查点revision+本机outbox，较新版本优先 | 3/5与5%→80%覆盖反例、停止边界/不同payload、并发版本与离线3版本补交通过；视频继续读后台终态；未达目标上限显示部分完成说明。 |
+| 04 素材完整性 | 内容参数身份保留；HTTP/base64/旧缓存真实解码；OCR无附件补图并保留OCR；抽帧partial/omitted贯穿结果，只统计确认帧 | 存储/身份/旧coverage测试通过；实际帧引擎2/5确认保存2、省略3、恢复播放通过；真实隔离HTTP保存2篇不同ID，文件解码及幂等回放通过。 |
+| 05 状态与架构 | TaskContext拥有固定选项/目录/批次/额度/backendJobId/control；TaskStore串行持久化/同步；CaptureOptions优先级与冻结恢复；create_app注入且工厂导入不碰用户状态；API受限403握手；SQL分页/详情懒加载 | 对应配置7项、TaskStore恢复/并发、1000条分页、旧任务失败摘要、导入隔离通过。平台提取器与下载实现保留，未换框架。 |
+| 06 UI规则 | 设置默认值/素材库/视频/保护分区，暖灰模块，保存/撤销状态；独立加载；禁用/键盘/焦点同步，消除透明度叠加 | 设置页浏览器夹具10项通过；原弹窗87个ID全保留；原生语言控件隐藏，中/EN按钮共用原语言设置。 |
+| 07 设置预览方向 | 采用模块区分与轻量表单；不复制旧版本演示数据 | 设置页静态/浏览器夹具验证；该节为参考说明，不另计“功能数量”。 |
+| 08 弹窗原型 | 完整RefTray+灵感采集标识；媒体过滤/数量/保存位置行；高级折叠；固定操作区、主滚动与3px滚动条；真实运行/部分/失败/停止结果和操作 | 320px无横向溢出，中/EN、批量、展开、部分完成及当前篇进度夹具通过；原型下方演示控件未放进产品。批量打开结果使用批次目录，单篇仍用作品目录。 |
+| 09 引导/更新/卸载 | 连接→实际目录读写→可跳过首次保存；后台更新等待/篇末停止/取消，确认退出才替换；默认保留数据，可选分类清理与重叠保护；Reload文字/复制地址 | API与维护测试通过；未点击真实安装器的等待/停止/清理选择。Chrome工具禁止chrome://协议，因此Reload截图和实际扩展重新加载受阻，提供手动步骤。 |
+| 10 Windows/构建 | 进程退出监测/重启入口/Job Object子树；异步组件缓存轻量health；15wheel哈希锁/离线构建/管理文件清单/保留用户数据的升级清理 | 安装器编译；隔离崩溃→托盘停止→重启、无残留子进程通过；1616依赖重复构建一致，1767文件升级模拟一致；真实用户安装未执行。 |
+| 11 验收分层 | 需求与反例对应，离线/实际HTTP/公共站点/Windows隔离分别记录；后续继续本表 | JS23项、Python顶层23项+collector29项；浏览器夹具、隔离HTTP与进程树结果见证据。不能把登录墙或工具拦截写成成功。 |
 
-1. 采集保存：P1/P2/X2 已改待实际验证；轻量页面预识别、X1 图片不依赖视频解析、D1 查询参数身份、D2 图片内容校验、D3 OCR 无文件记录补齐、D4 抽帧额度传播尚未完成。
-2. 任务契约：T1 总体/单项进度、T2 停止与幂等、T3 检查点同步；TaskContext/TaskStore/可注入 app；A1 选项合并、A2 API 重连/分页；任务日志详情。尚未实施。
-3. 运行交付：U1 引导、U2 更新、U3 卸载；W1 子进程生命周期、W2 轻量健康检查、W3 构建/升级。尚未实施。
-4. UI：320px/暖灰先落实，其余设置页、布局与任务日志按文档继续；批量打开目录必须是批次/作者/合集目录，不能误进单篇。尚未整体验收。
+## 证据与产物
 
-## 保留边界
+- `tests/collector/test_*`：保存/身份/任务配置/进度/恢复反例；`tests/test_runtime_contracts.py`、`test_installer_maintenance.py`、`test_distribution.py`：运行与分发合同。
+- `docs/runtime-0528-verification.md` 和 `docs/evidence/runtime-0528/`：隔离运行/依赖/升级证据（早期整合提交，非本机部署）。
+- `tests/collector/pinterest_public_evidence/`：真实公共Pin登录墙证据。
+- `work/http-integration.json`：本轮0.5.29独立端口HTTP保存与目录检查；未动用户服务。
+- `work/test-popup.cjs`：原87控件保留、320px、语言、批量、进度场景；截图在用户outputs。
+- `build-windows/runtime-lifecycle-results.json`：0.5.29隔离后端退出与重启结果。
+- `dist/RefTray-0.5.29-本机覆盖更新.zip`：payload+update_local.ps1，保留原安装位置；`dist/InspirationCollector-0.5.29-Windows-x64-Setup.exe`：通用安装包，尚未发布。
 
-- 保留 Hermes 已有逐篇读取保存、取消磁盘预留、任务级下载确认、下载大小限制、时长筛选、B站 CID 修复和现有后台启动链。
-- 本轮不迁移旧素材、不清空偏好、不新增后台定时任务。不把离线测试当作在线平台或安装包验证。
-- Pinterest 顶层 visual-search UI 仍保守引导原 Pin；不能确认原 Pin 时不采推荐结果。
+## 当前执行阻塞与下一步
 
-## 验证与下一步
-
-- 源修复 worker：Node Pinterest 7/7、Python collector 15/15；已验证修前反例失败。均为离线测试，无真实下载验收。
-- 主控集成复核：Pinterest Node 7/7、Python collector 15/15；background 语法和 git diff --check 通过。
-- 本地 Chrome 无头静态预览：320px 宽、scrollWidth 320；暖灰 rgb(242,240,235)；高级选项展开后宽度仍 320，高度 585.3 < 600。未连接真实扩展后台。预览见 outputs/reftray-0528-popup-320-warmgray.png（用户交付目录）。
-- 下一步：先完成第一批剩余保存问题并验证，再进入任务契约；UI 预览与实机采集验收分别记录。部署前核对本机 0.5.28 是否被 Hermes 再次改动，禁止覆盖未合并修改。
-
-## 快速核验（不扫描全库）
-
-`git status --short`；`git log -1 --oneline`；读取 `source/extension/manifest.json`。
-
-定向测试：`node --test tests/collector/test_pinterest_identity.cjs`；Python 使用已安装 `.runtime/Scripts/python.exe`，`PYTHONPATH=source`，运行 collector 测试。前端先做本地静态预览，不启动采集或下载。
+1. **自动审批拦截本机覆盖命令，返回blocked by policy，未提供具体理由。整条命令没有执行。** 不换解释器/工具绕过。原程序、素材、偏好未被该命令修改。
+2. **浏览器安全策略拒绝chrome://extensions，仅允许http/https。** 不通过其他浏览器表面、原生UI或CDP绕过。需要用户手动重新加载扩展。
+3. 用户本机更新已明确授权，但执行受上述工具策略限制。提供可检查的本机更新包给用户手动运行；完成后只读核验health版本、原目录与扩展Reload结果。首次正式发布仍需登录网站真实样本与真实安装器交互验收；未push。
+4. 本轮交付必须保持01—11编号，不再把局部改动说成整体验收完成。每次更新本文件，并区分源码、构建、安装状态。
