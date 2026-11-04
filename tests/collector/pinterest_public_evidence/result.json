@@ -1,0 +1,52 @@
+{
+  "startedAt": "2026-11-04T15:03:32.839Z",
+  "url": "https://www.pinterest.com/pin/849843392234259030/",
+  "mode": "headless Chrome, fresh nonpersistent browser context, one navigation, no user profile",
+  "navigationError": null,
+  "httpStatus": 200,
+  "navigationFailures": [
+    {
+      "url": "https://ct.pinterest.com/ct.html",
+      "error": "net::ERR_ABORTED"
+    }
+  ],
+  "finalUrl": "https://www.pinterest.com/pin/849843392234259030/",
+  "dom": {
+    "title": "Angel with wings character design | Hybird dragon, Hybrid form, Angelic warden human",
+    "textExcerpt": "跳至内容\n探索\n登录\n注册\n你已注销\n登录以获取最佳体验\n用电子邮件继续\n继续使用 Google 帐户登录\n继续即表示你同意 Pinterest 的服务条款并且确认已阅读我们的隐私政策。信息收集声明。\n欢迎来到 Pinterest\n登录以发现更多专属你的灵感\n电子邮件\n密码\n忘记密码？\n登录\n或\n继续使用 Google 帐户登录\n使用二维码继续\nPinterest 新用户？ 免费加入\n服务条款 · 隐私政策 · 信息收集声明",
+    "metadata": [
+      {
+        "key": "og:image",
+        "value": "https://i.pinimg.com/736x/cb/ce/75/cbce75f2ea20aed10127964cdadd7239.jpg"
+      },
+      {
+        "key": "og:url",
+        "value": "https://au.pinterest.com/pin/blue-and-white-character-design--304204149853900213/"
+      },
+      {
+        "key": "canonical",
+        "value": "https://au.pinterest.com/pin/blue-and-white-character-design--304204149853900213/"
+      }
+    ],
+    "imageCount": 0,
+    "marked": [],
+    "jsonScriptCount": 4
+  },
+  "extraction": {
+    "ok": true,
+    "payload": {
+      "has_live_photo": false,
+      "canonical_url": "https://www.pinterest.com/pin/849843392234259030/",
+      "page_title": "Angel with wings character design | Hybird dragon, Hybrid form, Angelic warden human",
+      "images": [],
+      "has_video": false,
+      "collection_mode": "images",
+      "platform": "pinterest",
+      "extraction_warnings": [
+        "当前 Pin 页面数据包含视频、动图或故事标记，未将封面当作静态图片保存；请等待正文媒体加载。",
+        "仅采集已加载的正文图片；未加载的轮播请翻页后再次采集，同帖会合并去重。"
+      ]
+    }
+  },
+  "finishedAt": "2026-11-04T15:03:36.634Z"
+}
