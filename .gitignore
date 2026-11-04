@@ -63,3 +63,9 @@
 **/*.sqlite*
 **/.env*
 **/*.log
+
+# Current development entry and narrow regression checks travel with the code.
+!/AGENTS.md
+!/docs/CURRENT.md
+!/tests/collector/test_pinterest_identity.cjs
+!/tests/collector/test_twitter_identity.py

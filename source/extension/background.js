@@ -44,7 +44,7 @@ async function reportProgress(value) {
 }
 
 async function inject(tabId) {
-  await chrome.scripting.executeScript({target: {tabId}, files: ["document-source.js", "platforms.js", "content.js"]});
+  await chrome.scripting.executeScript({target: {tabId}, files: ["document-source.js", "pinterest-identity.js", "platforms.js", "content.js"]});
   const reply = await chrome.tabs.sendMessage(tabId, {type: 'LIBLIB_VERSION'}).catch(() => null);
   if (reply?.version !== BUILD) throw new Error('网页仍加载旧版采集脚本。请刷新作者主页后重试（仅重开扩展弹窗不够）。');
 }
