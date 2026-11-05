@@ -256,12 +256,12 @@ class Catalog:
         return {'schema_version': 1, 'task_id': task_id, 'id': task_id, 'revision': 0,
                 **json.loads(row['data']), 'updated': row['updated'] * 1000}
 
-    def task_page(self, page=1, page_size=20):
+    def task_page(self, page=1, page_size=20, view=None, ignored_ids=(), active_id=''):
         page_size = page_size if page_size in (20, 40, 80) else 20
         page = max(1, page)
         # Project only summary keys in SQLite; never load every checkpoint/queue to slice in Python.
         fields = ('progress', 'title', 'label', 'name', 'source', 'mode', 'created',
-                  'completed', 'directory', 'batchId', 'localOnly')
+                  'completed', 'directory', 'batchId', 'localOnly', 'error', 'resolvedBy')
         projection = ','.join("json_extract(data, '$." + name + "') AS \"" + name + '\"' for name in fields)
         def count_records(condition='1'):
             return "(SELECT COUNT(*) FROM json_each(page.data,'$.records') WHERE " + condition + ')'
@@ -277,12 +277,29 @@ class Catalog:
         }
         projection += ',' + ','.join(expression + ' AS ' + name for name, expression in counters.items())
         projection += ",COALESCE(json_extract(data,'$.status'),CASE WHEN " + failed + '>0 THEN CASE WHEN ' + saved + ">0 THEN 'partial' ELSE 'failed' END WHEN json_extract(data,'$.completed')=1 THEN 'completed' ELSE 'paused' END) AS status"
+        summary = "SELECT id,updated,COALESCE(json_extract(data,'$.schema_version'),1) AS schema_version," + "COALESCE(json_extract(data,'$.revision'),0) AS revision," + projection + ' FROM tasks AS page'
+        conditions, params = [], []
+        if view is not None:
+            conditions.append("COALESCE(resolvedBy,'')=''")
+            conditions.append("(id=? OR NOT COALESCE(completed,0) OR failed>0 OR status IN ('failed','partial') OR COALESCE(error,'')!='')")
+            params.append(active_id)
+            conditions.append("(id=? OR id " + ('IN' if view == 'ignored' else 'NOT IN') + " (SELECT value FROM json_each(?)))")
+            params.extend((active_id if view != 'ignored' else '', json.dumps(list(ignored_ids))))
+            if view == 'running':
+                conditions.append('id=?'); params.append(active_id)
+            elif view == 'unfinished':
+                conditions.append("id!=? AND ((saved>0 AND (failed>0 OR status='partial')) OR (NOT COALESCE(completed,0) AND status!='failed'))")
+                params.append(active_id)
+            elif view == 'failed':
+                conditions.append("id!=? AND saved=0 AND (failed>0 OR status='failed' OR COALESCE(error,'')!='')")
+                params.append(active_id)
+            elif view == 'ignored':
+                conditions.append('id!=?'); params.append(active_id)
+        where = ' WHERE ' + ' AND '.join(conditions) if conditions else ''
         with self.connect() as db:
-            total = db.execute('SELECT COUNT(*) FROM tasks').fetchone()[0]
-            rows = db.execute("SELECT id,updated,COALESCE(json_extract(data,'$.schema_version'),1) AS schema_version,"
-                              "COALESCE(json_extract(data,'$.revision'),0) AS revision," + projection +
-                              ' FROM (SELECT id,data,updated FROM tasks ORDER BY updated DESC,id DESC LIMIT ? OFFSET ?) AS page ORDER BY updated DESC,id DESC',
-                              (page_size, (page - 1) * page_size)).fetchall()
+            total = db.execute('SELECT COUNT(*) FROM (' + summary + ')' + where, params).fetchone()[0]
+            page = min(page, max(1, (total + page_size - 1) // page_size))
+            rows = db.execute('SELECT * FROM (' + summary + ')' + where + ' ORDER BY updated DESC,id DESC LIMIT ? OFFSET ?', (*params, page_size, (page - 1) * page_size)).fetchall()
         items = []
         for row in rows:
             item = dict(row)

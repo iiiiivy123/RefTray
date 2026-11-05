@@ -157,7 +157,14 @@
       sendResponse({ok: true});
     }
     if (message.type === "LIBLIB_PAGE_PAYLOAD") {
-      try { sendResponse(window.InspirationPlatforms.extract(message.options || {})); }
+      try {
+        const payload = window.InspirationPlatforms.extract(message.options || {});
+        if (payload.platform === 'pinterest' && !payload.images.length) {
+          window.CollectorPinterest.recoverShareImage(payload, location.href).then(sendResponse);
+          return true;
+        }
+        sendResponse(payload);
+      }
       catch (error) { sendResponse({error: error.message}); }
     }
     if (message.type === "LIBLIB_DISCOVER_AUTHOR") {

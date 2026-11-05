@@ -75,7 +75,7 @@ def estimate(token):
     return {'bytes': size, 'local': False}
 
 
-def download(token, canonical, url, directory, limit, reserve, checkpoint, progress, control=lambda: 'running'):
+def download(token, canonical, url, directory, limit, reserve, checkpoint, progress, control=lambda: 'running', phase=lambda *_: None):
     recipe = selection(token, canonical, url)
     recipe.update(limit=limit, reserve=reserve)
     root = Path(directory)
@@ -87,10 +87,10 @@ def download(token, canonical, url, directory, limit, reserve, checkpoint, progr
     package = ytdlp_path()
     if not (package / 'yt_dlp/__main__.py').is_file():
         raise ValueError('本机下载组件未就绪')
-    command = [sys.executable, '-X', 'utf8', str(Path(__file__).with_name('download_public_media.py')), str(package), str(recipe_path)]
+    command = [sys.executable, '-X', 'utf8', '-B', '-m', 'server.download_public_media', str(package), str(recipe_path)]
     started = time.monotonic()
     with (root / 'engine.log').open('wb') as log:
-        process = subprocess.Popen(command, stdout=log, stderr=log, stdin=subprocess.DEVNULL,
+        process = subprocess.Popen(command, cwd=Path(__file__).resolve().parents[1], stdout=log, stderr=log, stdin=subprocess.DEVNULL,
                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         try:
             while process.poll() is None:
@@ -102,7 +102,12 @@ def download(token, canonical, url, directory, limit, reserve, checkpoint, progr
                 used = sum(p.stat().st_size for p in root.glob('track*') if p.is_file())
                 if used > limit:
                     raise ValueError('视频超过确认下载上限')
-                progress(used)
+                status = root / 'progress.json'
+                try:
+                    details = json.loads(status.read_text('utf-8')) if status.is_file() else {}
+                except (OSError, ValueError):
+                    details = {}  # Report received bytes with an unknown total instead.
+                progress(used, details)
                 time.sleep(.2)
             checkpoint()
             if process.returncode:
@@ -122,11 +127,13 @@ def download(token, canonical, url, directory, limit, reserve, checkpoint, progr
     mp4_copy=bool(track_streams) and all(s.get('codec_name') in ('h264','aac') for s in track_streams)
     container='mp4' if mp4_copy else 'matroska'
     target = root / ('merged.mp4' if mp4_copy else 'merged.mkv')
+    phase('processing', '正在合并视频轨道…' if len(paths)>1 else '正在整理视频文件…')
     command = [str(executables()[0]), '-nostdin', '-v', 'error', '-n']
     for p in paths:
         command += ['-protocol_whitelist', 'file', '-i', str(p)]
     command += ['-map', '0:v:0', '-map', '1:a:0' if len(paths) == 2 else '0:a:0?', '-c', 'copy', '-f', container, str(target)]
     run_local(command, checkpoint)
+    phase('verifying', '正在校验视频完整性…')
     result = inspect(target)
     streams = result.get('streams', [])
     if not any(s['codec_type'] == 'video' for s in streams):

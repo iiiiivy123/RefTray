@@ -19,7 +19,7 @@ async function reportProgress(value) {
   const old=(await chrome.storage.local.get(['liblibProgress'])).liblibProgress;
   if(old?.context?.id!==taskContext?.id)value=TaskProgress.reduce({},value,taskContext.batch);
   else value=TaskProgress.reduce(old,value,taskContext.batch);
-  if(batchDownloadItem)value.current={...value.current,index:batchDownloadItem.index,title:batchDownloadItem.title};
+  if(batchDownloadItem)value.current={...value.current,...batchDownloadItem};
   const detail = String(value.details || '').replace(/([?&](?:xsec_token|token|signature|auth)[^=]*=)[^\s&#]+/gi,'$1[已隐藏]');
   await chrome.storage.local.set({liblibProgress: {...value, details: detail, context:taskContext?{id:taskContext.id,url:taskContext.url,title:taskContext.title,mode:taskContext.mode}:null, build: BUILD, updatedAt: Date.now()}});
   if(taskContext?.id){
@@ -80,10 +80,19 @@ async function readPagePayload(tabId, options, current) {
   }
   await inject(tabId);
   const payload = await chrome.tabs.sendMessage(tabId, {type: "LIBLIB_PAGE_PAYLOAD", options});
+  let xPageData;
   if (payload?.error) {
-    const media=await loadedMedia(tabId);
-    if(!media.some(m=>m.kind==='video'||m.kind==='gif'))throw new Error(payload.error);
-    Object.assign(payload,{error:null,canonical_url:current.url.split('?')[0],page_title:current.title,platform:/(^|\.)(x\.com|twitter\.com)$/.test(new URL(current.url).hostname)?'x':'generic',images:[],body_text:'',has_video:true,_media:media});
+    const isX = /(^|\.)(x\.com|twitter\.com)$/.test(new URL(current.url).hostname);
+    if (isX && !options.video_only && !taskContext.options.video_only) {
+      const id = new URL(current.url).pathname.match(/\/status\/(\d+)/)?.[1];
+      xPageData = await loadedPageMedia(tabId, false);
+      if (!id || xPageData.postId !== id || !xPageData.has_gif&&!xPageData.media?.some(item => item.kind === 'photo'||item.kind==='gif') || options.md_only) throw new Error(payload.error);
+      Object.assign(payload,{error:null,platform:'x',canonical_url:current.url.split('?')[0],page_title:current.title,images:[],body_text:'',has_video:Boolean(xPageData.has_gif),collection_mode:options.collection_mode || 'images'});
+    } else {
+      const media=await loadedMedia(tabId);
+      if(!media.some(m=>m.kind==='video'||m.kind==='gif'))throw new Error(payload.error);
+      Object.assign(payload,{error:null,canonical_url:current.url.split('?')[0],page_title:current.title,platform:isX?'x':'generic',images:[],body_text:'',has_video:true,_media:media});
+    }
   }
   if (!payload) throw new Error('网页没有响应');
   if (payload.platform === 'x' && options.collection_mode === 'text' && options.include_comments) {
@@ -92,7 +101,8 @@ async function readPagePayload(tabId, options, current) {
       const [{result}] = await chrome.scripting.executeScript({target:{tabId},world:'MAIN',files:['x-comments.js']});
       const id=new URL(payload.canonical_url).pathname.match(/\/status\/(\d+)/)?.[1];
       if(!result || result.postId!==id || !Array.isArray(result.comments))throw new Error('评论与当前帖子不匹配');
-      payload.comments=result.comments; payload.comments_status=result.status;
+      const limit=Math.max(1,Math.min(100,Number(options.comment_limit)||10));
+      payload.comments=result.comments.slice(0,limit); payload.comments_status=`目标 ${limit} 条，实际读取 ${payload.comments.length} 条已加载直接回复；不足时未自动展开或滚动。`;
     } catch(error) {
       payload.comments=[];payload.comments_status='评论读取失败：'+error.message;
     }
@@ -103,10 +113,12 @@ async function readPagePayload(tabId, options, current) {
   if(pageData?.author_handle)payload.author_handle=pageData.author_handle;
   if(pageData?.media?.some(item=>item.kind==='video'||item.kind==='gif'))payload.has_video=true;
   if (!options.md_only) {
-    const found = pageData?.media || (await loadedPageMedia(tabId,false)).media || [];
+    const mediaPage = xPageData || pageData || await loadedPageMedia(tabId,false);
+    if(payload.platform==='x' && mediaPage.postId && mediaPage.postId!==new URL(payload.canonical_url).pathname.match(/\/status\/(\d+)/)?.[1]) throw new Error('页面已切换，请回到目标帖子后重试');
+    const found = mediaPage.media || [];
     const media = options.skip_gifs?found.filter(m=>m.kind!=='gif'&&m.extension!=='gif'&&!m.live_missing):found;
     if(found.length)payload.images=[];
-    payload._skippedMotion=found.length>media.length;
+    payload._skippedMotion=found.length>media.length||Boolean(mediaPage.has_gif&&options.skip_gifs);
     if(options.skip_gifs)payload.has_live_photo=false;
     payload._media=media;
     if(media.some(m=>m.kind==='video'||m.kind==='gif'))payload.has_video=true;
@@ -118,6 +130,10 @@ async function readPagePayload(tabId, options, current) {
       payload.extraction_warnings.push('图片来自与当前帖子编号匹配的已加载页面数据，跨站兼容性仍待实测。');
     }
   }
+  if(payload.platform==='x'&&options.collection_mode==='text'&&options.include_comments&&options.include_images!==false&&!options.md_only){
+    payload.images ||= [];
+    for(const comment of payload.comments||[])for(const url of comment.images||[])if(!payload.images.some(i=>i.url===url))payload.images.push({url,alt:'评论 '+comment.id});
+  }
   return payload;
 }
 
@@ -128,6 +144,7 @@ async function setMediaQuality(tabId){
   await chrome.scripting.executeScript({target:{tabId},world:'MAIN',args:[taskContext.options.video_quality||'best',taskContext.options.output_format||'original'],func:(value,format)=>{globalThis.__collectorVideoQuality=['best','1080','720','480'].includes(value)?value:'best';globalThis.__collectorOutputFormat=format==='audio'?'audio':'original';}});
 }
 async function loadedPageMedia(tabId, resolveVideo=true) {
+  let resolvingGif=false;
   await setMediaQuality(tabId);
   const tab=await chrome.tabs.get(tabId);
   if(/(^|\.)bilibili\.com$/.test(new URL(tab.url).hostname)) {
@@ -139,9 +156,15 @@ async function loadedPageMedia(tabId, resolveVideo=true) {
   try {
     await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['cat-instagram.js', 'cat-xhs.js', 'cat-media.js']});
     const [{result}] = await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['page-media.js']});
+    if(result?.has_gif&&!taskContext.options.skip_gifs&&!result.media?.some(m=>m.kind==='gif')){
+      resolvingGif=true;
+      const resolved=await matureMedia(tab.url),media=(resolved.media||[]).filter(m=>m.kind==='gif');
+      if(!media.length)throw new Error('页面标记为 GIF，但尚未解析到属于当前帖子的动图源；未保存封面');
+      return {...result,media:[...(result.media||[]).filter(m=>m.kind==='photo'),...media]};
+    }
     if(resolveVideo&&!result?.media?.length&&healthCache&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)&&/\/status\/\d+/.test(new URL(tab.url).pathname))return await matureMedia(tab.url);
     return result || {media:[]};
-  } catch(error){if(resolveVideo&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname))throw error;return {media:[]};} // DOM extraction remains available if page state is absent.
+  } catch(error){if(resolvingGif||resolveVideo&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname))throw error;return {media:[]};} // DOM extraction remains available if page state is absent.
 }
 
 async function includeProtectedImages(payload, pageUrl) {
@@ -153,8 +176,8 @@ async function includeProtectedImages(payload, pageUrl) {
     output[index]=item;
     if (item.data_base64||totalBytes>=64*1048576) continue;
     try {
-      const response = await fetch(item.url, {credentials: "include", referrer: pageUrl, signal:AbortSignal.timeout(20000)});
-      if (!response.ok) continue;
+      const response = await fetch(item.url, {credentials: payload.platform==="x"?"omit":"include", redirect: payload.platform==="x"?"error":"follow", referrer: pageUrl, signal:AbortSignal.timeout(20000)});
+      if (!response.ok || (payload.platform==='x' && !response.headers.get('Content-Type')?.startsWith('image/'))) continue;
       const chunks=[];let received=0;
       const reader=response.body.getReader();
       try{while(true){const {done,value}=await reader.read();if(done)break;
@@ -169,7 +192,7 @@ async function includeProtectedImages(payload, pageUrl) {
       for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
       output[index]={...item, data_base64: btoa(binary), content_type: blob.type};
     } catch (_error) {
-      if(_error.imageLimit)throw _error;
+      if(_error.imageLimit && payload.platform!=='x')throw _error;
     }
   }}
   await Promise.all([worker(),worker()]);
@@ -204,10 +227,10 @@ async function submit(payload, pageUrl, port) {
     await includeProtectedImages(missing,pageUrl);
     const enriched=new Map(missing.images.map(i=>[i.url,i]));payload.images=payload.images.map(i=>enriched.get(i.url)||i);
   }
-  else if(['generic','bilibili','instagram','artstation','pinterest'].includes(payload.platform)){
+  else if(['generic','bilibili','instagram','artstation','pinterest','x'].includes(payload.platform)){
     const page=new URL(pageUrl);
     const browserImages={...payload,images:payload.images.filter(item=>{
-      try{const u=new URL(item.url);return u.protocol==='https:'&&(u.origin===page.origin||payload.platform==='pinterest'&&/(^|\.)pinimg\.com$/.test(u.hostname)||payload.platform==='artstation'&&/(^|\.)artstation\.com$/.test(u.hostname)||payload.platform==='bilibili'&&/(^|\.)hdslb\.com$/.test(u.hostname)||payload.platform==='instagram'&&/(^|\.)(cdninstagram\.com|fbcdn\.net)$/.test(u.hostname));}catch(_){return false;}
+      try{const u=new URL(item.url);if(payload.platform==='x')return u.origin==='https://pbs.twimg.com' && u.pathname.startsWith('/media/');return u.protocol==='https:'&&(u.origin===page.origin||payload.platform==='pinterest'&&/(^|\.)pinimg\.com$/.test(u.hostname)||payload.platform==='artstation'&&/(^|\.)artstation\.com$/.test(u.hostname)||payload.platform==='bilibili'&&/(^|\.)hdslb\.com$/.test(u.hostname)||payload.platform==='instagram'&&/(^|\.)(cdninstagram\.com|fbcdn\.net)$/.test(u.hostname));}catch(_){return false;}
     })};
     await includeProtectedImages(browserImages,pageUrl);
     const enriched=new Map(browserImages.images.map(item=>[item.url,item]));
@@ -389,6 +412,7 @@ async function browserYouTubeCaptions(tab,canonical){
 }
 async function downloadVideo(tab, port, options, health, extractAfter) {
   if (!health.video_download) throw new Error('保存服务未加载视频下载功能，请重启保存服务。');
+  await reportProgress({stage:'resolving',percent:null,message:'正在解析当前作品的视频…'});
   const source=await videoSource(tab,options);
   if(taskContext.batch && (taskContext.options.min_duration||taskContext.options.max_duration)){
     if(!Number.isFinite(Number(source.duration))||Number(source.duration)<=0){
@@ -425,6 +449,7 @@ async function downloadVideo(tab, port, options, health, extractAfter) {
     }catch(_){source.subtitle_cues ||= [];}
   }
   if(health.space_preflight&&!approvedSizes.has(source.url)){
+    await reportProgress({stage:'checking',percent:null,message:'正在确认视频大小和保存条件…'});
     const estimate=await probeSource(source);
     await approveDownloads([{estimates:[{source,...estimate}]}]);
   }
@@ -439,7 +464,7 @@ async function downloadVideo(tab, port, options, health, extractAfter) {
       const action = liblibControl || 'stopped';
       await downloadApi(port, health.settings_token, `/video/control/${started.job_id}`, {action});
       const state = await downloadApi(port, health.settings_token, `/video/status/${started.job_id}`);
-      await reportProgress({percent: state.percent || 0, message: state.message});
+      await reportProgress({stage:state.stage||null,percent:state.percent??null,bytes:state.bytes,total:state.total,message:state.message});
       if(state.status==='completed'){await chrome.storage.local.remove('collectorBackendPending');result=state.result;completed=true;break;}
       if(['failed','stopped'].includes(state.status)){await chrome.storage.local.remove('collectorBackendPending');throw new Error(state.status==='stopped'?'USER_STOPPED':state.message);}
       await wait(800);

@@ -38,6 +38,8 @@ def create_app(runtime=None):
     videos = runtime.videos if runtime is not None else VideoDownloads(catalog)
     import_previews = {}
     folder_requests = {}
+    local_tools_busy = lambda: False
+    local_tools_stop = lambda: None
     from .components import CapabilityCache
     capability_cache = CapabilityCache()
     RELEASE = json.loads((Path(__file__).resolve().parents[1] / 'extension/manifest.json').read_text(encoding='utf-8'))['version']
@@ -54,7 +56,7 @@ def create_app(runtime=None):
     def health() -> dict[str, object]:
         # Protocol stays compatible; release identifies the deployed capabilities.
         cached = capability_cache.snapshot()
-        return {**health_protocol(), "download_protection": True, "disk_protection": False, "streaming_capture": True, "release": RELEASE, "md_only": True, "bilibili_mux": cached["values"].get("mp4_remux"), "components": cached["values"], "capabilities_state": cached["state"], "library_configured": settings.library_configured, "native_folder_picker": True, "busy": bool(active_urls) or videos.busy() or any(item.get("state") == "pending" for item in folder_requests.values())}
+        return {**health_protocol(), "download_protection": True, "disk_protection": False, "streaming_capture": True, "release": RELEASE, "md_only": True, "bilibili_mux": cached["values"].get("mp4_remux"), "components": cached["values"], "capabilities_state": cached["state"], "library_configured": settings.library_configured, "native_folder_picker": True, "busy": bool(active_urls) or videos.busy() or local_tools_busy() or any(item.get("state") == "pending" for item in folder_requests.values())}
 
 
     def health_protocol() -> dict[str, object]:
@@ -170,13 +172,20 @@ def create_app(runtime=None):
 
 
     @app.get('/tasks')
-    def task_history(request: Request, page: int | None = None, page_size: int = 20):
+    def task_history(request: Request, page: int | None = None, page_size: int = 20, view: str | None = None, ignored: str = '[]', active: str = ''):
         authorize_settings(request)
         if page is None:
             return {'items': catalog.tasks()}
         if page < 1 or not 1 <= page_size <= 100:
             raise HTTPException(422, '无效分页参数')
-        return catalog.task_page(page=page, page_size=page_size)
+        if view not in (None, 'all', 'running', 'unfinished', 'failed', 'ignored'):
+            raise HTTPException(422, '无效任务筛选')
+        try:
+            ignored_ids = json.loads(ignored)
+            if not isinstance(ignored_ids, list) or len(ignored_ids) > 10000 or any(not isinstance(x, str) or len(x)>100 for x in ignored_ids): raise ValueError()
+        except (ValueError, TypeError):
+            raise HTTPException(422, '无效任务忽略列表')
+        return catalog.task_page(page=page, page_size=page_size, view=view, ignored_ids=ignored_ids, active_id=active)
 
 
     @app.get('/tasks/{task_id}')
@@ -467,10 +476,13 @@ def create_app(runtime=None):
                 if job['status'] == 'running':
                     job.update(status='stopping', message='本篇结束后停止，正在收尾', cancel_acknowledged=False)
         videos.request_stop_all()
+        local_tools_stop()
 
     from types import SimpleNamespace
     app.state.runtime = SimpleNamespace(settings=settings, storage=storage, videos=videos, jobs=jobs, active_urls=active_urls,
                                         folder_requests=folder_requests, capability_cache=capability_cache, request_stop_all=request_stop_all)
+    from .local_tools import attach
+    local_tools_busy, local_tools_stop = attach(app, lambda: settings, authorize_settings)
     return app
 
 

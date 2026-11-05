@@ -1,6 +1,15 @@
 // UI strings only. Captured titles, paths, OCR and source documents stay unchanged.
 (() => {
   const en={
+    '管理':'Manage','任务':'Tasks','工具与帮助':'Tools & help','采集默认值':'Capture defaults','视频与保护':'Video & protection','内容偏好':'Content preferences',
+    '正在连接本地后台…':'Connecting to local service…','本地后台已连接':'Local service connected','后台连接失败':'Local service unavailable','本地服务 · 素材保存在你的文件夹':'Local service · Files stay in your folders',
+    '查看连接与诊断 ↗':'Connection & diagnostics ↗','默认值只影响未来新任务，续采保留原参数。':'Defaults apply to future tasks. Resume keeps original options.',
+    '默认设置已保存 · 仅影响之后的新任务':'Defaults saved · Applies to future tasks','有尚未保存的更改':'Unsaved changes','撤销更改':'Revert changes',
+    '遇到已保存内容':'Existing content','默认采集篇数':'Default item limit','跳过动图':'Skip animations','包含已加载评论':'Include loaded comments','图片文字识别':'Image text recognition','采样间隔':'Sampling interval',
+    '补齐缺失，不删除已有文件。':'Fill missing content; keep existing files.','网页抽帧从采集弹窗开始。':'Start web-video frames in the popup.','不保存 GIF / LIVE 动图内容。':'Skip GIF / LIVE animations.','仅页面已加载的内容。':'Already loaded content only.','本地 OCR':'Local OCR',
+    '{count} 本页':'{count} on page','下载确认 · {count}':'Download approval · {count}',
+    '扩展 {extension} · 后台 {backend}':'Extension {extension} · Service {backend}','扩展 {extension}':'Extension {extension}',
+    '已确认图片 {images} · GIF {gifs} · 视频 {videos}':'Confirmed images {images} · GIFs {gifs} · videos {videos}',
  '当前作品':'Current post','批量采集':'Batch capture','媒体过滤':'Media filters','跳过 GIF':'Skip GIFs','附带内容':'Include','正文图片':'Images','待开始':'Ready','处理中':'Processing','部分完成':'Partially complete','已完成':'Complete','已停止':'Stopped','正在收尾':'Finishing','失败':'Failed','跳过':'Skipped','选择采集内容后开始':'Choose content to begin','重新识别当前页':'Identify this page again','正在识别已加载正文…':'Checking loaded main content…','已确认图片 {images} · 视频 {videos}':'Confirmed images {images} · videos {videos}','未能识别，可手动选择采集内容。':'Could not identify content. Choose manually.',
     '后台已连接':'Backend connected',
     '下载保护':'Download protection','单个下载上限':'Download size limit','单个下载上限（MB）':'Download size limit (MB)',
@@ -64,6 +73,7 @@
     '正文图片':'Images','抽帧参数':'Frame settings','普通选择自动沿用；临时目录只用于本次。':'Choices are remembered; a temporary folder applies only to this task.',
     '仅本次另存':'Save elsewhere once','恢复默认位置':'Use library','正在打开系统目录窗口…':'Opening the system folder picker…',
     '所选位置下仍按功能和平台分类。留空使用默认素材库。':'Files remain organized by type and platform. Leave blank to use the library.',
+    '素材库未就绪':'Library setup required','此后台尚未设置素材库。上次保存位置：':'This service has no library configured. Previous save location: ','升级后遇到此提示，请先核对原后台。':'After an upgrade, check that the previous service is running.','首次使用请点右上角设置选择素材库。升级后遇到此提示，请先核对原后台。':'First use: choose a library in Settings. After an upgrade, check which service is running first.','没有符合筛选条件的记录。请清除筛选后再查。':'No matches. Clear your filters and search again.','当前后台的数据目录：{root}':'Current service data folder: {root}','这个目录中有 0 条采集记录。如果升级前有记录，请先核对原后台的数据目录。':'This folder contains 0 captures. If you had records before upgrading, check the data folder used by your previous service.',
     '请先在设置页选择素材库位置':'Choose your library folder in Settings first',
     '本次目录尚未创建，请先完成采集。':'This folder has not been created yet. Complete a capture first.',
     '素材库位置':'Library folder','首次使用：选择素材库位置':'Welcome: choose your library folder','更改素材库':'Change library','使用推荐位置':'Use recommended folder','确认素材库位置':'Confirm library folder',
@@ -193,6 +203,7 @@
     '更改默认整理方式？旧文件保留原位置，后续下载使用新方式，可能分成两处。不会移动旧文件。':'Change the default layout? Existing files stay in place; new captures may go to a different folder.',
     '篇数请填写 1–500。':'Enter a post limit from 1 to 500.'
   };
+  Object.assign(en,{'默认评论条数':'Default reply limit','评论条数':'Reply limit','视频转 GIF':'Video to GIF','提取音频':'Extract audio','选择本地视频，转换为动图。':'Convert a local video into an animated GIF.','从本地视频提取 M4A 音频。':'Extract M4A audio from a local video.','打开本地视频工具；不上传视频。':'Open local frame extraction. No cloud upload.','暂无符合筛选条件的任务':'No tasks match this filter','失败':'Failed'});
   let language='zh';const originals=new WeakMap();
   function translate(s){
     if(language!=='en')return s;

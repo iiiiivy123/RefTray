@@ -62,7 +62,7 @@ async function recordPost(key, record) {
   if(record.directory){
     const normalized=record.directory.replace(/\\/g,'/').replace(/\/$/,'');
     const parent=normalized.substring(0,normalized.lastIndexOf('/'));
-    taskContext.batch.directory ||= parent;
+    taskContext.batch.directory ||= taskContext.batch.mode==='board'?record.directory:parent;
   }
   await saveBatch();
   await reportProgress({percent:Math.min(100,Math.round(batchCount()/taskContext.batch.limit*100)),message: batchSummary(taskContext.batch), details: Object.values(taskContext.batch.records).filter(r => r.reason).map(r => r.reason).join('\n')});
@@ -79,7 +79,7 @@ async function processBatchPost(tab, port, group, payload) {
   let media = payload._preparedMedia || payload._media || (await loadedPageMedia(tab.id,Boolean(taskContext.options.video_only))).media;
   const foundMedia=media;
   if(taskContext.options.skip_gifs)media=media.filter(m=>m.kind!=='gif'&&m.extension!=='gif'&&!m.live_missing);
-  if(!taskContext.options.video_only&&!taskContext.options.md_only&&!taskContext.options.include_videos&&payload.has_video&&media.some(m=>m.kind==='video')&&!media.some(m=>m.kind==='photo'||m.kind==='gif'))return {status:'skipped',quota_exempt:true,url:payload.canonical_url,reason:'已跳过视频，不占目标篇数'};
+  if(!taskContext.options.video_only&&!taskContext.options.md_only&&!taskContext.options.include_videos&&payload.has_video&&(media.some(m=>m.kind==='video')||payload.platform==='x'&&!media.length&&!payload.images?.length)&&!media.some(m=>m.kind==='photo'||m.kind==='gif'))return {status:'skipped',quota_exempt:true,url:payload.canonical_url,reason:'已跳过视频，不占目标篇数'};
   if(taskContext.options.skip_gifs&&(foundMedia.length>media.length||payload._skippedMotion)){
     payload.has_live_photo=false;payload.images=media.filter(m=>m.kind==='photo').map(m=>({url:m.url,alt:''}));
     payload.has_video=media.some(m=>m.kind==='video');
@@ -105,6 +105,7 @@ async function processBatchPost(tab, port, group, payload) {
   if(payload._preflightIssue){failed=true;reasons.push(payload._preflightIssue);}
   const photos = media.filter(m => m.kind === 'photo').map(m => ({url: m.url, alt: ''}));
   if ((photos.length || media.length || payload._media?.length || payload._preparedMedia?.length) && (!textMode || taskContext.options.include_images)) payload.images = photos;
+  if(textMode&&taskContext.options.include_comments&&taskContext.options.include_images&&!taskContext.options.md_only){for(const c of payload.comments||[])for(const url of c.images||[])if(!payload.images.some(i=>i.url===url))payload.images.push({url,alt:'评论 '+c.id});}
   if(taskContext.options.skip_gifs)payload.images=(payload.images||[]).filter(i=>! /\.gif(?:[?#]|$)/i.test(i.url));
   if(textMode && !taskContext.options.include_images && !taskContext.options.ocr_enabled)payload.images=[];
   if (payload.images?.length || (textMode && payload.body_text?.trim())) {
@@ -117,9 +118,11 @@ async function processBatchPost(tab, port, group, payload) {
   const candidates = media.filter(m => m.kind === 'video' || m.kind === 'gif');
   if (payload.has_video && !candidates.length && !payload._preflightIssue) candidates.push({});
   if (candidates.some(m=>m.kind!=='gif') && !taskContext.options.include_videos) reasons.push('已跳过视频：批量视频开关关闭');
-  for (const candidate of candidates.filter(m=>taskContext.options.include_videos||!taskContext.options.md_only&&(!textMode||taskContext.options.include_images)&&m.kind==='gif')) {
+  const selectedCandidates=candidates.filter(m=>taskContext.options.include_videos||!taskContext.options.md_only&&(!textMode||taskContext.options.include_images)&&m.kind==='gif');
+  for (const [index,candidate] of selectedCandidates.entries()) {
     await controlPoint();
     try {
+      if(taskContext.batch)batchDownloadItem={index:index+1,total:selectedCandidates.length,title:payload.page_title};
       const result = await downloadVideo(tab, port, {...taskContext.options, group, source: candidate.url ? {...candidate, canonical_url: payload.canonical_url, page_title: payload.page_title} : null}, healthCache, taskContext.options.extract_frames);
       if(result.skipped){filteredVideos++;reasons.push(result.message);continue;}
       if(candidate.kind==='gif')reasons.push('动态源已转换为 GIF 动图保存。');
@@ -134,6 +137,8 @@ async function processBatchPost(tab, port, group, payload) {
     } catch (error) {
       if (error.message === 'USER_STOPPED' || error.message.includes('NEEDS_ATTENTION')) throw error;
       failed = true; reasons.push(error.message);
+    } finally {
+      batchDownloadItem=null;
     }
   }
   if(videoMeta.video_count)videoMeta.video_count=Math.max(0,videoMeta.video_count-filteredVideos);
@@ -202,6 +207,7 @@ async function runBoardBatch(tab, port, options) {
     return result;
   };
   const board = await snapshot();
+  taskContext.batch.queue_complete=false;
   const queue = new Set(taskContext.batch.queue);
   let idle = 0;
   const scanLimit=videoBatch()?500:Math.min(500,taskContext.batch.limit+(Number(taskContext.batch.options.skip_posts)||0));
@@ -219,6 +225,9 @@ async function runBoardBatch(tab, port, options) {
     await controlledWait(2000);
   }
   if(!queue.size)throw new Error('未识别到画板内的 Pin，未开始保存。');
+  taskContext.batch.queue_complete=true;
+  await saveBatch();
+  await reportProgress({message:`扫描完成 · 本轮 ${queue.size} 篇待处理`});
   let workTab, keep = false;
   try {
     for(const url of queue) {

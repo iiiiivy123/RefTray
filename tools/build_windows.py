@@ -1,5 +1,5 @@
 """Build an offline current-user Windows installer from clean, allowlisted source inputs."""
-import csv,ctypes,hashlib,json,re,shutil,subprocess,sys,zipfile
+import csv,ctypes,hashlib,json,re,shutil,subprocess,sys,tempfile,zipfile
 from pathlib import Path
 from build_release import build,ROOT
 PYTHON_SHA256='9e35319bffedab8b36ad44d8f377cb4f1733bcec257a0b6d04d94f01486ddb38'
@@ -71,12 +71,19 @@ def build_windows():
     (runtime/'python313._pth').write_text('python313.zip\n.\n..\nLib/site-packages\nimport site\n',encoding='ascii')
     subprocess.run([sys.executable,'-m','pip','install','--no-compile','--disable-pip-version-check','--only-binary=:all:','--platform','win_amd64','--python-version','3.13','--implementation','cp','--no-index','--find-links',str(wheelhouse),'--require-hashes','--target',str(runtime/'Lib/site-packages'),'-r',str(lockfile)],check=True)
     package=runtime/'Lib/site-packages';normalize_dependencies(package);yt_license=next((package/'yt_dlp-2026.10.26.dist-info/licenses').glob('LICENSE'))
+    # Start the real worker with the embedded interpreter; no remote request is needed.
+    with tempfile.TemporaryDirectory() as tmp:
+        recipe = Path(tmp) / 'selection.json'
+        recipe.write_text(json.dumps({'formats': [], 'platform': 'x', 'limit': 1}), encoding='utf-8')
+        subprocess.run([str(runtime/'python.exe'), '-B', '-X', 'utf8', '-m',
+                        'server.download_public_media', str(package), str(recipe)],
+                       cwd=payload, check=True, timeout=20)
     shutil.copy2(yt_license,payload/'licenses/yt-dlp-LICENSE.txt')
     shutil.copy2(ROOT/'docs/usage.md',payload/'README.md');(payload/'README.txt').write_text((ROOT/'docs/usage.md').read_text('utf-8'),encoding='utf-8-sig')
     for name in ('install.md','update.md'):
         (payload/('首次安装.txt' if name=='install.md' else '更新说明.txt')).write_text((ROOT/'docs'/name).read_text('utf-8'),encoding='utf-8-sig')
     shutil.copy2(ROOT/'DISCLAIMER.md',payload/'DISCLAIMER.md')
-    (payload/'安装后说明.html').write_text("""<!doctype html><meta charset="utf-8"><title>灵感采集安装完成</title><style>body{font:16px system-ui;max-width:760px;margin:60px auto;line-height:1.8;background:#f2f0eb;color:#292824}button{font:inherit;padding:8px 14px}</style><h1>安装完成</h1><p>后台会在安装结束后启动。扩展会实时检查连接；暂时连不上时可重试，无须重复安装。</p><p>Chrome 扩展管理地址：<code id="url">chrome://extensions</code> <button onclick="navigator.clipboard.writeText(document.getElementById('url').textContent).catch(()=>alert('请手动复制地址 chrome://extensions'))">复制地址</button></p><p>首次使用：打开此地址，启用开发者模式，加载本程序旁的 extension 文件夹。</p><p>更新用户：在灵感采集扩展卡片点击 <strong>重新加载 ⟳</strong>。刷新管理网页不会更新扩展。重新打开扩展弹窗；网页仍使用旧脚本时再刷新作品网页。</p><p>准确的扩展文件夹可从托盘菜单“复制扩展文件夹地址”获取。</p>""",encoding='utf-8')
+    (payload/'安装后说明.html').write_text("""<!doctype html><meta charset="utf-8"><title>灵感采集安装完成</title><style>body{font:16px system-ui;max-width:760px;margin:60px auto;line-height:1.8;background:#f2f0eb;color:#292824}button{font:inherit;padding:8px 14px}</style><h1>安装完成</h1><p>后台会在安装结束后启动。扩展会实时检查连接；暂时连不上时可重试，无须重复安装。</p><p>Chrome 扩展管理地址：<code id="url">chrome://extensions</code> <button onclick="navigator.clipboard.writeText(document.getElementById('url').textContent).catch(()=>alert('请手动复制地址 chrome://extensions'))">复制地址</button></p><p>首次使用：打开此地址，启用开发者模式，从系统托盘复制固定扩展文件夹地址并加载该目录。</p><p>更新用户：在灵感采集扩展卡片点击 <strong>重新加载 ⟳</strong>。刷新管理网页不会更新扩展。重新打开扩展弹窗；网页仍使用旧脚本时再刷新作品网页。</p><p>固定扩展目录可从托盘菜单“复制扩展文件夹地址”获取；安装器会更新已登记和识别的旧目录，更新后无需重新选择。</p>""",encoding='utf-8')
     metadata=ROOT/'build-windows/AssemblyInfo.cs' ;metadata.write_text('[assembly:System.Reflection.AssemblyFileVersion("'+version+'")]\n',encoding='utf-8')
     subprocess.run([r'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe','/nologo','/codepage:65001','/target:winexe','/reference:System.Windows.Forms.dll','/reference:System.Drawing.dll','/win32icon:'+str(payload/'extension/reftray-a.ico'),'/out:'+str(payload/'InspirationCollector.exe'),str(ROOT/'installer/Launcher.cs'),str(metadata)],check=True)
     inputs={'schema_version':1,'release':version,'python_sha256':PYTHON_SHA256,

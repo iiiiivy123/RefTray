@@ -88,7 +88,7 @@ class VideoDownloads:
             if any(job['status'] in ('running', 'paused') for job in self.jobs.values()):
                 raise ValueError('已有视频下载任务，请先停止或等待完成')
             job_id = secrets.token_urlsafe(24)
-            self.jobs[job_id] = dict(status='running', bytes=0, total=0, percent=0, message='连接视频源…', control='running', lease=time.monotonic())
+            self.jobs[job_id] = dict(status='running', stage='connecting', bytes=0, total=None, percent=None, message='正在连接视频源…', control='running', lease=time.monotonic())
         threading.Thread(target=self._run, args=(job_id, root, value), daemon=True).start()
         return job_id
 
@@ -184,10 +184,18 @@ class VideoDownloads:
                 limit = min(MAX_BYTES, value.max_video_mb * 1048576)
                 if value.approved_bytes is not None:
                     limit = min(limit, value.approved_bytes)
+                def downloaded(count, details):
+                    total = details.get('total')
+                    received = details.get('bytes', count)
+                    percent = min(100,received/total*100) if isinstance(total,(int,float)) and total>0 else None
+                    track = f" · 轨道 {details['track']}/{details['tracks']}" if details.get('tracks',0)>1 else ''
+                    size = f'{received/1048576:.1f} MB' + (f' / {total/1048576:.1f} MB' if total else ' · 总大小未知')
+                    self._update(job_id, stage='downloading', bytes=count, total=total, percent=percent, message='正在下载视频'+track+' · '+size)
                 cached = download(value.resolver_id, value.canonical_url, value.url, workspace.name,
                                   limit, value.min_free_mb * 1048576, lambda: self._point(job_id),
-                                  lambda count: self._update(job_id, bytes=count, message=f'下载媒体分段 {count/1048576:.1f} MB'),
-                                  lambda: self.jobs[job_id]['control'])
+                                  downloaded,
+                                  lambda: self.jobs[job_id]['control'],
+                                  phase=lambda stage, message: self._update(job_id, stage=stage, percent=None, message=message))
             if value.audio_url and not processed:
                 workspace=tempfile.TemporaryDirectory(prefix='.bili-',dir=directory)
                 tracks=[];downloaded=0;limit=min(MAX_BYTES,value.max_video_mb*1048576)
@@ -217,13 +225,13 @@ class VideoDownloads:
                                 label='视频' if index==0 else '音频'
                                 size=f'{received/1048576:.1f}'+(f'/{expected/1048576:.1f}' if expected else '')
                                 speed=received/1048576/max(now-track_started,.001)
-                                values={'bytes':downloaded,'message':f'下载{label}轨道 {index+1}/2 · {size} MB · 平均 {speed:.2f} MB/s'}
-                                if value.approved_bytes:values['percent']=min(95,downloaded/value.approved_bytes*95)
+                                values={'stage':'downloading','percent':None,'bytes':downloaded,'message':f'下载{label}轨道 {index+1}/2 · {size} MB · 平均 {speed:.2f} MB/s'}
+                                if expected:values['percent']=min(100,received/expected*100)
                                 self._update(job_id,**values)
                         if not received or expected and received!=expected:raise ValueError('音视频轨道下载不完整')
                     tracks.append(target)
                 cached=Path(workspace.name)/'merged.mp4'
-                self._update(job_id,message='音视频已下载，正在合并并检查完整性…')
+                self._update(job_id,stage='processing',percent=None,message='音视频已下载，正在合并并检查完整性…')
                 bilibili_media.mux(*tracks,cached,lambda:self._point(job_id))
                 if cached.stat().st_size>limit:raise ValueError('合并视频超过文件大小限制')
             temporary = directory / f'.video-{job_id}.part'
@@ -262,16 +270,16 @@ class VideoDownloads:
                         # Disk reserve policy removed; OS write errors still propagate.
                         target.write(chunk)
                         digest.update(chunk)
-                        self._update(job_id, bytes=received, total=expected,
-                            percent=min(99, int(received / expected * 100)) if expected else 0,
-                            message=f'下载视频 {received / 1048576:.1f} MB' + (f' / {expected / 1048576:.1f} MB' if expected else ''))
+                        self._update(job_id, stage='processing' if cached else 'downloading', bytes=received, total=expected or None,
+                            percent=min(100, int(received / expected * 100)) if expected else None,
+                            message=('正在整理本地视频 ' if cached else '正在下载视频 ') + f'{received / 1048576:.1f} MB' + (f' / {expected / 1048576:.1f} MB' if expected else ' · 总大小未知'))
                 self._point(job_id)
                 if not received or (expected and received != expected):
                     raise ValueError('视频下载不完整，未标记为成功')
             if value.output_format == 'gif' and suffix != '.gif':
                 from .gif_media import convert
                 converted = directory / f'.gif-{job_id}.gif'
-                self._update(job_id, message='正在转换为 GIF 动图…')
+                self._update(job_id, stage='processing', percent=None, message='正在转换为 GIF 动图…')
                 convert(temporary, converted, lambda: self._point(job_id), value.min_free_mb)
                 temporary.unlink()
                 temporary = converted
@@ -292,7 +300,7 @@ class VideoDownloads:
             if not processed and mime != 'image/gif':
                 from .media_output import transform, trimmed_cues
                 converted = directory / (f'.output-{job_id}' + ('.m4a' if value.output_format == 'audio' else '.mp4'))
-                self._update(job_id, message='正在提取音频…' if value.output_format == 'audio' else '正在检查并统一为 MP4（H.264/AAC）…')
+                self._update(job_id, stage='processing', percent=None, message='正在提取音频…' if value.output_format == 'audio' else '正在检查并统一为 MP4（H.264/AAC）…')
                 duration = transform(temporary, converted, value, lambda: self._point(job_id))
                 value.subtitle_cues = trimmed_cues(value.subtitle_cues, value.trim_start, duration-value.trim_end)
                 temporary.unlink()
@@ -306,6 +314,7 @@ class VideoDownloads:
                 audio_present=any(s.get('codec_type')=='audio' for s in bilibili_media.inspect(temporary).get('streams',[]))
                 if not audio_present:
                     media_warning='文件已保存，但没有音轨；尚未确认原帖是否无声，不能认定完整成功。网页静音不会删除下载音轨。'
+            self._update(job_id, stage='processing', percent=None, message='正在校验并准备保存…')
             filename = (safe(value.page_title or '视频')[:100] + '_' + digest.hexdigest()[:8] if suffix != '.gif' else 'animation_' + digest.hexdigest()[:16]) + suffix
             destination = directory / filename
             if destination.resolve().parent != directory.resolve():
@@ -321,7 +330,7 @@ class VideoDownloads:
             subtitle_file = None
             if value.subtitle_mode != 'none' and mime.startswith('video/'):
                 from .subtitles import save as save_subtitles
-                self._update(job_id, message='视频已保存，正在提取字幕和 Markdown…')
+                self._update(job_id, stage='processing', percent=None, message='视频已保存，正在提取字幕和 Markdown…')
                 try:
                     subtitle_file, subtitle_origin = save_subtitles(destination, directory, value.subtitle_cues, lambda: self._point(job_id), value)
                 except InterruptedError:
@@ -344,6 +353,7 @@ class VideoDownloads:
                         self.catalog.record(value.canonical_url,value.page_title,value.author_name,'text',reading_directory,[str(p.relative_to(reading_directory)) for p in (md,)],{'text':True,'category':'text'})
                     self._update(job_id,status='completed',percent=100,message='文字稿 MD 已保存',result={'path':str(md),'directory':str(reading_directory),'relative_file':str(md.relative_to(reading_directory)),'mime':'text/markdown','subtitle_source':subtitle_origin,'duplicate':False})
                     return
+            self._update(job_id, stage='saving', percent=None, message='正在保存来源记录…')
             record = {'source_url': value.canonical_url, 'page_title': value.page_title,
                       'file': filename, 'sha256': digest.hexdigest(), 'bytes': received}
             record.update(download_method=value.media_kind, audio_present=audio_present, resolver_warning=value.resolver_warning)

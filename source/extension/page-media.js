@@ -58,18 +58,20 @@
     const children = Object.values(value);
     for (let i = 0; i < Math.min(children.length, 500); i++) if (children[i] && typeof children[i] === 'object') stack.push(children[i]);
   }
+  let hasGif=false;
   if(x&&!best.length){
     const article=[...document.querySelectorAll('article[data-testid="tweet"]')].find(a=>a.querySelector('a[href*="/status/"] time')?.closest('a')?.getAttribute('href')?.match(/\/status\/(\d+)/)?.[1]===id);
     for(const video of article?.querySelectorAll('video')||[]){
       if(video.mediaKeys||video.closest('[data-testid="quoteTweet"]'))continue;
-      const url=video.currentSrc||video.src;
-      if(!/^https:\/\//.test(url)||/\.(m3u8|mpd)(?:[?#]|$)/i.test(url))continue;
       const component=video.closest('[data-testid="videoComponent"],[data-testid="videoPlayer"]');
       const gif=component&&[...component.querySelectorAll('span,[aria-label]')].some(n=>/^(GIF|Animated GIF)$/i.test((n.getAttribute('aria-label')||n.textContent||'').trim()));
+      hasGif ||= Boolean(gif);
+      const url=video.currentSrc||video.src;
+      if(!/^https:\/\//.test(url)||/\.(m3u8|mpd)(?:[?#]|$)/i.test(url))continue;
       best.push({kind:gif?'gif':'video',url,extension:'mp4'});
     }
   }
-  return {postId: id, author_handle, media: best.slice(0, 100).filter(item => {
+  return {postId: id, author_handle, has_gif:hasGif||best.some(m=>m.kind==='gif'), media: best.slice(0, 100).filter(item => {
     try {
       const url = new URL(item.url);
       return url.protocol === 'https:' && /(^|\.)(xhscdn\.com|xhscdn\.net|xhsimg\.com|cdninstagram\.com|fbcdn\.net|twimg\.com)$/.test(url.hostname);

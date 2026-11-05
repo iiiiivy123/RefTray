@@ -9,6 +9,24 @@ from server.catalog import Catalog
 
 
 class TaskCatalogTests(unittest.TestCase):
+    def test_filter_before_pagination_and_partial_is_unfinished(self):
+        with tempfile.TemporaryDirectory() as root:
+            catalog = Catalog(Path(root))
+            for n in range(47):
+                catalog.save_task({'id': f'bad-{n}', 'completed': True, 'status': 'failed', 'saved': 0, 'failed': 1})
+            catalog.save_task({'id': 'partial', 'completed': True, 'status': 'partial', 'saved': 1, 'failed': 1})
+            catalog.save_task({'id': 'success', 'completed': True, 'status': 'completed', 'saved': 1, 'failed': 0})
+            catalog.save_task({'id': 'paused', 'completed': False, 'status': 'paused', 'saved': 0, 'failed': 0})
+            first = catalog.task_page(page=1, page_size=20, view='failed')
+            last = catalog.task_page(page=3, page_size=20, view='failed')
+            self.assertEqual((first['total'], len(first['items']), len(last['items'])), (47, 20, 7))
+            self.assertFalse(set(x['id'] for x in first['items']) & set(x['id'] for x in last['items']))
+            unfinished = catalog.task_page(view='unfinished')
+            self.assertEqual({x['id'] for x in unfinished['items']}, {'partial', 'paused'})
+            ignored = catalog.task_page(view='ignored', ignored_ids=['bad-0'])
+            self.assertEqual([x['id'] for x in ignored['items']], ['bad-0'])
+            self.assertEqual(catalog.task_page(view='failed', ignored_ids=['bad-0'])['total'], 46)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)

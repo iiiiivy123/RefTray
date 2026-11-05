@@ -37,7 +37,8 @@
     try {
       const url = new URL(value, globalThis.location?.href);
       if (!['http:', 'https:'].includes(url.protocol)) return '';
-      if (kind === 'x' && url.hostname === 'pbs.twimg.com' && url.pathname.startsWith('/media/')) url.searchParams.set('name', 'orig');
+      // X's public WebP renditions return 404 for name=orig; retain their offered size.
+      if (kind === 'x' && url.hostname === 'pbs.twimg.com' && url.pathname.startsWith('/media/') && ['jpg','jpeg','png'].includes(url.searchParams.get('format'))) url.searchParams.set('name', 'orig');
       return url.href;
     } catch (_) { return ''; }
   }
@@ -47,17 +48,18 @@
     const identity = pinterest?.resolvePage(doc, pageUrl);
     const pinId = identity?.id;
     if (!pinId) return {images: [], inferred: false, guidance: pinterestGuidance};
-    const eligible = img => {
+    const eligible = (img, closeup = null) => {
       try {
         const url = new URL(imageUrl(img, 'pinterest'));
         if (!hostIs(url.hostname, 'pinimg.com') || /avatar|profile|75x75|30x30/.test(url.pathname)) return false;
         const link = img.closest('a[href]');
         const linkedId = link && pinterest.pinId(new URL(link.href, pageUrl).href);
-        if (img.closest('[data-test-id="related-pins"],[data-test-id="more-ideas"],[data-test-id="promoted-pin"],[data-test-id="visual-search-results"],[data-test-id="masonry-container"],[role="listitem"]')) return false;
+        const excluded = img.closest('[data-test-id="related-pins"],[data-test-id="more-ideas"],[data-test-id="promoted-pin"],[data-test-id="visual-search-results"],[data-test-id="masonry-container"],[role="listitem"]');
+        if (excluded && (!closeup || closeup.contains(excluded))) return false;
         return (!linkedId || linkedId === pinId) && Math.max(img.naturalWidth || 0, img.width || 0) >= 180;
       } catch (_) { return false; }
     };
-    const toImages = nodes => pinterest.mergeImages(nodes.filter(eligible).flatMap(img => {
+    const toImages = (nodes, closeup = null) => pinterest.mergeImages(nodes.filter(img => eligible(img, closeup)).flatMap(img => {
       const srcsets = [img.getAttribute?.('data-srcset'), img.srcset].filter(Boolean);
       const candidates = srcsets.flatMap(set => set.split(',').map(part => {
         const [url, descriptor] = part.trim().split(/\s+/);
@@ -72,6 +74,16 @@
         } catch (_) { return []; }
       });
     }));
+    // Pinterest's current closeup is itself inside the page's masonry/listitem.
+    // Scope exclusions to descendants of the unique main-image container; an
+    // outer layout wrapper does not turn the main image into a recommendation.
+    const closeups = [...doc.querySelectorAll('[data-test-id="closeup-body-image-container"]')];
+    if (!identity.visual && closeups.length === 1) {
+      const closeup = closeups[0];
+      if (closeup.querySelector('video')) return {images: [], inferred: false, blockedStateMedia: true};
+      const main = toImages([...closeup.querySelectorAll('img')], closeup);
+      if (main.length) return {images: main, inferred: false};
+    }
     // A marker can be the image itself, not necessarily a wrapper containing img.
     const marked = [...doc.querySelectorAll('[data-test-id="pin-closeup-image"],[data-test-id="closeup-image"],[data-test-id="pin-closeup-image-container"]')];
     const explicit = toImages(marked.flatMap(node => node.tagName === 'IMG' ? [node] : [...node.querySelectorAll('img')]));
@@ -172,6 +184,24 @@
         add(url, img.alt || '');
       }
     }
+    // The public X layout puts a /photo/N permalink above each picture.
+    // Scope each fallback to that permalink's own tile, even if replies are visible.
+    if (kind === 'x' && !images.length) {
+      const path = location.pathname.match(/^(\/[\w]+\/status\/\d+)(?:\/|$)/i)?.[1];
+      for (const link of document.querySelectorAll('article a[href*="/photo/"]')) {
+        const target = new URL(link.href);
+        if (!path || target.origin !== location.origin || !/^\/\w+\/status\/\d+\/photo\/\d+\/?$/i.test(target.pathname) || !target.pathname.toLowerCase().startsWith(path.toLowerCase()+'/photo/')) continue;
+        let tile = link.parentElement;
+        while (tile && tile.tagName !== 'ARTICLE' && tile.querySelectorAll('a[href*="/photo/"]').length === 1) {
+          const photos = tile.querySelectorAll('img[src^="https://pbs.twimg.com/media/"]');
+          if (photos.length) {
+            if (photos.length === 1) add(imageUrl(photos[0], kind), photos[0].alt || '');
+            break;
+          }
+          tile = tile.parentElement;
+        }
+      }
+    }
     // Only use OG on a confirmed post route and when the metadata URL matches this post.
     const ogUrl = meta('og:url');
     let matchingMeta = false;
@@ -181,14 +211,21 @@
     }
     if (!images.length && matchingMeta && !blockedPinterestStateMedia && !(root && root.querySelector('video'))) {
       const ogImage = meta('og:image');
-      if (kind !== 'pinterest' || (() => { try { const u = new URL(ogImage); return u.protocol === 'https:' && hostIs(u.hostname, 'pinimg.com'); } catch (_) { return false; } })()) add(ogImage);
+      if (kind === 'x' ? /^https:\/\/pbs\.twimg\.com\/media\//.test(ogImage) && /^(?:https:\/\/)(?:www\.)?(?:x|twitter)\.com\//i.test(ogUrl) : kind !== 'pinterest' || (() => { try { const u = new URL(ogImage); return u.protocol === 'https:' && hostIs(u.hostname, 'pinimg.com'); } catch (_) { return false; } })()) add(ogImage);
       if (images.length) warnings.push('仅取得帖子分享图，不能据此确认轮播全部图片已保存。');
+    }
+    let publicXVideo = false;
+    if (kind === 'x' && !root && matchingMeta) {
+      const mainLink = [...document.querySelectorAll('article a[aria-current="page"]')].find(link=>link.origin===location.origin && link.pathname===location.pathname);
+      publicXVideo = Boolean(mainLink?.closest('article')?.querySelector('video'));
+      if (!images.length && /^Age-restricted adult content/i.test(meta('og:description'))) throw new Error('X 限制了这条帖子的媒体，请在浏览器登录并确认正文可见后重试');
     }
     const canonical = new URL(pinterestPage?.url || location.href); canonical.hash = '';
     if (!['xhs','generic'].includes(kind)) canonical.search = '';
     const genericTitle=()=>{const heading=text(document.querySelector('#firstHeading,h1'))||document.title;const site=meta('og:site_name')||location.hostname;return heading.toLowerCase().includes(site.toLowerCase())?heading:site+' · '+heading;};
     const payload = {has_live_photo:kind==='xhs'&&Boolean(root?.querySelector('video.live-video')),canonical_url: canonical.href, page_title: kind==='generic'?genericTitle():text(first('h1,#detail-title'))||document.title,
-      images, has_video: Boolean(root?.querySelector('video')), collection_mode: options.collection_mode || 'images', platform: kind, extraction_warnings: warnings};
+      images, has_video: publicXVideo || Boolean(root?.querySelector('video')), collection_mode: options.collection_mode || 'images', platform: kind, extraction_warnings: warnings};
+    if (blockedPinterestStateMedia) payload.pinterest_motion = true;
     if(kind==='instagram' && root) {
       const owner=first('header a[href],h2 a[href]');
       try {
@@ -228,6 +265,6 @@
     }
     return payload;
   }
-  globalThis.InspirationPlatforms = {platform, imageUrl, extract};
+  globalThis.InspirationPlatforms = {platform, imageUrl, pinterestImages, extract};
   if (typeof module !== 'undefined') module.exports = {platform, imageUrl, pinterestImages, extract};
 })();

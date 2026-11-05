@@ -3,9 +3,14 @@ import ipaddress
 import socket
 from http.client import HTTPConnection, HTTPSConnection
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, HTTPHandler, HTTPSHandler, ProxyHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPHandler, HTTPSHandler, ProxyHandler, Request, build_opener, getproxies, proxy_bypass
 
 MAX_BYTES = 30 * 1024 * 1024
+
+
+def platform_cdn(host):
+    return any(host == domain or host.endswith('.' + domain)
+               for domain in ('pinimg.com', 'twimg.com'))
 
 
 def public_addresses(host, port):
@@ -37,8 +42,24 @@ class PublicHTTPConnection(HTTPConnection):
 
 class PublicHTTPSConnection(HTTPSConnection):
     def connect(self):
-        PublicHTTPConnection.connect(self)
-        self.sock = self._context.wrap_socket(self.sock, server_hostname=self.host)
+        target_host, target_port = self.host, self.port
+        proxy = getproxies().get('https') if not proxy_bypass(target_host) else None
+        if proxy:
+            parsed = urlsplit(proxy if '://' in proxy else 'http://' + proxy)
+            if parsed.scheme != 'http' or not parsed.hostname or parsed.username or parsed.password:
+                raise ValueError('图片下载需要无认证的 HTTP 系统代理')
+            # CDN routing may depend on proxy-side DNS. Permit that only for
+            # these fixed platform CDN domains; arbitrary hosts remain IP-pinned.
+            destination = target_host if platform_cdn(target_host) else public_addresses(target_host, target_port)[0][4][0]
+            self.host, self.port = parsed.hostname, parsed.port or 80
+            self.set_tunnel(destination, target_port)
+            try:
+                HTTPConnection.connect(self)
+            finally:
+                self.host, self.port = target_host, target_port
+        else:
+            PublicHTTPConnection.connect(self)
+        self.sock = self._context.wrap_socket(self.sock, server_hostname=target_host)
 
 
 class PublicHTTPHandler(HTTPHandler):
@@ -58,7 +79,10 @@ def validate_url(value):
             or parsed.username is not None or parsed.password is not None
             or parsed.port not in (None, 80, 443)):
         raise ValueError('图片只支持普通 HTTP(S) 公网地址')
-    public_addresses(host, parsed.port or (443 if parsed.scheme == 'https' else 80))
+    # These fixed HTTPS CDN names are resolved by the user's existing proxy;
+    # requiring local DNS would break the same proxy-only networks again.
+    if not (parsed.scheme == 'https' and platform_cdn(host) and getproxies().get('https') and not proxy_bypass(host)):
+        public_addresses(host, parsed.port or (443 if parsed.scheme == 'https' else 80))
     return value
 
 
@@ -70,7 +94,7 @@ class SafeImageRedirect(HTTPRedirectHandler):
 
 def download_image(url, timeout):
     request = Request(validate_url(url), headers={'User-Agent': 'Mozilla/5.0', 'Referer': url})
-    # Direct connections prevent environment proxies from bypassing destination checks.
+    # Arbitrary destinations stay IP-pinned; fixed platform CDNs use proxy DNS.
     with build_opener(ProxyHandler({}), PublicHTTPHandler(), PublicHTTPSHandler(), SafeImageRedirect()).open(request, timeout=timeout) as response:
         if response.status != 200:
             raise ValueError('图片响应不完整，未保存')

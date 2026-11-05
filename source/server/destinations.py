@@ -39,6 +39,10 @@ def note_media_layout(value):
     host = urlsplit(value.canonical_url).hostname or ''
     return (value.collection_mode == 'text' or host == 'xiaohongshu.com' or host.endswith('.xiaohongshu.com')) and value.layout != 'direct' and not value.md_only
 
+def pinterest_image_layout(value):
+    host = urlsplit(value.canonical_url).hostname or ''
+    return (host in ('pinterest.com', 'pinterest.cn') or host.endswith(('.pinterest.com', '.pinterest.cn'))) and value.collection_mode == 'images' and value.capture_kind != 'video'
+
 def resolve_destination(root, value):
     root = Path(value.destination).expanduser() if value.destination else Path(root)
     if not root.is_absolute(): raise ValueError('请使用完整的保存路径')
@@ -70,6 +74,24 @@ def resolve_destination(root, value):
     elif organized:
         parent = parent / (('图文' if value.collection_mode == 'text' else '图片') + ('批量' if board or author else '单帖'))
     if layout == 'legacy': parent = root / ('画板采集' if board else '作者采集' if author else '图文采集' if value.collection_mode == 'text' else '普通采集')
+    if pinterest_image_layout(value):
+        # New captures share media/source indexes; never search or migrate old Pin folders.
+        group_url = list_url or board or author
+        if group_url:
+            identity = hashlib.sha256(source_key(group_url).encode()).hexdigest()[:12]
+            directory = parent / safe(value.list_name or value.board_name or value.author_name or '未命名画板')
+            marker = directory / '_来源记录' / 'identity.json'
+            if marker.exists() and json.loads(marker.read_text(encoding='utf-8')).get('identity') != identity:
+                directory = directory.with_name(directory.name + '_' + identity)
+            marker = directory / '_来源记录' / 'identity.json'
+        else:
+            directory, marker = parent, None
+        if not directory.resolve().is_relative_to(root): raise ValueError('保存路径无效')
+        directory.mkdir(parents=True, exist_ok=True)
+        if marker:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text(json.dumps({'identity': identity}), encoding='utf-8')
+        return directory, True, page_id
     group_url = board or author
     group_name = value.board_name if board else value.author_name if author else None
     if list_url and value.directory_schema == 'function-platform-v2':

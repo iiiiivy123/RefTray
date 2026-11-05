@@ -49,7 +49,32 @@
     }
     return [...unique.values()].map(({url, alt}) => ({url, alt: alt || ''}));
   }
-  const api = {pinId, canonicalUrl, resolvePage, sourceKey, mergeImages};
+  // A client-side navigation can leave the previous Pin's share tags in place.
+  // A fresh document is useful only if its own metadata confirms this exact Pin.
+  async function recoverShareImage(payload, pageUrl) {
+    const id = pinId(pageUrl);
+    if (!id || payload.platform !== 'pinterest' || payload.collection_mode !== 'images' ||
+        payload.images.length || payload.has_video || payload.pinterest_motion ||
+        new URL(pageUrl).pathname.includes('/visual-search')) return payload;
+    try {
+      const response = await fetch(canonicalUrl(pageUrl), {credentials: 'same-origin',
+        cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(3500)});
+      if (!response.ok || pinId(response.url) !== id) return payload;
+      const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+      const identities = Array.from(doc.querySelectorAll('link[rel="canonical"],meta[property="og:url"]'),
+        node => pinId(node.getAttribute('href') || node.content));
+      if (!identities.length || identities.some(value => value !== id)) return payload;
+      if (doc.querySelector('meta[property^="og:video"]') ||
+          /^video/i.test(doc.querySelector('meta[property="og:type"]')?.content || '')) return payload;
+      const confirmed = globalThis.InspirationPlatforms.pinterestImages(doc, response.url);
+      if (confirmed.blockedStateMedia) return payload;
+      const url = new URL(doc.querySelector('meta[property="og:image"]')?.content || '');
+      if (url.protocol !== 'https:' || !hostIs(url.hostname, 'pinimg.com')) return payload;
+      return {...payload, images: [{url: url.href, alt: ''}],
+        extraction_warnings: [...payload.extraction_warnings, '已按当前 Pin 编号核对并取得分享图。']};
+    } catch (_) { return payload; }
+  }
+  const api = {pinId, canonicalUrl, resolvePage, sourceKey, mergeImages, recoverShareImage};
   globalThis.CollectorPinterest = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

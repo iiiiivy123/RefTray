@@ -37,7 +37,8 @@
       const content=value.note_tweet?.note_tweet_results?.result?.text || legacy.full_text || value.fullText || article.querySelector('[data-testid="tweetText"]')?.innerText || '';
       const user=value.core?.user_results?.result;
       const author=user?.legacy?.screen_name || user?.core?.screen_name || article.querySelector('[data-testid="User-Name"]')?.innerText || null;
-      if(String(content).trim())comments.set(id,{text:String(content).trim().slice(0,10000),author:author?String(author).slice(0,1000):null});
+      const images=[...article.querySelectorAll('[data-testid="tweetPhoto"] img')].filter(img=>!img.closest('[data-testid="quoteTweet"],[data-testid="videoPlayer"],[data-testid="videoComponent"]')).map(img=>img.currentSrc||img.src).filter(url=>/^https:\/\/pbs\.twimg\.com\/media\//.test(url));
+      if(String(content).trim()||images.length)comments.set(id,{id,url:linkFor(id),text:String(content).trim().slice(0,10000),author:author?String(author).slice(0,1000):null,images:[...new Set(images)]});
     }
     for(const [key,descriptor] of Object.entries(Object.getOwnPropertyDescriptors(value)).slice(0,300)) {
       if(['return','alternate','stateNode','_owner','ownerDocument','parentNode'].includes(key))continue;
@@ -45,6 +46,7 @@
       if(child && typeof child==='object')stack.push({value:child,depth:depth+1});
     }
   }
+  function linkFor(id){return 'https://x.com/i/status/'+id;}
   const ordered=[...rendered.keys()].filter(id=>comments.has(id)).map(id=>comments.get(id));
   return {postId:target,comments:ordered,status:ordered.length ? `已读取 ${ordered.length} 条已加载直接回复（不含未确认归属或嵌套回复）` : '未确认到已加载的直接回复：可能未加载、没有回复或页面结构不匹配'};
 })();

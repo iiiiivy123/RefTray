@@ -17,6 +17,9 @@ class ImageItem(BaseModel):
 class CommentItem(BaseModel):
     text: str = Field(max_length=10000)
     author: str | None = Field(default=None, max_length=1000)
+    id: str | None = Field(default=None, max_length=100)
+    url: str | None = Field(default=None, max_length=4000)
+    images: list[str] = Field(default_factory=list, max_length=100)
 
 
 class DocumentBlock(BaseModel):
@@ -206,6 +209,7 @@ class CaptureDefaults(BaseModel):
     duplicate_policy: Literal['fill','skip','refresh'] = 'fill'
     include_images: bool = True
     include_comments: bool = False
+    comment_limit: int = Field(default=10, ge=1, le=100)
     ocr_enabled: bool = True
     strategy: Literal['slides','interval'] = 'slides'
     interval: float = Field(default=1, ge=0.5, le=60, allow_inf_nan=False)

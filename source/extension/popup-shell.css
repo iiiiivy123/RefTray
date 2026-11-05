@@ -68,3 +68,30 @@ body:has(>#scroll-content){width:320px;background:var(--paper)}
 .popup-redesign #result-context{display:none!important}
 
 .popup-redesign #task-result-summary{white-space:pre-wrap;font-family:inherit;font-size:11px;line-height:1.65;overflow-wrap:anywhere;max-height:260px;overflow:auto;margin:6px 0 12px}.popup-redesign #raw-diagnostics{font-size:11px}
+
+/* Shared action geometry: override legacy ID styles after relocation. */
+.popup-redesign .result-actions{gap:0;flex-wrap:wrap;align-items:center}
+.popup-redesign .result-actions button.text-button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;font:400 11px/16px 'Segoe UI','Microsoft YaHei',sans-serif;min-height:28px;height:28px;margin:0!important;padding:0 6px;border:0;float:none}
+.popup-redesign .result-actions button.text-button+button.text-button{border-left:1px solid var(--line);padding:0 6px}
+.popup-redesign .result-actions button.text-button:first-child{padding-left:0}
+.popup-redesign .result-actions button[hidden]{display:none!important}
+.popup-redesign #advanced-summary{display:none}
+.popup-redesign .control-arrow,.popup-redesign .select-trigger::after{display:block;content:'';width:0;height:0;border:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor;flex:none;color:var(--ink);transform:none}
+.popup-redesign .control-arrow.arrow-right{transform:rotate(-90deg)}
+.popup-redesign .advanced-options[open]>summary .control-arrow{transform:rotate(180deg)}
+.popup-redesign .advanced-options>summary{font:400 12px/18px 'Segoe UI','Microsoft YaHei',sans-serif;min-height:38px}
+.popup-redesign .path-button{padding-right:2px}
+.popup-redesign .advanced-options>summary .control-arrow{margin-right:2px}
+
+/* These relocated IDs had higher specificity than the shared class rules. */
+.popup-redesign .result-actions :is(#retry-failed,#open-result,#task-details){display:inline-flex;align-items:center;justify-content:center;font:400 11px/16px 'Segoe UI','Microsoft YaHei',sans-serif;box-sizing:border-box;height:28px;min-height:28px;padding:0 6px;margin:0!important;border:0;float:none;white-space:nowrap}
+.popup-redesign .result-actions :is(#retry-failed,#open-result,#task-details)+button{padding:0 6px;border-left:1px solid var(--line)}
+.popup-redesign .result-actions :is(#retry-failed,#open-result,#task-details):first-child{padding-left:0}
+.popup-redesign .result-actions :is(#retry-failed,#open-result,#task-details)[hidden]{display:none!important}
+.popup-redesign .task-ring.indeterminate #ring-value{stroke-dasharray:45 131;stroke-dashoffset:0!important;transform-origin:32px 32px;animation:task-scan 1.2s linear infinite}
+@keyframes task-scan{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.popup-redesign .task-ring.indeterminate #ring-value{animation:none}}
+.popup-redesign .result-stages{display:flex;gap:5px;margin:5px 0 7px;font-size:10px;color:var(--muted)}
+.popup-redesign .result-stages[hidden]{display:none}
+.popup-redesign .result-stages span{padding:2px 5px;border-bottom:2px solid transparent}
+.popup-redesign .result-stages span.current{color:var(--ink);font-weight:600;border-bottom-color:var(--ink)}

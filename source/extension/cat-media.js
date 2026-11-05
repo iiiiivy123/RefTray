@@ -10,6 +10,7 @@
       const url = new URL(String(value || ""));
       const extensionMatch = url.pathname.match(/\.(jpe?g|png|webp|gif)$/i);
       let extension = extensionMatch ? extensionMatch[1].toLowerCase() : /^(jpg|jpeg|png|webp|gif)$/i.test(url.searchParams.get("format")||"") ? url.searchParams.get("format").toLowerCase() : "jpg";
+      if (extension === "webp" && !extensionMatch) return {url: url.href, extension};
       if (extension === "jpeg") extension = "jpg";
       if (extensionMatch) url.pathname = url.pathname.slice(0, -extensionMatch[0].length);
       url.search = "";

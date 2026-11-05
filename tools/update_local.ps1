@@ -1,19 +1,21 @@
 ﻿param(
  [string]$ProgramDirectory='F:\LibLib自动化\plugins\liblib-automation\scripts\collector',
  [string]$StateDirectory='F:\LibLib自动化',
- [string]$Payload=(Join-Path $PSScriptRoot 'payload')
+ [string]$Payload=(Join-Path $PSScriptRoot 'payload'),
+ [switch]$ValidateOnly
 )
 $ErrorActionPreference='Stop'
 $target=[IO.Path]::GetFullPath($ProgramDirectory).TrimEnd('\')
 $state=[IO.Path]::GetFullPath($StateDirectory).TrimEnd('\')
 $source=[IO.Path]::GetFullPath($Payload).TrimEnd('\')
-if (-not (Test-Path -LiteralPath (Join-Path $target 'extension\manifest.json'))) {throw '没有找到原安装；未修改任何文件。'}
-$manifest=Get-Content -LiteralPath (Join-Path $source 'managed-files.json') -Raw | ConvertFrom-Json
+$manifest=Get-Content -LiteralPath (Join-Path $source 'managed-files.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 foreach($entry in $manifest.files.PSObject.Properties){
  $path=[IO.Path]::GetFullPath((Join-Path $source $entry.Name))
  if(-not $path.StartsWith($source+'\',[StringComparison]::OrdinalIgnoreCase)){throw '更新清单路径无效'}
  if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.Value){throw '更新包校验失败，未覆盖程序。'}
 }
+if($ValidateOnly){Write-Host ('Package validation passed: '+@($manifest.files.PSObject.Properties).Count);return}
+if (-not (Test-Path -LiteralPath (Join-Path $target 'extension\manifest.json'))) {throw '没有找到原安装；未修改任何文件。'}
 $config=Join-Path $state 'data\inspiration\collector-settings.json'
 $configHash=if(Test-Path -LiteralPath $config){(Get-FileHash -LiteralPath $config).Hash}else{$null}
 $connection=Get-NetTCPConnection -LocalPort 8766 -State Listen -ErrorAction SilentlyContinue

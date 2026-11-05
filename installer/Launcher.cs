@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -52,7 +52,8 @@ internal static class Launcher {
  }
  static readonly object logLock=new object();
  static string app=AppDomain.CurrentDomain.BaseDirectory;
- static string state=Environment.GetEnvironmentVariable("LIBLIB_ROOT")??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"InspirationCollector");
+ static string ExtensionDirectory(){var saved=Registry.GetValue(@"HKEY_CURRENT_USER\Software\RefTray","ExtensionDirectory",null) as string;return !String.IsNullOrEmpty(saved)&&File.Exists(Path.Combine(saved,"manifest.json"))?saved:Path.Combine(app,"extension");}
+ static string state=Environment.GetEnvironmentVariable("LIBLIB_ROOT")??(Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\RefTray","StateRoot",null) as string)??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"InspirationCollector");
  static int port=8766; static bool traySmoke,exitSmoke;
  class LocalClient:WebClient {protected override WebRequest GetWebRequest(Uri uri){var request=base.GetWebRequest(uri);request.Timeout=3000;return request;}}
  static string Release(){var match=Regex.Match(File.ReadAllText(Path.Combine(app,"extension","manifest.json")),"\"version\"\\s*:\\s*\"([0-9.]+)\"");if(!match.Success)throw new Exception("扩展版本信息缺失，请重新安装完整安装包。");return match.Groups[1].Value;}
@@ -114,8 +115,8 @@ internal static class Launcher {
   using(var icon=TrayIcon())using(var tray=new NotifyIcon())using(var menu=new ContextMenuStrip())using(var check=new System.Windows.Forms.Timer()){
    tray.Icon=icon;tray.Text="灵感采集 · 后台运行";tray.ContextMenuStrip=menu;tray.Visible=true;
    menu.Items.Add("使用说明（安装、保存与更新）",null,(s,e)=>OpenReadme());
-   menu.Items.Add("打开扩展文件夹",null,(s,e)=>Process.Start(new ProcessStartInfo("explorer.exe","\""+Path.Combine(app,"extension")+"\""){UseShellExecute=true}));
-   EventHandler copy=(s,e)=>{var data=new DataObject();data.SetData(DataFormats.UnicodeText,false,Path.Combine(app,"extension"));Clipboard.SetDataObject(data,true,5,100);};
+    menu.Items.Add("打开扩展文件夹",null,(s,e)=>Process.Start(new ProcessStartInfo("explorer.exe","\""+ExtensionDirectory()+"\""){UseShellExecute=true}));
+   EventHandler copy=(s,e)=>{var data=new DataObject();data.SetData(DataFormats.UnicodeText,false,ExtensionDirectory());Clipboard.SetDataObject(data,true,5,100);};
    menu.Items.Add("复制扩展文件夹地址",null,copy);menu.Items.Add(new ToolStripSeparator());
    EventHandler exit=(s,e)=>{try{Stop();Application.ExitThread();}catch(Exception error){MessageBox.Show(error.Message,"灵感采集");}};
    var restart=menu.Items.Add("重新启动后台",null,(s,e)=>{try{if(service==null||service.HasExited){if(job!=IntPtr.Zero){CloseTree();}Start();}}catch(Exception error){MessageBox.Show(error.Message,"启动失败");}});
@@ -127,7 +128,7 @@ internal static class Launcher {
     if(exitStage==0){service.Kill();service.WaitForExit(5000);exitStage=1;return;}
     if(exitStage==1){if(!restart.Enabled){if(++exitTicks>10)throw new Exception("Tray did not acknowledge backend exit");return;}if(!tray.Text.Contains("已停止"))throw new Exception("Tray falsely reports running");restart.PerformClick();if(service.HasExited)throw new Exception("Restart failed");File.WriteAllText(Path.Combine(state,"exit-smoke.json"),"{\"stopped_state\":true,\"restart_ok\":true}");exitStage=2;return;}
     check.Stop();exit(s,e);return;
-   }if(!copied){copy(s,e);copied=true;return;}check.Stop();if(Clipboard.GetText()!=Path.Combine(app,"extension"))throw new Exception("Wrong extension directory");exit(s,e);}catch(Exception error){check.Stop();File.WriteAllText(Path.Combine(state,"tray-error.txt"),error.ToString());Stop();Application.ExitThread();}};check.Start();}
+   }if(!copied){copy(s,e);copied=true;return;}check.Stop();if(Clipboard.GetText()!=ExtensionDirectory())throw new Exception("Wrong extension directory");exit(s,e);}catch(Exception error){check.Stop();File.WriteAllText(Path.Combine(state,"tray-error.txt"),error.ToString());Stop();Application.ExitThread();}};check.Start();}
    try{Application.Run();}finally{monitor.Stop();monitor.Dispose();control.Dispose();tray.Visible=false;if(traySmoke&&private_clipboard!=null)Clipboard.SetDataObject(private_clipboard,true,5,100);}
   }
  }

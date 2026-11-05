@@ -15,7 +15,7 @@ from .image_download import download_image
 
 from .config import Settings
 from .models import ClassifyRequest, CollectRequest, ImageItem
-from .destinations import resolve_destination, text_assets, note_media_layout
+from .destinations import resolve_destination, text_assets, note_media_layout, pinterest_image_layout
 from .ocr import recognize
 from .catalog import Catalog, fingerprint
 from .image_validation import validate_image
@@ -125,6 +125,10 @@ class Storage:
                         confirmed_files.add(known_images[digest]["file"])
                         continue
                     filename = f"{page_id}_{digest[:16]}{suffix}" if author_dir else f"{len(known_images) + 1:03d}_{digest[:10]}{suffix}"
+                    if pinterest_image_layout(request):
+                        pin_id = re.search(r'/pin/(\d+)', urlparse(request.canonical_url).path)
+                        name = safe(request.page_title or 'Pin') + '_' + (pin_id[1] if pin_id else page_id)
+                        filename = name + (f'_{done:02d}' if len(request.images) > 1 else '') + suffix
                     if item.source_kind == 'video_frame' and item.frame_time is not None:
                         filename = f"frame_{round(item.frame_time * 1000):09d}ms_{digest[:10]}{suffix}"
                     path = image_dir / filename
@@ -187,9 +191,9 @@ class Storage:
         markdown_name = f'source_{page_id}.md' if per_post else 'source.md'
         if request.collection_mode == 'text':
             # Incremental comments; toggling comments off must not erase earlier captures.
-            comments = { (c.get('author'), c['text']): c for c in existing.get('comments', []) }
+            comments = { c.get('id') or (c.get('author'), c['text']): c for c in existing.get('comments', []) }
             for comment in request.comments:
-                comments[(comment.author, comment.text)] = comment.model_dump()
+                comments[comment.id or (comment.author, comment.text)] = comment.model_dump()
             metadata.update(collection_mode='text', platform=request.platform,
                 body_text=request.body_text or existing.get('body_text', ''),
                 document_source=request.document_source.model_dump() if request.document_source else (None if request.body_text else existing.get('document_source')),
@@ -230,7 +234,7 @@ class Storage:
         result['duplicate_images'] = max(0, len(confirmed_files) - len(saved))
         result['failed_images'] = len(warnings) - len(request.extraction_warnings)
         result['omitted_images'] = omitted
-        result['partial'] = bool(omitted)
+        result['partial'] = bool(omitted or result['failed_images'])
         if omitted:
             warnings.append(f'达到本次图片上限，另有 {omitted} 张未处理；本页未全部保存')
         if request.collection_mode == 'text':
@@ -348,6 +352,12 @@ class Storage:
             '## 已加载评论', '', f"已保存 {len(data.get('comments', []))} 条；本次状态：{plain(data.get('comments_status', 'unknown'))}。仅包含已加载内容，不代表全部评论。", '']
         for item in data.get('comments', []):
             lines.extend([f"- {plain(item.get('author') or '未识别作者')}：{plain(item['text'])}", ''])
+            if item.get('url'): lines.extend(['  来源：' + plain(item['url']), ''])
+            for url in item.get('images', []):
+                image = next((i for i in data.get('images', []) if i.get('url') == url and i.get('file')), None)
+                if image:
+                    from urllib.parse import quote
+                    lines.extend(['  ![评论图片](' + quote(Path(image['file']).as_posix(), safe='/') + ')', ''])
         if data.get('md_only') and not data.get('comments_requested'):
             lines = lines[:lines.index('## 已加载评论')]
         if not data.get('md_only'):

@@ -69,3 +69,19 @@ test('state video cover stays blocked and unrecognized URLs never collapse', () 
   assert.equal(identity.mergeImages([{url: 'https://elsewhere.test/a.jpg'}, {url: 'https://elsewhere.test/a.webp'}]).length, 2);
   assert.equal(identity.pinId('https://pinterest.com.evil.test/pin/123/'), '');
 });
+
+test('current closeup inside outer masonry keeps main image and excludes inner recommendations', () => {
+  const outer = {}, inner = {};
+  const main = img(image('736x'));
+  main.closest = selector => selector === 'a[href]' ? null : outer;
+  const recommended = img(image('736x', 'jpg', 'abcdef1123456789abcdef0123456789'));
+  recommended.closest = selector => selector === 'a[href]' ? null : inner;
+  const closeup = {contains: node => node === inner, querySelector: () => null,
+    querySelectorAll: () => [main, main, recommended]};
+  const page = doc();
+  page.querySelectorAll = selector => selector.includes('closeup-body-image-container') ? [closeup] : [];
+  assert.deepEqual(pinterestImages(page, pin).images.map(item => item.url), [image('736x')]);
+  assert.deepEqual(pinterestImages(page, visual).images, []);
+  closeup.querySelector = () => ({});
+  assert.equal(pinterestImages(page, pin).blockedStateMedia, true);
+});

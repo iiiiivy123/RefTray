@@ -14,7 +14,7 @@ def run(recipe, root):
     from yt_dlp.downloader.hls import HlsFD
     from yt_dlp.downloader import hls
     from yt_dlp.downloader.dash import DashSegmentsFD
-    from segmented_media import guard_url
+    from .segmented_media import guard_url
 
     class NoRemoteFFmpeg(hls.FFmpegFD):
         @classmethod
@@ -49,11 +49,28 @@ def run(recipe, root):
             guard_url(request if isinstance(request, str) else request.url, recipe['platform'])
             return super().urlopen(request)
 
+    last_progress = 0
+    def write_progress(downloaded, total):
+        progress = root / 'progress.json'
+        temporary = root / 'progress.json.tmp'
+        try:
+            temporary.write_text(json.dumps({'bytes':downloaded,'total':total,'track':i+1,'tracks':len(recipe['formats'])}), encoding='utf-8')
+            temporary.replace(progress)
+        except OSError:
+            pass  # Optional UI telemetry must not interrupt a valid media transfer.
+
     def check(status):
+        nonlocal last_progress
         checkpoint()
         used = sum(p.stat().st_size for p in root.glob('track*') if p.is_file())
         if used > recipe['limit']:
             raise ValueError('视频超过确认下载上限')
+        stamp = time.monotonic()
+        if stamp-last_progress >= .2 or status.get('status') == 'finished':
+            last_progress = stamp
+            # Only a measured byte total is a percentage denominator; estimates stay unknown.
+            total = status.get('total_bytes')
+            write_progress(status.get('downloaded_bytes') or 0, total if isinstance(total,(int,float)) and total>0 else None)
 
     options = {'quiet': True, 'no_warnings': True, 'socket_timeout': 15, 'retries': 1,
                'fragment_retries': 1, 'skip_unavailable_fragments': False, 'concurrent_fragment_downloads': 1,
@@ -61,6 +78,8 @@ def run(recipe, root):
                'max_filesize': recipe['limit'], 'buffersize': 65536, 'noprogress': True}
     with GuardedDL(options) as downloader:
         for i, fmt in enumerate(recipe['formats']):
+            last_progress = 0
+            write_progress(0, None)
             protocol = fmt.get('protocol', 'https')
             cls = HlsFD if protocol in ('m3u8', 'm3u8_native') else DashSegmentsFD if protocol == 'http_dash_segments' else HttpFD
             fd = cls(downloader, options)

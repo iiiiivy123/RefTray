@@ -68,6 +68,9 @@
 !/AGENTS.md
 !/docs/CURRENT.md
 !/tests/collector/test_pinterest_identity.cjs
+!/tests/collector/test_pinterest_layout.py
+!/tests/collector/check_installer_mcp.py
+!/tests/collector/check_manage_layout.js
 !/tests/collector/test_twitter_identity.py
 !/tests/collector/test_storage_integrity.py
 !/tests/collector/test_task_catalog.py
@@ -80,3 +83,7 @@
 
 !/tests/collector/test_import_boundary.py
 !/docs/release-0.5.29.md
+!/docs/SPEC.md
+!/docs/release-0.5.37.md
+!/tests/collector/test_x_comments.cjs
+!/tests/collector/test_local_tools.py
