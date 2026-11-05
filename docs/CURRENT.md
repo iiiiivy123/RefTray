@@ -1,6 +1,6 @@
 # RefTray 当前交接
 
-更新：2026-11-06（Asia/Shanghai）。项目开发入口为本仓库；功能约定见 docs/SPEC.md，交付/审查范围见 docs/release-0.5.37.md。历史详细本机交接保存在原工作机 work/CURRENT-before-0537.md；Git历史保留旧版记录。
+更新：2026-11-06（Asia/Shanghai）。项目开发入口为本仓库；功能约定见 docs/SPEC.md，整仓审查任务见 docs/REVIEW_HANDOFF.md，版本交付记录见 docs/release-0.5.37.md。历史详细本机交接保存在原工作机 work/CURRENT-before-0537.md；Git历史保留旧版记录。
 
 ## 当前版本和授权
 
@@ -40,3 +40,8 @@
 - build_windows.py正式打包在创建payload/dist前先执行离线dry-run解析；预检和安装共用参数与隔离后的pip环境。构建Python>=3.11，目标明确cp313/win_amd64；禁用用户pip配置并移除继承的PIP_*安装路由，不修改本机全局配置。
 - 4项回归通过：低版本宿主在运行pip前拒绝、pip污染隔离且原环境不改、预检失败不生成payload/dist、目标ABI按运行包而非宿主设置。真实Python3.11带PIP_USER=1及错误PIP_TARGET预检15个锁定依赖通过；真实缺wheel输入在创建payload/dist前拒绝。
 - 此次不修改产品/GIF/已交付0.5.37安装包，不重新安装。旧包构建证据仍归原提交；新检查用于后续构建，不追认旧包已经使用该检查。在同一GitHub审查分支维护。
+
+## 2026-11-06 全仓审查交接
+
+- 用户要求审查整个产品与代码，覆盖架构、规范、历史返工、反复未完成项和产品用途，不只看0.5.37改动。新增docs/REVIEW_HANDOFF.md，并从AGENTS、CURRENT及版本交付说明接入；它是审查任务书，不是审查结论。
+- 远端重新fetch核验：main为ed948ddee35f62661bdd53bffe042bd23753e7b2，manifest0.5.28；0.5.37及后补构建检查在release/reftray-0.5.37-review，尚未合并main。本轮不执行合并或产品改动。
