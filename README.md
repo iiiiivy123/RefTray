@@ -123,3 +123,16 @@
 源代码可公开查看，但**项目尚未选定开源许可证**；第三方组件遵守各自许可。[第三方声明](docs/third-party-notices.md) · [媒体组件说明](docs/third-party-media.md)
 
 维护：[iiiiivy123](https://github.com/iiiiivy123) · [提交反馈](https://github.com/iiiiivy123/inspiration-collector/issues)。反馈请附版本、复现步骤与脱敏截图，不要上传 Cookie、凭据、私人资料或受版权保护的完整媒体。开发过程中使用 OpenAI Codex 辅助。
+
+## Windows 构建前检查
+
+构建宿主使用 Python 3.11 或更新版本及 pip；安装包运行时仍为锁定的 Python 3.13。先准备项目要求的离线 wheelhouse、运行时及编译工具，再从仓库根目录运行：
+
+```powershell
+python tools/build_windows.py --check-dependencies
+python tools/build_windows.py
+```
+
+第一条只解析和校验锁定的离线依赖，不生成安装包；第二条也自动执行同一检查，通过后才创建打包目录。构建子进程隔离本机 pip 默认配置，不修改全局配置。规则见 `docs/SPEC.md` B02。
+
+实现依据：[pip 配置隔离](https://pip.pypa.io/en/stable/topics/configuration/)、[pip 离线解析与 dry-run](https://pip.pypa.io/en/stable/cli/pip_install/)。

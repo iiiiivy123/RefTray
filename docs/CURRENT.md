@@ -33,3 +33,10 @@
 - 安装包 F:/RefTray/releases/0.5.37/InspirationCollector-0.5.37-Windows-x64-Setup.exe，41029834字节，SHA256 5e26565787e2a8dac11cd6f91ab58afc7829e68ababdb0e0a08d4219b30ba9f6。聊天outputs有同包及交付说明。
 - GitHub审查分支 release/reftray-0.5.37-review。包含此前尚未推送的修复和本轮增量；未合并主分支。
 - 实际安装仍0.5.36；没有执行本轮安装覆盖/升级，不宣称新评论/工具已在实际安装Chrome完整验收。
+
+## 2026-11-06 构建依赖前置检查（仅工具与规范）
+
+- 用户要求避免在打包阶段才发现已知依赖问题。SPEC B02和AGENTS接入必检；README给出独立 --check-dependencies 入口。
+- build_windows.py正式打包在创建payload/dist前先执行离线dry-run解析；预检和安装共用参数与隔离后的pip环境。构建Python>=3.11，目标明确cp313/win_amd64；禁用用户pip配置并移除继承的PIP_*安装路由，不修改本机全局配置。
+- 4项回归通过：低版本宿主在运行pip前拒绝、pip污染隔离且原环境不改、预检失败不生成payload/dist、目标ABI按运行包而非宿主设置。真实Python3.11带PIP_USER=1及错误PIP_TARGET预检15个锁定依赖通过；真实缺wheel输入在创建payload/dist前拒绝。
+- 此次不修改产品/GIF/已交付0.5.37安装包，不重新安装。旧包构建证据仍归原提交；新检查用于后续构建，不追认旧包已经使用该检查。在同一GitHub审查分支维护。

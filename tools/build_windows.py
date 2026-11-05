@@ -1,9 +1,43 @@
 """Build an offline current-user Windows installer from clean, allowlisted source inputs."""
-import csv,ctypes,hashlib,json,re,shutil,subprocess,sys,tempfile,zipfile
+import csv,ctypes,hashlib,json,os,re,shutil,subprocess,sys,tempfile,zipfile
 from pathlib import Path
 from build_release import build,ROOT
 PYTHON_SHA256='9e35319bffedab8b36ad44d8f377cb4f1733bcec257a0b6d04d94f01486ddb38'
 MEDIA_SHA256='52416bfdf2fd346ce2f14e0ac922985d6df4701538e5ee9ddba6d52f6c8a2f4a'
+
+def pip_environment():
+    # Never change the user's pip settings or inherit install-routing defaults.
+    return {**{k:v for k,v in os.environ.items() if not k.upper().startswith('PIP_')},
+            'PIP_CONFIG_FILE':os.devnull,'PIP_USER':'0','PIP_DISABLE_PIP_VERSION_CHECK':'1'}
+
+def dependency_command(wheelhouse,lockfile,target):
+    return [sys.executable,'-m','pip','install','--no-compile','--disable-pip-version-check',
+            '--only-binary=:all:','--platform','win_amd64','--python-version','3.13',
+            '--implementation','cp','--abi','cp313','--no-index','--find-links',str(wheelhouse),
+            '--require-hashes','--target',str(target),'-r',str(lockfile)]
+
+def preflight_dependencies(root=None):
+    """Resolve the exact offline recipe before any payload/dist creation."""
+    if sys.version_info < (3,11):
+        raise ValueError('Build preflight: Python >=3.11 is required for the build host; packaged Python remains 3.13. No package files were created.')
+    root=Path(root or ROOT)
+    wheelhouse=root/'build-tools/wheelhouse';lockfile=root/'source/server/requirements-windows-lock.txt'
+    if not lockfile.is_file() or not wheelhouse.is_dir():
+        raise ValueError('Build preflight: missing locked requirements or offline wheelhouse')
+    validate_requirements_lock(root/'source/server/requirements.txt',lockfile)
+    with tempfile.TemporaryDirectory(prefix='reftray-build-preflight-') as temporary:
+        report=Path(temporary)/'resolution.json'
+        command=dependency_command(wheelhouse,lockfile,Path(temporary)/'probe')+['--dry-run','--ignore-installed','--report',str(report)]
+        try:
+            result=subprocess.run(command,env=pip_environment(),capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=120)
+        except (OSError,subprocess.TimeoutExpired) as error:
+            raise ValueError('Build dependency preflight could not run; packaging has not started: '+str(error)) from error
+        if result.returncode:
+            raise ValueError('Build dependency preflight failed; packaging has not started:\n'+(result.stdout+'\n'+result.stderr)[-4000:])
+        resolved=json.loads(report.read_text('utf-8'))
+        packages={item['metadata']['name']:item['metadata']['version'] for item in resolved['install']}
+        if not packages:raise ValueError('Build dependency preflight returned an empty resolution')
+        return {'build_python':'.'.join(map(str,sys.version_info[:3])),'runtime_python':'3.13','offline':True,'packages':packages}
 def executable_version(path):
     api=ctypes.windll.version
     size=api.GetFileVersionInfoSizeW(str(path),None)
@@ -49,6 +83,7 @@ def build_windows():
     if not re.fullmatch(r'\d+\.\d+\.\d+(?:\.\d+)?',version):raise ValueError('invalid extension version')
     payload=ROOT/'build-windows/payload'
     if payload.exists():raise SystemExit('Payload already exists; use a new clean reviewed build directory, never merge stale contents.')
+    dependency_preflight=preflight_dependencies()
     media=ROOT/'build-tools/media-minimal'
     required=('ffmpeg.exe','ffprobe.exe','COPYING.LGPLv2.1','LICENSE.md','build-config.txt','ffmpeg-source-611cec792a.zip','MinGW-COPYRIGHT.txt','toolchain-packages.txt')
     if not all((media/name).is_file() for name in required):raise SystemExit('Missing reviewed minimal media build and corresponding source.')
@@ -69,7 +104,7 @@ def build_windows():
     runtime=payload/'runtime'
     with zipfile.ZipFile(python_zip) as z:z.extractall(runtime)
     (runtime/'python313._pth').write_text('python313.zip\n.\n..\nLib/site-packages\nimport site\n',encoding='ascii')
-    subprocess.run([sys.executable,'-m','pip','install','--no-compile','--disable-pip-version-check','--only-binary=:all:','--platform','win_amd64','--python-version','3.13','--implementation','cp','--no-index','--find-links',str(wheelhouse),'--require-hashes','--target',str(runtime/'Lib/site-packages'),'-r',str(lockfile)],check=True)
+    subprocess.run(dependency_command(wheelhouse,lockfile,runtime/'Lib/site-packages'),env=pip_environment(),check=True)
     package=runtime/'Lib/site-packages';normalize_dependencies(package);yt_license=next((package/'yt_dlp-2026.10.26.dist-info/licenses').glob('LICENSE'))
     # Start the real worker with the embedded interpreter; no remote request is needed.
     with tempfile.TemporaryDirectory() as tmp:
@@ -86,7 +121,7 @@ def build_windows():
     (payload/'安装后说明.html').write_text("""<!doctype html><meta charset="utf-8"><title>灵感采集安装完成</title><style>body{font:16px system-ui;max-width:760px;margin:60px auto;line-height:1.8;background:#f2f0eb;color:#292824}button{font:inherit;padding:8px 14px}</style><h1>安装完成</h1><p>后台会在安装结束后启动。扩展会实时检查连接；暂时连不上时可重试，无须重复安装。</p><p>Chrome 扩展管理地址：<code id="url">chrome://extensions</code> <button onclick="navigator.clipboard.writeText(document.getElementById('url').textContent).catch(()=>alert('请手动复制地址 chrome://extensions'))">复制地址</button></p><p>首次使用：打开此地址，启用开发者模式，从系统托盘复制固定扩展文件夹地址并加载该目录。</p><p>更新用户：在灵感采集扩展卡片点击 <strong>重新加载 ⟳</strong>。刷新管理网页不会更新扩展。重新打开扩展弹窗；网页仍使用旧脚本时再刷新作品网页。</p><p>固定扩展目录可从托盘菜单“复制扩展文件夹地址”获取；安装器会更新已登记和识别的旧目录，更新后无需重新选择。</p>""",encoding='utf-8')
     metadata=ROOT/'build-windows/AssemblyInfo.cs' ;metadata.write_text('[assembly:System.Reflection.AssemblyFileVersion("'+version+'")]\n',encoding='utf-8')
     subprocess.run([r'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe','/nologo','/codepage:65001','/target:winexe','/reference:System.Windows.Forms.dll','/reference:System.Drawing.dll','/win32icon:'+str(payload/'extension/reftray-a.ico'),'/out:'+str(payload/'InspirationCollector.exe'),str(ROOT/'installer/Launcher.cs'),str(metadata)],check=True)
-    inputs={'schema_version':1,'release':version,'python_sha256':PYTHON_SHA256,
+    inputs={'schema_version':1,'release':version,'python_sha256':PYTHON_SHA256,'dependency_preflight':dependency_preflight,
             'requirements_sha256':hashlib.sha256(lockfile.read_bytes()).hexdigest(),
             'inno_version':subprocess.check_output([str(ROOT/'build-tools/inno/ISCC.exe'),'--version'],text=True).strip(),
             'csharp_compiler_version':executable_version(Path(r'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe')),
@@ -100,4 +135,7 @@ def build_windows():
     (ROOT/'build-windows/payload-sha256.json').write_text(json.dumps(files,indent=2),encoding='utf-8')
     subprocess.run([str(ROOT/'build-tools/inno/ISCC.exe'),'/Q','/DAppVersion='+version,str(ROOT/'installer/setup.iss')],check=True)
     print('Installer built; actual install, startup, upgrade and uninstall verification is still required.')
-if __name__=='__main__':build_windows()
+if __name__=='__main__':
+    if sys.argv[1:]==['--check-dependencies']:print(json.dumps(preflight_dependencies(),indent=2))
+    elif sys.argv[1:]:raise SystemExit('Usage: build_windows.py [--check-dependencies]')
+    else:build_windows()
