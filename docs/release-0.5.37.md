@@ -49,4 +49,4 @@ background.js和batch.js只在本次新增评论图片分支上追加行为；�
 - 安装包：InspirationCollector-0.5.37-Windows-x64-Setup.exe（41029834字节）。
 - SHA256：5e26565787e2a8dac11cd6f91ab58afc7829e68ababdb0e0a08d4219b30ba9f6。
 - 最终构建：1778项文件哈希、源文件与包内文件一致性、独立Launcher启动/退出通过；没有执行实际覆盖升级。
-- 源码：https://github.com/iiiiivy123/inspiration-collector/tree/release/reftray-0.5.37-review 。此审查分支包括0.5.29提交之后的累计修改，不只是本次管理页变化。
+- 源码：https://github.com/iiiiivy123/inspiration-collector 。main包含0.5.37及后补的构建检查与文档更新。

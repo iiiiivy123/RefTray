@@ -85,6 +85,7 @@
 !/docs/release-0.5.29.md
 !/docs/SPEC.md
 !/docs/REVIEW_HANDOFF.md
+!/docs/mcp.md
 !/docs/release-0.5.37.md
 !/tests/collector/test_x_comments.cjs
 !/tests/collector/test_local_tools.py
