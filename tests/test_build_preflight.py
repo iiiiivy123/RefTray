@@ -44,3 +44,15 @@ class BuildPreflightTests(unittest.TestCase):
         self.assertEqual(command[command.index('--abi') + 1], 'cp313')
         self.assertIn('--no-index', command)
         self.assertIn('--require-hashes', command)
+
+    def test_missing_compiler_is_rejected_before_payload_creation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest = root / 'source/extension/manifest.json'
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text('{"version":"0.5.37"}', 'utf-8')
+            with patch.object(build_windows, 'ROOT', root), patch.object(build_windows, 'preflight_dependencies', return_value={}), patch.object(build_windows, 'CSHARP_COMPILER', root / 'missing-csc.exe'), patch.object(build_windows, 'build') as archive:
+                with self.assertRaisesRegex(ValueError, 'missing C# compiler'):
+                    build_windows.build_windows()
+                archive.assert_not_called()
+            self.assertFalse((root / 'build-windows').exists())

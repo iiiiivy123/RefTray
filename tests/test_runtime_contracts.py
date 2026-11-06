@@ -24,7 +24,7 @@ class TestClient:
     def request(self, method, url, headers=None, payload=None):
         parsed = urlsplit(url)
         body = json.dumps(payload).encode() if payload is not None else b''
-        request_headers = {**(headers or {}), 'content-type': 'application/json'}
+        request_headers = {'host': '127.0.0.1', **{k.lower():v for k,v in (headers or {}).items()}, 'content-type': 'application/json'}
         messages = []
         async def run():
             async def receive():

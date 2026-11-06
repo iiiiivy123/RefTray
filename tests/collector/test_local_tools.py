@@ -50,6 +50,16 @@ class LocalToolTests(unittest.TestCase):
         with cls.opener.open(Request(cls.base + path, data=data, headers=headers), timeout=15) as response:
             return json.load(response)
 
+    def test_local_host_guard_and_missing_history_status(self):
+        with self.assertRaises(HTTPError) as bad_host:
+            self.opener.open(Request(self.base + '/health', headers={'Host': 'rebinding.invalid'}), timeout=5)
+        self.assertEqual(bad_host.exception.code, 400)
+        with self.opener.open(Request(self.base + '/health', headers={'Host': 'localhost'}), timeout=5) as response:
+            self.assertEqual(response.status, 200)
+        with self.assertRaises(HTTPError) as missing:
+            self.api('/history/2147483647/open', b'{}')
+        self.assertEqual(missing.exception.code, 404)
+
     def test_real_gif_and_audio_preserve_source(self):
         original = hashlib.sha256(self.sample.read_bytes()).hexdigest()
         for format in ('gif', 'audio'):

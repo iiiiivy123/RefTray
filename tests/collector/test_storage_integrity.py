@@ -22,6 +22,27 @@ def picture(format='PNG'):
 
 
 class StorageIntegrityTests(unittest.TestCase):
+    def test_comment_images_keep_their_role_and_render_once_outside_body_ocr(self):
+        from server.models import CommentItem
+        def colored(color, url, **kwargs):
+            output = io.BytesIO()
+            Image.new('RGB', (4, 4), color).save(output, format='PNG')
+            return ImageItem(url=url, data_base64=base64.b64encode(output.getvalue()).decode(), **kwargs)
+        images = [colored('red', 'https://example.org/body1'), colored('green', 'https://example.org/body2'),
+                  colored('blue', 'https://example.org/reply', role='comment', comment_id='reply1')]
+        with patch('server.storage.recognize', return_value={'status': 'completed', 'text': 'body OCR'}) as recognize:
+            result = self.storage.collect(self.request(images=images, ocr_enabled=True, comments_requested=True,
+                comments=[CommentItem(id='reply1', text='reply', images=['https://example.org/reply'])]))
+        self.assertEqual(recognize.call_count, 2)
+        root = Path(result['directory'])
+        data = json.loads((root / '_来源记录' / 'metadata.json').read_text('utf-8'))
+        self.assertEqual([i['role'] for i in data['images']], ['body', 'body', 'comment'])
+        self.assertEqual(data['images'][2]['comment_id'], 'reply1')
+        markdown = (root / data['reading_file']).read_text('utf-8')
+        self.assertEqual(markdown.count('![评论图片]'), 1)
+        self.assertEqual(markdown.count('![正文图片]'), 2)
+        self.assertEqual(markdown.count(data['images'][2]['file']), 1)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)

@@ -248,7 +248,7 @@ async function identify(){
  try{const [{result}]=await chrome.scripting.executeScript({target:{tabId:currentTab.id},files:['page-identify.js']});
  if(result?.url!==currentTab.url||token!==manualSelection||q('#scope').value==='bulk'||active||resumeOptions)return;
  if(result?.state==='ready'){
- UI.message(identifyStatus,'已确认图片 {images} · GIF {gifs} · 视频 {videos}',{images:result.images,gifs:result.gifs||0,videos:result.videos});
+ UI.message(identifyStatus,'预扫描图片 {images} · GIF {gifs} · 视频 {videos}；保存时核实',{images:result.images,gifs:result.gifs||0,videos:result.videos});
  if(!site.mode&&result.kind&&!manualSelection){q('#collection-mode').value=result.kind;render();}
  }else UI.message(identifyStatus,result?.reason||'正文仍在加载，可重新识别或手动选择。');
  }catch(error){UI.message(identifyStatus,'未能识别，可手动选择采集内容。');}

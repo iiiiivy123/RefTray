@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse
 
 from .config import load_settings, save_directory, initialize_folders
@@ -29,6 +30,7 @@ def create_app(runtime=None):
     storage = runtime.storage if runtime is not None else Storage(settings)
     app = FastAPI(title="灵感采集", version="0.5.0")
     app.add_middleware(CORSMiddleware, allow_origin_regex=r"^(chrome-extension|edge-extension)://.+$", allow_methods=["GET", "HEAD", "POST", "OPTIONS"], allow_headers=["Content-Type", "X-Collector-Token", "Range"], expose_headers=['Content-Length', 'Content-Range', 'Accept-Ranges'])
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', '[::1]'], www_redirect=False)
     settings_token = secrets.token_urlsafe(32)
     jobs: dict[str, dict[str, object]] = {}
     active_urls: dict[str, str] = {}
@@ -145,7 +147,10 @@ def create_app(runtime=None):
     @app.post('/history/{identity}/open')
     def open_history(identity: int, request: Request):
         authorize_settings(request)
-        item = catalog.get(identity)
+        try:
+            item = catalog.get(identity)
+        except ValueError as error:
+            raise HTTPException(404, '采集记录不存在') from error
         if not Path(item['directory']).is_dir(): raise HTTPException(404, '原目录已移走或删除')
         os.startfile(item['directory'])
         return {'ok': True}

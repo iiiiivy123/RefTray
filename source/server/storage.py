@@ -122,6 +122,8 @@ class Storage:
                         continue
                     previous_image = known_images.get(digest, {})
                     if previous_image.get('file') and (not note_media_layout(request) or Path(previous_image['file']).parent == Path('.')) and (page_dir / previous_image['file']).is_file() and fingerprint(page_dir / previous_image['file']) == digest:
+                        if 'role' not in previous_image or item.role == 'body':
+                            previous_image.update(role=item.role, comment_id=item.comment_id)
                         confirmed_files.add(known_images[digest]["file"])
                         continue
                     filename = f"{page_id}_{digest[:16]}{suffix}" if author_dir else f"{len(known_images) + 1:03d}_{digest[:10]}{suffix}"
@@ -140,7 +142,8 @@ class Storage:
                     temporary = path.with_suffix(path.suffix + '.part')
                     temporary.write_bytes(data)
                     temporary.replace(path)
-                    record = {**previous_image, "file": str(path.relative_to(page_dir)), "sha256": digest, "url": item.url, "alt": item.alt}
+                    record = {**previous_image, "file": str(path.relative_to(page_dir)), "sha256": digest, "url": item.url, "alt": item.alt,
+                              "role": item.role, "comment_id": item.comment_id}
                     if item.source_kind == 'video_frame':
                         record.update(source_kind='video_frame', frame_time=item.frame_time)
                     saved.append(record)
@@ -201,10 +204,10 @@ class Storage:
                 published_at=request.published_at or existing.get('published_at'),
                 comments=list(comments.values()), comments_status=request.comments_status if request.comments_status != 'not_requested' else existing.get('comments_status', '未开启'))
             for index, image in enumerate(merged_images, 1):
-                if image.get('file') and request.ocr_enabled and image.get('ocr', {}).get('status') != 'completed':
+                if image.get('role', 'body') != 'comment' and image.get('file') and request.ocr_enabled and image.get('ocr', {}).get('status') != 'completed':
                     progress(92, f'识别图片文字 {index}/{len(merged_images)}')
                     image['ocr'] = recognize(page_dir / image['file'])
-            metadata['ocr_status'] = ('completed' if all(i.get('ocr', {}).get('status') == 'completed' for i in merged_images) else 'partial') if request.ocr_enabled else 'disabled'
+            metadata['ocr_status'] = ('completed' if all(i.get('ocr', {}).get('status') == 'completed' for i in merged_images if i.get('role', 'body') != 'comment') else 'partial') if request.ocr_enabled else 'disabled'
             valid_media = set(existing.get('media_files', []))
             for name in request.media_files:
                 candidate = (page_dir / name).resolve()
@@ -358,11 +361,14 @@ class Storage:
                 if image:
                     from urllib.parse import quote
                     lines.extend(['  ![评论图片](' + quote(Path(image['file']).as_posix(), safe='/') + ')', ''])
+                    rendered_images.add(Path(image['file']).as_posix())
         if data.get('md_only') and not data.get('comments_requested'):
             lines = lines[:lines.index('## 已加载评论')]
         if not data.get('md_only'):
             lines.extend(['## 图片识别文字', '', '以下为本地 OCR 结果，可能有错字或漏字，请对照原图。', ''])
         for i, item in enumerate(data['images'], 1):
+            if item.get('role') == 'comment':
+                continue
             relative = Path(item['file']).as_posix() if item.get('file') else None
             from urllib.parse import quote
             ocr = item.get('ocr', {})

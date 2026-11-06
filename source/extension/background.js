@@ -15,7 +15,14 @@ async function matureMedia(url){
 }
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+let progressChain=Promise.resolve();
 async function reportProgress(value) {
+  const context=taskContext;
+  const operation=progressChain.then(()=>persistProgress(value,context));
+  progressChain=operation.catch(()=>{});
+  return operation;
+}
+async function persistProgress(value,taskContext) {
   const old=(await chrome.storage.local.get(['liblibProgress'])).liblibProgress;
   if(old?.context?.id!==taskContext?.id)value=TaskProgress.reduce({},value,taskContext.batch);
   else value=TaskProgress.reduce(old,value,taskContext.batch);
@@ -24,18 +31,23 @@ async function reportProgress(value) {
   await chrome.storage.local.set({liblibProgress: {...value, details: detail, context:taskContext?{id:taskContext.id,url:taskContext.url,title:taskContext.title,mode:taskContext.mode}:null, build: BUILD, updatedAt: Date.now()}});
   if(taskContext?.id){
     const {collectorTaskJournal:journal={}}=await chrome.storage.local.get(['collectorTaskJournal']);
-    const terminal=['completed','failed','partial','stopped'].includes(value.status);
+    const terminal=['completed','failed','partial','stopped','interrupted','paused'].includes(value.status);
+    const completed=['completed','failed','partial'].includes(value.status);
     const previous=journal[taskContext.id]||{};
-    journal[taskContext.id]={...previous,id:taskContext.id,source:taskContext.url,name:taskContext.title,mode:taskContext.mode,localOnly:true,batchId:taskContext.batch?.id,options:{...taskContext.options},completed:terminal,status:value.status||'running',updated:Date.now(),directory:value.directory||previous.directory,records:terminal?{result:{status:value.status==='completed'?'saved':value.status,url:taskContext.url,reason:detail||value.message}}:previous.records||{}};
+    journal[taskContext.id]={...previous,id:taskContext.id,source:taskContext.url,name:taskContext.title,mode:taskContext.mode,localOnly:true,batchId:taskContext.batch?.id,options:{...taskContext.options},completed,status:value.status||'running',updated:Date.now(),directory:value.directory||previous.directory,records:terminal?{result:{status:value.status==='completed'?'saved':value.status,url:taskContext.url,reason:detail||value.message}}:previous.records||{}};
+    const resolved=[];
     if(value.status==='completed'&&!taskContext.batch){
       const key=url=>{try{const u=new URL(url);u.hash='';for(const k of [...u.searchParams.keys()])if(/^utm_/i.test(k)||['fbclid','gclid','dclid','msclkid','igshid','mc_cid','mc_eid'].includes(k.toLowerCase()))u.searchParams.delete(k);u.searchParams.sort();return u.href;}catch(_){return url;}};
       const signature=options=>JSON.stringify(['capture_kind','collection_mode','include_images','include_comments','ocr_enabled','subtitle_mode','video_action','destination'].map(k=>options?.[k]??null));
-      for(const entry of Object.values(journal))if(entry.id!==taskContext.id&&!entry.batchId&&entry.status==='failed'&&key(entry.source)===key(taskContext.url)&&signature(entry.options)===signature(taskContext.options))entry.resolvedBy=taskContext.id;
+      for(const entry of Object.values(journal))if(entry.id!==taskContext.id&&!entry.batchId&&entry.status==='failed'&&!entry.resolvedBy&&key(entry.source)===key(taskContext.url)&&signature(entry.options)===signature(taskContext.options)){entry.resolvedBy=taskContext.id;resolved.push(entry);}
     }
     const keep=Object.fromEntries(Object.entries(journal).sort((a,b)=>b[1].updated-a[1].updated).slice(0,200));
     await chrome.storage.local.set({collectorTaskJournal:keep});
     if(terminal&&!taskContext.batch&&healthCache?.capture_history){
-      try{await TaskStore.save(journal[taskContext.id],{checkpoint:false});}
+      try{
+        await TaskStore.save(journal[taskContext.id],{checkpoint:false});
+        for(const entry of resolved)await TaskStore.save(entry,{checkpoint:false});
+      }
       catch(error){
         const warning='后台任务记录同步失败；已保留浏览器中的记录：'+error.message;
         const current=(await chrome.storage.local.get(['liblibProgress'])).liblibProgress;
@@ -132,7 +144,7 @@ async function readPagePayload(tabId, options, current) {
   }
   if(payload.platform==='x'&&options.collection_mode==='text'&&options.include_comments&&options.include_images!==false&&!options.md_only){
     payload.images ||= [];
-    for(const comment of payload.comments||[])for(const url of comment.images||[])if(!payload.images.some(i=>i.url===url))payload.images.push({url,alt:'评论 '+comment.id});
+    for(const comment of payload.comments||[])for(const url of comment.images||[])if(!payload.images.some(i=>i.url===url))payload.images.push({url,alt:'评论 '+comment.id,role:'comment',comment_id:comment.id});
   }
   return payload;
 }
@@ -815,7 +827,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if(message.type==='END_BATCH'){
     if(taskRunning){sendResponse({ok:false,error:'请先停止当前任务'});return false;}
-    (async()=>{const {collectorCheckpoint:c}=await chrome.storage.local.get(['collectorCheckpoint']);if(c){const ended={...c,completed:true,endedByUser:true};if(c.id){const h=await fetch('http://127.0.0.1:8766/health').then(r=>r.json());await downloadApi(8766,h.settings_token,'/tasks',{id:c.id,data:ended});}await chrome.storage.local.set({collectorCheckpoint:ended});}return {ok:true};})().then(sendResponse).catch(e=>sendResponse({ok:false,error:e.message}));return true;
+    TaskStore.endBatch().then(()=>sendResponse({ok:true})).catch(e=>sendResponse({ok:false,error:e.message}));return true;
   }
   if(message.type==='APPROVE_DOWNLOAD'){
     chrome.storage.local.get(['collectorApproval']).then(async({collectorApproval:a})=>{if(a?.state==='pending')await chrome.storage.local.set({collectorApproval:{...a,state:message.approve?'approved':'rejected'}});sendResponse({ok:true});});return true;

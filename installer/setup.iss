@@ -66,13 +66,25 @@ begin
     Result := '后台尚未确认退出。请等待采集或目录选择完成，再重试；旧版后台请从托盘退出。';
 end;
 
+function GetStateRoot(): String;
+begin
+  Result := GetEnv('LIBLIB_ROOT');
+  if Result = '' then RegQueryStringValue(HKCU, 'Software\RefTray', 'StateRoot', Result);
+  if Result = '' then Result := ExpandConstant('{localappdata}\InspirationCollector');
+  Result := ExpandFileName(Result);
+end;
+
 function IsOwnedMcpCommand(Command, Python, Adapter: String): Boolean;
 begin
   Command := Trim(Command);
   Result := (CompareText(Command, '"' + Python + '" "' + Adapter + '"') = 0) or
     (CompareText(Command, '"' + Python + '" ' + Adapter) = 0) or
     (CompareText(Command, Python + ' "' + Adapter + '"') = 0) or
-    (CompareText(Command, Python + ' ' + Adapter) = 0);
+    (CompareText(Command, Python + ' ' + Adapter) = 0) or
+    (CompareText(Command, '"' + Python + '" -B "' + Adapter + '"') = 0) or
+    (CompareText(Command, '"' + Python + '" -B ' + Adapter) = 0) or
+    (CompareText(Command, Python + ' -B "' + Adapter + '"') = 0) or
+    (CompareText(Command, Python + ' -B ' + Adapter) = 0);
 end;
 
 function StopOwnedMcpClients(): String;
@@ -147,7 +159,7 @@ begin
   if FileExists(ExpandConstant('{app}\runtime\python.exe')) then begin
     ExtractTemporaryFile('maintenance.py');
     ExtractTemporaryFile('incoming-managed-files.json');
-    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{tmp}\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{tmp}\incoming-managed-files.json') + '" --report "' + ExpandConstant('{localappdata}\InspirationCollector\data\inspiration\logs\installer-maintenance.json') + '" --state "' + ExpandConstant('{localappdata}\InspirationCollector') + '" --plan-only --export-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{tmp}\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{tmp}\incoming-managed-files.json') + '" --report "' + GetStateRoot() + '\data\inspiration\logs\installer-maintenance.json" --state "' + GetStateRoot() + '" --plan-only --export-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
       Result := '无法检查旧程序清单，尚未替换程序。'
     else if ExitCode <> 0 then
       Result := '旧程序清单或素材保护检查失败，尚未替换程序。详情见状态目录 data/inspiration/logs/installer-maintenance.json。';
@@ -172,7 +184,7 @@ begin
     end;
   end;
   if Params <> '' then begin
-    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\maintenance.py') + '" --report "' + ExpandConstant('{localappdata}\InspirationCollector\data\inspiration\logs\installer-maintenance.json') + '" --state "' + ExpandConstant('{localappdata}\InspirationCollector') + '"' + Params, '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\maintenance.py') + '" --report "' + GetStateRoot() + '\data\inspiration\logs\installer-maintenance.json" --state "' + GetStateRoot() + '"' + Params, '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
       Error := '无法执行所选数据清理；卸载已停止。'
     else if ExitCode <> 0 then Error := '数据清理保护检查失败，卸载已停止；请保留素材并联系维护者。';
     Result := Error = '';
@@ -197,7 +209,7 @@ begin
       RaiseException('扩展目录更新或文件核验失败，安装未完成。未将旧扩展标为已更新，请保留当前目录并重试安装。');
   end;
   if (CurStep = ssPostInstall) and FileExists(ExpandConstant('{tmp}\previous-managed-files.json')) then begin
-    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{app}\managed-files.json') + '" --previous-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '" --report "' + ExpandConstant('{localappdata}\InspirationCollector\data\inspiration\logs\installer-maintenance.json') + '" --state "' + ExpandConstant('{localappdata}\InspirationCollector') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{app}\managed-files.json') + '" --previous-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '" --report "' + GetStateRoot() + '\data\inspiration\logs\installer-maintenance.json" --state "' + GetStateRoot() + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
       MsgBox('新版已安装，但旧文件清单清理未执行。素材未移动；详情见状态目录 data/inspiration/logs/installer-maintenance.json。', mbError, MB_OK)
     else if ExitCode <> 0 then
       MsgBox('新版已安装，但旧文件清单清理失败。素材未移动；详情见状态目录 data/inspiration/logs/installer-maintenance.json。', mbError, MB_OK);

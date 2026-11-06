@@ -105,7 +105,7 @@ async function processBatchPost(tab, port, group, payload) {
   if(payload._preflightIssue){failed=true;reasons.push(payload._preflightIssue);}
   const photos = media.filter(m => m.kind === 'photo').map(m => ({url: m.url, alt: ''}));
   if ((photos.length || media.length || payload._media?.length || payload._preparedMedia?.length) && (!textMode || taskContext.options.include_images)) payload.images = photos;
-  if(textMode&&taskContext.options.include_comments&&taskContext.options.include_images&&!taskContext.options.md_only){for(const c of payload.comments||[])for(const url of c.images||[])if(!payload.images.some(i=>i.url===url))payload.images.push({url,alt:'评论 '+c.id});}
+  if(textMode&&taskContext.options.include_comments&&taskContext.options.include_images&&!taskContext.options.md_only){for(const c of payload.comments||[])for(const url of c.images||[])if(!payload.images.some(i=>i.url===url))payload.images.push({url,alt:'评论 '+c.id,role:'comment',comment_id:c.id});}
   if(taskContext.options.skip_gifs)payload.images=(payload.images||[]).filter(i=>! /\.gif(?:[?#]|$)/i.test(i.url));
   if(textMode && !taskContext.options.include_images && !taskContext.options.ocr_enabled)payload.images=[];
   if (payload.images?.length || (textMode && payload.body_text?.trim())) {

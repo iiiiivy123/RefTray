@@ -2,7 +2,7 @@
 import argparse,json,zipfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-DOCS=('usage.md','install.md','update.md','rights-and-privacy.md','use-cases.md','release-0.5.28.md')
+DOCS=('usage.md','install.md','update.md','rights-and-privacy.md','use-cases.md','release-0.5.37.md','mcp.md','review-fixes.md')
 LICENSE_DOCS=('third-party-notices.md','third-party-media.md','CAT-LOGUE-LICENSE.txt','ytdlp-license.md')
 def build(channel,output):
     if channel not in ('user','dev'):raise ValueError('invalid distribution channel')

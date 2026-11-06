@@ -78,11 +78,12 @@ async function taskDetail(item){
 }
 function taskVisible(item,view,active,ignored){
  const running=Boolean(active)&&item.id===active,fail=Number(item.failed)||(['failed','partial'].includes(item.status)||item.error?1:0),saved=Number(item.saved)||0;
- if(item.resolvedBy||item.completed&&!fail&&!running)return false;
+ const interrupted=['stopped','interrupted','paused'].includes(item.status);
+ if(item.resolvedBy||item.completed&&!fail&&!running&&!interrupted)return false;
  if(view==='ignored')return !running&&Boolean(ignored[item.id]);
  if(!running&&ignored[item.id])return false;
  if(view==='running')return running;
- if(view==='unfinished')return !running&&(saved>0&&fail>0||!item.completed&&item.status!=='failed');
+ if(view==='unfinished')return !running&&(saved>0&&fail>0||interrupted||!item.completed&&item.status!=='failed');
  if(view==='failed')return !running&&!saved&&fail>0;
  return true;
 }

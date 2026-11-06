@@ -27,10 +27,12 @@ args:
 | `reftray_status` | 查看后台版本、连接状态和素材库 | 无 |
 | `reftray_download_post` | 保存 Pinterest Pin 或 X 原帖的分享图片 | `url` |
 | `reftray_resolve_video` | 解析原帖视频来源 | `url` |
-| `reftray_download_video` | 提交解析到的视频下载 | `url` |
+| `reftray_download_video` | 提交一个原帖视频下载；多视频先返回数量供选择 | `url`，可选 `media_index`（从1开始） |
 | `reftray_job_status` | 查询保存结果、错误和实际文件位置 | `job_id`，`kind`（`collect` 或 `video`） |
 
 图片接口支持 Pinterest 和 X 原帖链接，当前采集分享图片。多图和评论请用浏览器扩展。视频接口沿用现有解析器，下载提交后继续查询任务，完成时会返回保存结果。
+
+多视频返回 `status: selection_required`、`media_count` 和空的 `jobs`，表示尚未启动下载。再次调用时传 `media_index` 选择一个视频，随后用返回的任务号查询。当前没有自动排队下载全部视频。
 
 ## 登录与代理
 

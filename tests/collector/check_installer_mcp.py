@@ -54,8 +54,8 @@ end;
         harness = base / 'check.iss'
         harness.write_text(header + code + footer, encoding='utf-8-sig')
         subprocess.run([str(repo / 'build-tools/inno/ISCC.exe'), '/Q', str(harness)], check=True, timeout=30)
-        def launch(executable, script, *args):
-            p = subprocess.Popen([str(executable), str(script), *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        def launch(executable, script, *args, flags=()):
+            p = subprocess.Popen([str(executable), *flags, str(script), *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             assert p.stdout.readline().strip() == 'ready'
             return p
         def install(log):
@@ -63,7 +63,8 @@ end;
                 '/NORESTART', '/DIR=' + str(app), '/LOG=' + str(base / log)], timeout=20).returncode
         children = []
         try:
-            children = [launch(app / 'runtime/python.exe', adapter) for _ in range(2)]
+            children = [launch(app / 'runtime/python.exe', adapter),
+                        launch(app / 'runtime/python.exe', adapter, flags=('-B',))]
             other = launch(sys.executable, unrelated)
             children.append(other)
             assert install('owned.log') == 0

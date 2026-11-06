@@ -4,6 +4,15 @@ from pathlib import Path
 from build_release import build,ROOT
 PYTHON_SHA256='9e35319bffedab8b36ad44d8f377cb4f1733bcec257a0b6d04d94f01486ddb38'
 MEDIA_SHA256='52416bfdf2fd346ce2f14e0ac922985d6df4701538e5ee9ddba6d52f6c8a2f4a'
+CSHARP_COMPILER=Path(r'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe')
+
+def preflight_compilers(root=None):
+    root=Path(root or ROOT)
+    inno=root/'build-tools/inno/ISCC.exe'
+    for name,path in [('C# compiler',CSHARP_COMPILER),('Inno compiler',inno)]:
+        if not path.is_file():raise ValueError('Build preflight: missing '+name+': '+str(path))
+    subprocess.run([str(CSHARP_COMPILER),'/nologo','/help'],check=True,capture_output=True,timeout=15)
+    subprocess.run([str(inno),'--version'],check=True,capture_output=True,timeout=15)
 
 def pip_environment():
     # Never change the user's pip settings or inherit install-routing defaults.
@@ -84,6 +93,7 @@ def build_windows():
     payload=ROOT/'build-windows/payload'
     if payload.exists():raise SystemExit('Payload already exists; use a new clean reviewed build directory, never merge stale contents.')
     dependency_preflight=preflight_dependencies()
+    preflight_compilers()
     media=ROOT/'build-tools/media-minimal'
     required=('ffmpeg.exe','ffprobe.exe','COPYING.LGPLv2.1','LICENSE.md','build-config.txt','ffmpeg-source-611cec792a.zip','MinGW-COPYRIGHT.txt','toolchain-packages.txt')
     if not all((media/name).is_file() for name in required):raise SystemExit('Missing reviewed minimal media build and corresponding source.')

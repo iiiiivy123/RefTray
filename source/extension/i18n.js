@@ -9,7 +9,7 @@
     '补齐缺失，不删除已有文件。':'Fill missing content; keep existing files.','网页抽帧从采集弹窗开始。':'Start web-video frames in the popup.','不保存 GIF / LIVE 动图内容。':'Skip GIF / LIVE animations.','仅页面已加载的内容。':'Already loaded content only.','本地 OCR':'Local OCR',
     '{count} 本页':'{count} on page','下载确认 · {count}':'Download approval · {count}',
     '扩展 {extension} · 后台 {backend}':'Extension {extension} · Service {backend}','扩展 {extension}':'Extension {extension}',
-    '已确认图片 {images} · GIF {gifs} · 视频 {videos}':'Confirmed images {images} · GIFs {gifs} · videos {videos}',
+    '预扫描图片 {images} · GIF {gifs} · 视频 {videos}；保存时核实':'Preview: images {images} · GIFs {gifs} · videos {videos}; verified when saving',
  '当前作品':'Current post','批量采集':'Batch capture','媒体过滤':'Media filters','跳过 GIF':'Skip GIFs','附带内容':'Include','正文图片':'Images','待开始':'Ready','处理中':'Processing','部分完成':'Partially complete','已完成':'Complete','已停止':'Stopped','正在收尾':'Finishing','失败':'Failed','跳过':'Skipped','选择采集内容后开始':'Choose content to begin','重新识别当前页':'Identify this page again','正在识别已加载正文…':'Checking loaded main content…','已确认图片 {images} · 视频 {videos}':'Confirmed images {images} · videos {videos}','未能识别，可手动选择采集内容。':'Could not identify content. Choose manually.',
     '后台已连接':'Backend connected',
     '下载保护':'Download protection','单个下载上限':'Download size limit','单个下载上限（MB）':'Download size limit (MB)',

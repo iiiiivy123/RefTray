@@ -33,7 +33,7 @@ def classify(message):
         ('TIMEOUT', r'timed?\s*out|TimeoutError|ReadTimeout|ConnectTimeout'),
         ('HTTP_403', r'HTTP(?: Error)?\s*403|403 Forbidden'),
         ('HTTP_429', r'HTTP(?: Error)?\s*429|429 Too Many'),
-        ('ACCESS', r'sign in|login required|log in|private (?:video|account)|age.restrict|cookies.*required'),
+        ('ACCESS', r'sign in|login required|log in|requires authentication|authentication required|not authorized|private (?:video|account)|protected (?:tweet|post|account)|age.restrict|cookies.*required'),
         ('FORMAT', r'Requested format.*not available|No video formats|no suitable formats'),
         ('UNAVAILABLE', r'video unavailable|tweet unavailable|deleted|not found'),
         ('CONNECT', r'ConnectionRefusedError|connection (?:refused|reset|aborted)|Network is unreachable|WinError (?:10060|10061|10054)'),

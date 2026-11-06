@@ -281,14 +281,14 @@ class Catalog:
         conditions, params = [], []
         if view is not None:
             conditions.append("COALESCE(resolvedBy,'')=''")
-            conditions.append("(id=? OR NOT COALESCE(completed,0) OR failed>0 OR status IN ('failed','partial') OR COALESCE(error,'')!='')")
+            conditions.append("(id=? OR NOT COALESCE(completed,0) OR failed>0 OR status IN ('failed','partial','stopped','interrupted','paused') OR COALESCE(error,'')!='')")
             params.append(active_id)
             conditions.append("(id=? OR id " + ('IN' if view == 'ignored' else 'NOT IN') + " (SELECT value FROM json_each(?)))")
             params.extend((active_id if view != 'ignored' else '', json.dumps(list(ignored_ids))))
             if view == 'running':
                 conditions.append('id=?'); params.append(active_id)
             elif view == 'unfinished':
-                conditions.append("id!=? AND ((saved>0 AND (failed>0 OR status='partial')) OR (NOT COALESCE(completed,0) AND status!='failed'))")
+                conditions.append("id!=? AND ((saved>0 AND (failed>0 OR status='partial')) OR status IN ('stopped','interrupted','paused') OR (NOT COALESCE(completed,0) AND status!='failed'))")
                 params.append(active_id)
             elif view == 'failed':
                 conditions.append("id!=? AND saved=0 AND (failed>0 OR status='failed' OR COALESCE(error,'')!='')")

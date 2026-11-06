@@ -144,6 +144,7 @@ class VideoDownloads:
         subtitle_error = None
         media_warning = None
         audio_present = None
+        saved_path = None
         try:
             resolved = value.media_kind == 'resolved'
             if resolved and (not value.resolver_id or value.audio_url):
@@ -327,6 +328,7 @@ class VideoDownloads:
                 temporary.unlink()
             else:
                 temporary.replace(destination)
+            saved_path = destination
             subtitle_file = None
             if value.subtitle_mode != 'none' and mime.startswith('video/'):
                 from .subtitles import save as save_subtitles
@@ -334,7 +336,9 @@ class VideoDownloads:
                 try:
                     subtitle_file, subtitle_origin = save_subtitles(destination, directory, value.subtitle_cues, lambda: self._point(job_id), value)
                 except InterruptedError:
-                    raise
+                    if value.subtitle_mode == 'only':
+                        raise
+                    subtitle_error = '视频已保留，字幕/MD处理已停止'
                 except Exception as exc:
                     if value.subtitle_mode == 'only':
                         raise ValueError(f'文字稿 MD 未生成：{exc}；未额外保留本次视频') from exc
@@ -349,6 +353,8 @@ class VideoDownloads:
                     if not duplicate:
                         destination.unlink(missing_ok=True)
                     md = subtitle_file.with_suffix('.md')
+                    saved_path = md
+                    mime = 'text/markdown'
                     if self.catalog:
                         self.catalog.record(value.canonical_url,value.page_title,value.author_name,'text',reading_directory,[str(p.relative_to(reading_directory)) for p in (md,)],{'text':True,'category':'text'})
                     self._update(job_id,status='completed',percent=100,message='文字稿 MD 已保存',result={'path':str(md),'directory':str(reading_directory),'relative_file':str(md.relative_to(reading_directory)),'mime':'text/markdown','subtitle_source':subtitle_origin,'duplicate':False})
@@ -365,10 +371,16 @@ class VideoDownloads:
             temp_meta.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding='utf-8')
             temp_meta.replace(sidecar)
             if self.catalog:
-                self.catalog.register_asset(asset_key, destination, digest.hexdigest())
-                self.catalog.register_asset(reuse_key, destination, digest.hexdigest())
-                self.catalog.record(value.canonical_url, value.page_title, value.author_name or value.board_name,
-                                    value.collection_mode, reading_directory, [str(destination.relative_to(reading_directory))]+([str(p.relative_to(reading_directory)) for p in (subtitle_file,subtitle_file.with_suffix('.md'))] if subtitle_file else []), {'videos': mime.startswith('video/'), 'images': mime == 'image/gif', 'category': 'batch' if value.capture_scope == 'batch' or value.capture_scope is None and (value.author_url or value.board_url) else 'images' if mime == 'image/gif' else 'video'})
+                try:
+                    self.catalog.register_asset(asset_key, destination, digest.hexdigest())
+                    self.catalog.register_asset(reuse_key, destination, digest.hexdigest())
+                    self.catalog.record(value.canonical_url, value.page_title, value.author_name or value.board_name,
+                                        value.collection_mode, reading_directory, [str(destination.relative_to(reading_directory))]+([str(p.relative_to(reading_directory)) for p in (subtitle_file,subtitle_file.with_suffix('.md'))] if subtitle_file else []), {'videos': mime.startswith('video/'), 'images': mime == 'image/gif', 'category': 'batch' if value.capture_scope == 'batch' or value.capture_scope is None and (value.author_url or value.board_url) else 'images' if mime == 'image/gif' else 'video'})
+                except Exception as exc:
+                    media_warning = '；'.join(w for w in (media_warning, f'文件及来源记录已保存，采集历史登记失败：{exc}') if w)
+                    record.update(catalog_status='failed', catalog_error=str(exc)[:500])
+                    temp_meta.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding='utf-8')
+                    temp_meta.replace(sidecar)
             asset_id = secrets.token_urlsafe(32)
             with self.lock:
                 self.assets[asset_id] = dict(path=destination, mime=mime, page={k: getattr(value, k) for k in ('canonical_url','page_title','author_url','author_name','board_url','board_name','list_url','list_kind','list_name','list_owner','layout','destination','collection_mode','ocr_enabled','directory_schema','capture_scope','capture_kind')})
@@ -378,11 +390,17 @@ class VideoDownloads:
             warning='；'.join(w for w in (media_warning,subtitle_error) if w)
             self._update(job_id, status='completed', percent=100, message=warning or ('GIF 动图已保存' if mime == 'image/gif' else '音频已保存' if mime.startswith('audio/') else '视频、字幕和MD已保存' if subtitle_file else '视频已保存'), result={'asset_id': asset_id, 'mime': mime, 'path': str(destination), 'directory':str(reading_directory), 'relative_file':str(destination.relative_to(reading_directory)), 'duplicate': duplicate, 'page': self.assets[asset_id]['page'], 'partial':bool(warning), 'warning':warning, 'audio_present':audio_present, 'subtitle_file':str(subtitle_file) if subtitle_file else None, 'subtitle_source':subtitle_origin if subtitle_file else None})
         except InterruptedError as exc:
-            self._update(job_id, status='stopped', message=str(exc))
+            if saved_path is not None and saved_path.is_file():
+                self._saved_partial(job_id, saved_path, reading_directory, mime, exc)
+            else:
+                self._update(job_id, status='stopped', message=str(exc))
         except HTTPError as exc:
             self._update(job_id, status='failed', message=f'视频源拒绝下载（HTTP {exc.code}）。未绕过站点限制，请确认该视频允许下载。')
         except Exception as exc:
-            self._update(job_id, status='failed', message=f'下载失败：{exc}')
+            if saved_path is not None and saved_path.is_file():
+                self._saved_partial(job_id, saved_path, reading_directory, mime, exc)
+            else:
+                self._update(job_id, status='failed', message=f'下载失败：{exc}')
         finally:
             if converted is not None and converted.exists():
                 converted.unlink(missing_ok=True)
@@ -390,3 +408,10 @@ class VideoDownloads:
                 temporary.unlink(missing_ok=True)
             if workspace is not None:
                 workspace.cleanup()
+
+    def _saved_partial(self, job_id, path, directory, mime, error):
+        warning = f'文件已保存，收尾未完成：{error}'
+        self._update(job_id, status='completed', percent=100, message=warning,
+                     result={'path':str(path), 'directory':str(directory),
+                             'relative_file':str(path.relative_to(directory)), 'mime':mime,
+                             'partial':True, 'warning':warning})

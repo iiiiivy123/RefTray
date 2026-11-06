@@ -98,7 +98,7 @@ TOOLS = [
     ('reftray_status', '读取本机后台状态（不返回凭据）', {}),
     ('reftray_download_post', '提交原帖链接并保存已核对身份的分享图片；明确报告尚未接入的登录会话，不保证完整轮播', {'url': {'type': 'string'}}),
     ('reftray_resolve_video', '调用原有视频解析器，保留主帖身份校验', {'url': {'type': 'string'}}),
-    ('reftray_download_video', '核对原帖身份并提交全部已解析视频下载；通过任务查询确认文件保存', {'url': {'type': 'string'}}),
+    ('reftray_download_video', '核对原帖身份并提交一个视频下载；多视频先返回数量，再用 media_index（从1开始）选择，避免并发占用和丢失任务编号', {'url': {'type': 'string'}, 'media_index': {'type': 'integer', 'minimum': 1}}),
     ('reftray_job_status', '读取下载任务结果及实际保存目录', {'job_id': {'type': 'string'}, 'kind': {'type': 'string', 'enum': ['collect', 'video']}}),
 ]
 
@@ -109,7 +109,7 @@ def dispatch(method, params, backend):
     if method == 'ping':
         return {}
     if method == 'tools/list':
-        return {'tools': [{'name': name, 'description': description, 'inputSchema': {'type': 'object', 'properties': properties, 'required': list(properties), 'additionalProperties': False}} for name, description, properties in TOOLS]}
+        return {'tools': [{'name': name, 'description': description, 'inputSchema': {'type': 'object', 'properties': properties, 'required': [key for key in properties if key != 'media_index'], 'additionalProperties': False}} for name, description, properties in TOOLS]}
     if method != 'tools/call':
         raise ValueError('Unsupported method')
     name, args = params['name'], params.get('arguments', {})
@@ -126,10 +126,19 @@ def dispatch(method, params, backend):
             media = backend.api('/media/resolve', {'url': args['url'], 'captions': False})['media']
             if not media:
                 raise ValueError('未解析到原帖视频')
-            health = backend.api('/health')
-            result = {'jobs': [backend.api('/video/start', {**source, 'canonical_url': args['url'],
+            index = args.get('media_index')
+            if index is not None and (isinstance(index, bool) or not isinstance(index, int) or not 1 <= index <= len(media)):
+                raise ValueError('media_index 必须在 1 到 '+str(len(media))+' 之间')
+            if len(media) > 1 and index is None:
+                result = {'status': 'selection_required', 'media_count': len(media), 'jobs': [],
+                          'message': '原帖包含多个视频。请用 media_index 选择；本次尚未启动下载。'}
+            else:
+                health = backend.api('/health')
+                source = media[(index or 1) - 1]
+                job = backend.api('/video/start', {**source, 'canonical_url': args['url'],
                       'platform': platform, 'save_directory': health['inbox'], 'capture_kind': 'video',
-                      'capture_scope': 'single', 'directory_schema': 'function-platform-v2'}) for source in media]}
+                      'capture_scope': 'single', 'directory_schema': 'function-platform-v2'})
+                result = {'jobs': [job], 'media_count': len(media), 'media_index': index or 1}
         elif name == 'reftray_job_status':
             if args['kind'] not in ('collect', 'video') or not re.fullmatch(r'[\w-]{1,100}', args['job_id']):
                 raise ValueError('Invalid job')
