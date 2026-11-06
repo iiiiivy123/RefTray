@@ -16,7 +16,7 @@
 - 成人内容定向后备和下载验收未执行；通用ACCESS分类及会话边界文档已做。不得将任务书全部勾为完成。
 - 已从实际素材库找到小红书/B站/YouTube/Instagram/ArtStation旧成功样本，私有样本和访问参数仅在本机work/review-fixes保存。线上回归进行中。
 - 历史安装命令曾在创建进程前被执行策略拒绝；原call为never/user/全访问，具体匹配规则仍无回执。当前安装已完成，此旧拒绝不能继续充当“等待用户安装”的阻塞。本轮未重试安装；核验见work/review-fixes/installed-0538-verification.json，历史证据见installer-policy-audit.json。
-- 当前聊天旧MCP连接返回Transport closed，原生重连尚未验证；后台安装/运行已通过，两者分开。宿主设置MCP servers里的RefTray Restart为正式入口，已请用户只重连该连接，不重装或重启整个应用。重连后先调用reftray_status，正常后再做已授权验收。原0.5.36对Pin的失败只是历史结果，不能算0.5.38验收。
+- 当前聊天旧MCP连接仍Transport closed；独立使用实际登记命令已完成stdio握手、5工具列表及reftray_status查询，返回0.5.38，子进程正常退出。服务入口可用，桌面旧连接未恢复；后续已授权工作可通过原有服务入口推进，不重复安装或无限重试原生断连。证据见installed-0538-verification.json。宿主本机新版为「插件→管理→MCP」，「连接」是远程设备；并无已确认的单服务常驻Restart按钮。Chrome实际加载和全平台采集仍待验，原0.5.36失败不算新版结果。
 
 ## 以下为0.5.37历史交接，当前状态以上节为准
 
