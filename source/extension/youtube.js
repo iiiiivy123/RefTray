@@ -19,7 +19,15 @@
     // Only traverse the selected tab whose route matches this videos/shorts page.
     if(!urls.size){
       const tabs=state?.contents?.twoColumnBrowseResultsRenderer?.tabs||[];
-      const selected=tabs.map(t=>t.tabRenderer).find(t=>t?.selected&&(()=>{try{return new URL(t.endpoint?.commandMetadata?.webCommandMetadata?.url,u).pathname.replace(/\/$/,'')===u.pathname.replace(/\/$/,'');}catch(_){return false;}})());
+      const selected=tabs.map(t=>t.tabRenderer).find(tab=>{
+        const route=tab?.endpoint?.commandMetadata?.webCommandMetadata?.url;
+        if(!tab?.selected||!route)return false;
+        try{
+          const target=new URL(route,u);
+          return target.origin===u.origin && target.pathname.replace(/\/$/,'')===u.pathname.replace(/\/$/,'') &&
+            (!playlist||target.searchParams.get('list')===u.searchParams.get('list'));
+        }catch(_){return false;}
+      });
       const visit=(node,depth=0)=>{
         if(!node||typeof node!=='object'||depth>25)return;
         if(node.adSlotRenderer||node.promotedSparklesWebRenderer||node.richSectionRenderer)return;
@@ -27,6 +35,10 @@
         const listId=video?.navigationEndpoint?.watchEndpoint?.playlistId;
         if(playlist&&listId&&listId!==u.searchParams.get('list'))return;
         const lockup=node.lockupViewModel;
+        if(playlist && lockup){
+          const target=lockup.rendererContext?.commandContext?.onTap?.innertubeCommand?.watchEndpoint;
+          if(target?.playlistId!==u.searchParams.get('list') || target.videoId!==lockup.contentId)return;
+        }
         const id=video?.videoId||(lockup?.contentType==='LOCKUP_CONTENT_TYPE_VIDEO'?lockup.contentId:null)||node.shortsLockupViewModel?.onTap?.innertubeCommand?.reelWatchEndpoint?.videoId;
         if(/^[\w-]{11}$/.test(id||'')){urls.add('https://www.youtube.com/watch?v='+id);return;}
         for(const [key,value]of Object.entries(node))if(!['endpoint','navigationEndpoint','menu','header'].includes(key))visit(value,depth+1);
@@ -40,8 +52,14 @@
           let matched=false;try{matched=Boolean(metadata?.playlistUrl)&&new URL(metadata.playlistUrl,u).searchParams.get('list')===listId;}catch(_){}
           matched ||= state?.header?.playlistHeaderRenderer?.playlistId===listId;
           matched ||= tabs.some(t=>t.tabRenderer?.selected&&t.tabRenderer.endpoint?.browseEndpoint?.browseId==='VL'+listId);
-          if(matched)visit(state?.contents?.twoColumnBrowseResultsRenderer);
-          else visit(selected?.content);
+          const tab=tabs.find(t=>t.tabRenderer?.selected)?.tabRenderer;
+          for(const section of tab?.content?.sectionListRenderer?.contents||[]){
+            for(const card of section.itemSectionRenderer?.contents||[]){
+              if(card.lockupViewModel)visit(card);
+              else if(matched && card.playlistVideoListRenderer)visit(card.playlistVideoListRenderer.contents);
+            }
+          }
+          if(!urls.size && selected)visit(selected.content);
         }
       }
     }

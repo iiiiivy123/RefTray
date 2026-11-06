@@ -42,3 +42,14 @@ test('only a direct reply contributes its own animated GIF source',()=>{
  const result=vm.runInContext(source,ctx);
  assert.deepEqual(Array.from(result.comments[0].gifs),[url]);
 });
+
+test('YouTube playlist only admits selected-tab cards with matching video and playlist identities',()=>{
+ const {profile}=require('../../source/extension/youtube.js');
+ const id='PLcollection', url='https://www.youtube.com/playlist?list='+id;
+ const doc={title:'Playlist',querySelector:()=>null};
+ const card=(video,list,clicked=video)=>({lockupViewModel:{contentType:'LOCKUP_CONTENT_TYPE_VIDEO',contentId:video,rendererContext:{commandContext:{onTap:{innertubeCommand:{watchEndpoint:{videoId:clicked,playlistId:list}}}}}}});
+ const tab=(selected,cards)=>({tabRenderer:{selected,content:{sectionListRenderer:{contents:[{itemSectionRenderer:{contents:cards}}]}}}});
+ const tabs=[tab(false,[card('99999999999',id)]),tab(true,[card('11111111111',id),card('22222222222','PLother'),card('33333333333',id,'44444444444')])];
+ const list=profile(url,doc,{contents:{twoColumnBrowseResultsRenderer:{tabs}}});
+ assert.deepEqual(list.urls,['https://www.youtube.com/watch?v=11111111111']);
+});

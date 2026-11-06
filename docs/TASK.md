@@ -97,3 +97,4 @@
 - 验证文件位于 work/review-fixes：paired-popup-*.json、popup-check-instagram.json、lookup-0539.json、live-parts.log、bili-p2-result.json、bili-p2-ffprobe.json、origin-post.log。曾明确拒绝的正式安装未重试；45秒租约在冻结核心，未实施变更。
 - 06/11 独立于浏览器的 Instagram 公开图片接口现已实测。原帖 DfCq0Y-EkXn 按身份逐项保存 4 张（4474490 字节）；DeGxsu6kaho 保存 10 张（13762675 字节）并明确跳过 1 个视频。14 张图片都已解码。证据 ig-mcp-proof.json。第三条 Pinterest 回归链接 910923462135952902 未取得可靠原帖身份，保持失败。
 - 05 独立 Chrome 以临时旧版本及本地留存的真实发布说明测试缓存更新通知，实际显示“发现新版 v0.5.37”，随后选择稍后提醒并核对到期状态。线上匿名发布接口仍返回 HTTP 403；该测试只覆盖已有缓存的展示和交互。
+10 追加：使用包内 Python、MCP 和后台从真实 Shorts 链接落盘 13723673 字节，已验 1080×1920、19.328 秒。Blender 官方频道在独立 Chrome 读到当前 30 条；真实播放列表起初读取为空，修复现代列表卡片的归属核验后，同一页面识别 95 条。跨列表、点击视频号冲突及未选标签的卡片均排除。这里只确认列表来源与顺序，未按 95 条下载。
