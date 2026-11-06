@@ -33,7 +33,11 @@
       if(script.textContent.length>8*1048576)continue;
       try{visit(JSON.parse(script.textContent));}catch(_){}
     }
-    let matching=false;try{matching=new URL(meta('og:url')).pathname.replace(/\/$/,'')===u.pathname.replace(/\/$/,'');}catch(_){}
+    let matching=false;
+    try{
+      const declared=new URL(meta('og:url'));
+      matching=declared.origin===new URL(canonical).origin && declared.pathname.replace(/\/$/,'')==='/artwork/'+id;
+    }catch(_){}
     const warnings=[];
     if(!images.length&&matching){add(meta('og:image'));if(images.length)warnings.push('仅取得作品分享图，尚未确认作品全部图片');}
     if(!images.length&&!body)throw new Error('ArtStation 作品正文尚未加载或布局未识别；未保存推荐图片');

@@ -134,3 +134,22 @@ test('release checks separate offline, ignored, deferred, busy, old and newer re
  delete store.releaseCheck;online=false;assert.equal(await updates.check('0.5.38'),null);
  assert.match(store.releaseCheck.error,/offline/);assert.ok(store.releaseCheck.nextCheck>Date.now());
 });
+
+test('rate-limited release lookup respects the server deadline and preserves cached releases',async()=>{
+ const now=Date.now(),reset=Math.ceil(now/1000)+7200;
+ const store={releaseCheck:{latest:{version:'v1.0.0',notes:'cached'}}};
+ let calls=0;
+ const context=vm.createContext({AbortSignal,chrome:{storage:{local:{get:async()=>store,set:async x=>Object.assign(store,x)}}},
+  fetch:async()=>{calls++;return {ok:false,status:403,headers:new Headers({'x-ratelimit-reset':String(reset),'retry-after':'60'})};}});
+ const updates=vm.runInContext(fs.readFileSync(path.join(extension,'release-check.js'),'utf8')+';RefTrayUpdates',context);
+ assert.equal((await updates.check('0.5.40')).version,'v1.0.0');
+ assert.equal(store.releaseCheck.nextCheck,reset*1000);
+ await updates.check('0.5.40');assert.equal(calls,1);
+});
+
+test('ArtStation share image must be declared by the same artwork',()=>{
+ const {extract}=require('../../source/extension/artstation.js');
+ const url='https://www.artstation.com/artwork/abc';
+ const doc={querySelectorAll:()=>[],querySelector:q=>q.includes('og:url')?{content:'https://example.org/artwork/abc'}:q.includes('og:image')?{content:'https://cdn.artstation.com/p/assets/images/images/sample.jpg'}:null};
+ assert.throws(()=>extract(url,doc),/ArtStation/);
+});

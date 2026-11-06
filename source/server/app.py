@@ -1,5 +1,6 @@
 import threading
 import os
+import re
 import secrets
 import hashlib
 import tempfile
@@ -38,6 +39,7 @@ def create_app(runtime=None):
     active_urls: dict[str, str] = {}
     idempotency = {}
     lock = threading.Lock()
+    last_extension = None
     catalog = storage.catalog
     videos = runtime.videos if runtime is not None else VideoDownloads(catalog)
     import_previews = {}
@@ -59,16 +61,20 @@ def create_app(runtime=None):
     @app.get("/health")
     @app.post("/health")
     def health(request: Request) -> dict[str, object]:
+        nonlocal last_extension
         origin = request.headers.get('origin')
         browser = origin is not None or any(key.startswith('sec-fetch-') for key in request.headers)
         if browser and origin not in origins:
             raise HTTPException(403, '需要通过已登记的扩展目录连接；升级后请刷新扩展。')
+        version = request.query_params.get('extension_version', '')
+        if request.method == 'POST' and origin in origins and re.fullmatch(r'[0-9]{1,5}(?:\.[0-9]{1,5}){2,3}', version):
+            last_extension = {'release': version, 'seen_at': int(time.time())}
         return health_data()
 
     def health_data() -> dict[str, object]:
         # Protocol stays compatible; release identifies the deployed capabilities.
         cached = capability_cache.snapshot()
-        return {**health_protocol(), "download_protection": True, "disk_protection": False, "streaming_capture": True, "release": RELEASE, "md_only": True, "bilibili_mux": cached["values"].get("mp4_remux"), "components": cached["values"], "capabilities_state": cached["state"], "library_configured": settings.library_configured, "native_folder_picker": True, "busy": bool(active_urls) or videos.busy() or local_tools_busy() or any(item.get("state") == "pending" for item in folder_requests.values())}
+        return {**health_protocol(), "download_protection": True, "disk_protection": False, "streaming_capture": True, "release": RELEASE, "last_paired_extension": last_extension, "md_only": True, "bilibili_mux": cached["values"].get("mp4_remux"), "components": cached["values"], "capabilities_state": cached["state"], "library_configured": settings.library_configured, "native_folder_picker": True, "busy": bool(active_urls) or videos.busy() or local_tools_busy() or any(item.get("state") == "pending" for item in folder_requests.values())}
 
 
     def health_protocol() -> dict[str, object]:

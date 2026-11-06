@@ -1,9 +1,7 @@
 """Download ordinary, public video files. No cookie export, playlist or DRM handling."""
 import hashlib
-import ipaddress
 import json
 import secrets
-import socket
 import threading
 import time
 import shutil
@@ -12,7 +10,8 @@ from . import bilibili_media
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, Request
+from .image_download import public_opener, validate_url as validate_public_url
 from urllib.response import addinfourl
 from .catalog import fingerprint
 
@@ -32,9 +31,7 @@ def validate_url(value):
         raise ValueError('仅支持普通 HTTP(S) 视频地址')
     if not any(host == suffix or host.endswith('.' + suffix) for suffix in HOSTS):
         raise ValueError('该视频域名暂未接入下载；目前支持已接入平台的视频 CDN')
-    addresses = socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == 'https' else 80), type=socket.SOCK_STREAM)
-    if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
-        raise ValueError('拒绝访问本机或内网视频地址')
+    validate_public_url(value)
     if parsed.path.lower().endswith(('.m3u8', '.mpd')):
         raise ValueError('这是分段流媒体，不是普通视频文件；本版不处理播放列表')
     return value
@@ -88,7 +85,7 @@ class VideoDownloads:
             if any(job['status'] in ('running', 'paused') for job in self.jobs.values()):
                 raise ValueError('已有视频下载任务，请先停止或等待完成')
             job_id = secrets.token_urlsafe(24)
-            self.jobs[job_id] = dict(status='running', stage='connecting', bytes=0, total=None, percent=None, message='正在连接视频源…', control='running', lease=time.monotonic())
+            self.jobs[job_id] = dict(status='running', stage='connecting', bytes=0, total=None, percent=None, message='正在连接视频源…', control='running')
         threading.Thread(target=self._run, args=(job_id, root, value), daemon=True).start()
         return job_id
 
@@ -96,8 +93,7 @@ class VideoDownloads:
         with self.lock:
             prune_finished(self.jobs)
             job = self.jobs[job_id]
-            job['lease'] = time.monotonic()
-            return {k: v for k, v in job.items() if k not in ('lease', 'control', 'finished_at')}
+            return {k: v for k, v in job.items() if k not in ('control', 'finished_at')}
 
     def control(self, job_id, action):
         if action not in ('running', 'paused', 'stopped'):
@@ -108,7 +104,6 @@ class VideoDownloads:
                 return
             previous = job['control']
             job['control'] = action
-            job['lease'] = time.monotonic()
             job['status'] = 'paused' if action == 'paused' else 'running'
             if previous != action:
                 job['message'] = {'paused': '下载已暂停', 'running': '正在恢复下载…', 'stopped': '正在停止下载…'}[action]
@@ -118,13 +113,13 @@ class VideoDownloads:
         with self.lock:
             for job in self.jobs.values():
                 if job['status'] in ('running', 'paused'):
-                    job.update(control='stopped', status='running', lease=time.monotonic(), message='正在停止下载…')
+                    job.update(control='stopped', status='running', message='正在停止下载…')
 
     def _point(self, job_id):
         while True:
             with self.lock:
                 job = self.jobs[job_id]
-                if job['control'] == 'stopped' or time.monotonic() - job['lease'] > 45:
+                if job['control'] == 'stopped':
                     raise InterruptedError('下载已停止；未完成的临时视频已清理')
                 paused = job['control'] == 'paused'
             if not paused:
@@ -207,7 +202,7 @@ class VideoDownloads:
                         raise ValueError('分轨来源与作品平台不一致')
                     validate_url(track_url)
                     target=Path(workspace.name)/f'track-{index}.mp4'
-                    with build_opener(SafeRedirect()).open(Request(track_url,headers=bilibili_media.source_headers(track_url)),timeout=12) as response, target.open('xb') as output:
+                    with public_opener(SafeRedirect()).open(Request(track_url,headers=bilibili_media.source_headers(track_url)),timeout=12) as response, target.open('xb') as output:
                         if response.status!=200:raise ValueError('视频轨道响应不完整')
                         expected=int(response.headers.get('Content-Length') or 0);received=0
                         track_started=time.monotonic();last_report=0
@@ -236,7 +231,7 @@ class VideoDownloads:
                 bilibili_media.mux(*tracks,cached,lambda:self._point(job_id))
                 if cached.stat().st_size>limit:raise ValueError('合并视频超过文件大小限制')
             temporary = directory / f'.video-{job_id}.part'
-            opener = build_opener(SafeRedirect())
+            opener = public_opener(SafeRedirect())
             self._point(job_id)
             response_context = addinfourl(cached.open('rb'), {'Content-Length':str(cached.stat().st_size)}, url, code=200) if cached else opener.open(Request(url, headers=bilibili_media.source_headers(url)), timeout=12)
             with response_context as response:

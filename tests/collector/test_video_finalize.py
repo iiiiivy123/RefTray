@@ -13,6 +13,26 @@ from server.video import VideoDownloads
 
 
 class VideoFinalizeTests(unittest.TestCase):
+    def test_frontend_absence_does_not_cancel_but_explicit_stop_does(self):
+        downloads = VideoDownloads()
+        downloads.jobs['test'] = {'status':'running','control':'running','lease':time.monotonic()-90}
+        downloads._point('test')
+        downloads.control('test','stopped')
+        with self.assertRaises(InterruptedError):
+            downloads._point('test')
+
+    def test_paused_checkpoint_resumes_and_shutdown_stops_paused_work(self):
+        downloads = VideoDownloads()
+        downloads.jobs['test'] = {'status': 'running', 'control': 'running'}
+        downloads.control('test', 'paused')
+        with patch('server.video.time.sleep', side_effect=lambda _: downloads.control('test', 'running')) as wait:
+            downloads._point('test')
+            wait.assert_called_once()
+        downloads.control('test', 'paused')
+        downloads.request_stop_all()
+        with self.assertRaises(InterruptedError):
+            downloads._point('test')
+
     def run_download(self, root, *, catalog=None, subtitle_error=None):
         downloads = VideoDownloads(catalog)
         downloads.jobs['test'] = {'status': 'running', 'control': 'running', 'lease': time.monotonic()}
@@ -25,7 +45,7 @@ class VideoFinalizeTests(unittest.TestCase):
         def transform(source, destination, *_):
             shutil.copy2(source, destination)
             return 1
-        with patch('server.video.validate_url', return_value=value.url), patch('server.video.build_opener', return_value=opener), patch('server.media_output.transform', side_effect=transform), patch('server.subtitles.save', side_effect=subtitle_error, return_value=(None, None)):
+        with patch('server.video.validate_url', return_value=value.url), patch('server.video.public_opener', return_value=opener), patch('server.media_output.transform', side_effect=transform), patch('server.subtitles.save', side_effect=subtitle_error, return_value=(None, None)):
             downloads._run('test', root, value)
         return downloads.jobs['test'], content
 

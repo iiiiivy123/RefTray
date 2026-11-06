@@ -24,10 +24,20 @@ const RefTrayUpdates = (() => {
       await storage.get(['releaseCheck', 'releaseIgnored', 'releaseLater']);
     let latest = releaseCheck.latest;
     if (!(Date.now() < releaseCheck.nextCheck)) {
+      let retryAt=Date.now()+3600000;
       try {
         const response = await fetch(latestUrl, {credentials:'omit',referrerPolicy:'no-referrer',
           signal:AbortSignal.timeout(5000),headers:{Accept:'application/vnd.github+json'}});
-        if (!response.ok) throw new Error('HTTP ' + response.status);
+        if (!response.ok) {
+          if(response.status===403||response.status===429){
+            const reset=Number(response.headers?.get('x-ratelimit-reset'))*1000;
+            const delay=response.headers?.get('retry-after');
+            const after=delay && /^\d+$/.test(delay)?Date.now()+Number(delay)*1000:Date.parse(delay||'');
+            const deadline=Math.max(reset||0,after||0);
+            if(Number.isFinite(deadline)&&deadline>Date.now())retryAt=deadline;
+          }
+          throw new Error('HTTP ' + response.status);
+        }
         const release = await response.json();
         if (release.draft || release.prerelease || !versionParts(release.tag_name)) {
           throw new Error('Unexpected release metadata');
@@ -35,7 +45,7 @@ const RefTrayUpdates = (() => {
         latest = {version:release.tag_name,notes:String(release.body || release.name || '').slice(0,1200)};
         await storage.set({releaseCheck:{latest,nextCheck:Date.now()+day}});
       } catch (error) {
-        await storage.set({releaseCheck:{latest:latest || null,nextCheck:Date.now()+3600000,
+        await storage.set({releaseCheck:{latest:latest || null,nextCheck:retryAt,
           error:String(error.message).slice(0,120)}});
       }
     }

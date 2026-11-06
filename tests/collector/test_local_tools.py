@@ -79,6 +79,20 @@ class LocalToolTests(unittest.TestCase):
                 self.assertEqual(rejected.exception.code,code)
                 self.assertNotIn(b'settings_token',rejected.exception.read())
 
+    def test_last_extension_version_requires_a_paired_post(self):
+        from server.extension_origin import paired_origins
+        origin = next(iter(paired_origins()))
+        for method, headers, version, expected in [
+                ('POST', {'Origin': origin}, '0.5.40', '0.5.40'),
+                ('GET', {}, '9.9.9', '0.5.40'),
+                ('POST', {}, '9.9.9', '0.5.40'),
+                ('POST', {'Origin': origin}, 'invalid', '0.5.40')]:
+            req = Request(self.base+'/health?extension_version='+version, method=method, headers=headers)
+            with self.opener.open(req, timeout=5) as response:
+                last = json.load(response)['last_paired_extension']
+                self.assertEqual(last['release'], expected)
+                self.assertGreater(last['seen_at'], 0)
+
     def test_real_gif_and_audio_preserve_source(self):
         original = hashlib.sha256(self.sample.read_bytes()).hexdigest()
         for format in ('gif', 'audio'):
