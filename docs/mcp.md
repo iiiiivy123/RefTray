@@ -25,13 +25,13 @@ args:
 | 工具 | 用途 | 参数 |
 | --- | --- | --- |
 | `reftray_status` | 查看后台版本、连接状态和素材库 | 无 |
-| `reftray_download_post` | 保存 Pinterest Pin 或 X 原帖中已核对的公开图片 | `url` |
+| `reftray_download_post` | 保存 Instagram 公开图片帖、Pinterest Pin 或 X 原帖中已核对的公开图片 | `url` |
 | `reftray_find_saved` | 按作品链接核对本地已有素材，返回文件、目录及已保存范围；无符合记录时返回空列表 | `url` |
 | `reftray_resolve_video` | 解析原帖视频来源 | `url` |
 | `reftray_download_video` | 提交一个原帖视频下载；多视频先返回数量供选择 | `url`，可选 `media_index`（从1开始） |
 | `reftray_job_status` | 查询保存结果、错误和实际文件位置 | `job_id`，`kind`（`collect`、`video` 或失败记录 `task`） |
 
-图片接口支持 Pinterest 和 X 原帖链接，X 返回分享图；Pinterest 除分享图外，还可核对 Pin 原图及逐页静态故事图片。返回的 scope 和 warning 说明此次保存范围。多图和评论请用浏览器扩展。视频接口支持 X 主帖、YouTube 单视频及 Shorts、B 站单稿件（保留指定分 P），沿用现有解析器，下载提交后继续查询任务，完成时会返回保存结果。
+Instagram 公开图片帖会核对嵌入数据里的原帖编号，逐项保存静态图片并单列跳过的视频数。其余图片入口支持 Pinterest 和 X 原帖链接，X 返回分享图；Pinterest 除分享图外，还可核对 Pin 原图及逐页静态故事图片。返回的 scope 和 warning 说明此次保存范围。多图和评论请用浏览器扩展。视频接口支持 X 主帖、YouTube 单视频及 Shorts、B 站单稿件（保留指定分 P），沿用现有解析器，下载提交后继续查询任务，完成时会返回保存结果。
 
 多视频返回 `status: selection_required`、`media_count` 和空的 `jobs`，表示尚未启动下载。再次调用时传 `media_index` 选择一个视频，随后用返回的任务号查询。当前没有自动排队下载全部视频。
 

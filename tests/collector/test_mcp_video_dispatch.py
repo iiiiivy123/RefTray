@@ -123,3 +123,23 @@ class PublicPinTests(unittest.TestCase):
         story['storyPinData']['pages'].append({'blocks':[{'__typename':'StoryPinVideoBlock'}]})
         with self.assertRaises(ValueError):
             self.resolve(story)
+
+class InstagramPublicTests(unittest.TestCase):
+    def test_mixed_carousel_preserves_order_and_excludes_movie_cover(self):
+        from server.instagram_post import images_from_record
+        url='https://test.cdninstagram.com/a.jpg'
+        nodes=[{'id':str(i),'is_video':video,'display_url':url+str(i)} for i,video in enumerate([False,True,False])]
+        media={'shortcode':'example','id':'parent','__typename':'GraphSidecar','is_video':False,
+               'edge_sidecar_to_children':{'edges':[{'node':node} for node in nodes]}}
+        record={'context':{'shortcode':'example','copyright_blocked':False,'type':'GraphSidecar'},'gql_data':{'shortcode_media':media}}
+        saved=images_from_record(record,'example')
+        self.assertEqual([i['url'] for i in saved['images']],[url+'0',url+'2'])
+        for changed in [{'id':'0'}, {'is_video':None}, {'display_url':'https://cdninstagram.com.evil.example/x'}]:
+            with self.subTest(changed=changed),self.assertRaises(ValueError):
+                from copy import deepcopy
+                other=deepcopy(record)
+                other['gql_data']['shortcode_media']['edge_sidecar_to_children']['edges'][2]['node'].update(changed)
+                images_from_record(other,'example')
+        with self.assertRaises(ValueError):images_from_record(record,'other')
+        record['context']['copyright_blocked']=True
+        with self.assertRaises(ValueError):images_from_record(record,'example')

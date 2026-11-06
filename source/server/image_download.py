@@ -10,12 +10,12 @@ MAX_BYTES = 30 * 1024 * 1024
 
 def platform_cdn(host):
     return any(host == domain or host.endswith('.' + domain)
-               for domain in ('pinimg.com', 'twimg.com'))
+               for domain in ('pinimg.com', 'twimg.com', 'cdninstagram.com', 'fbcdn.net'))
 
 
 def proxy_dns_host(host):
     return platform_cdn(host) or host in {
-        'youtube.com', 'www.youtube.com', 'pinterest.com', 'www.pinterest.com',
+        'www.instagram.com', 'youtube.com', 'www.youtube.com', 'pinterest.com', 'www.pinterest.com',
         'x.com', 'www.x.com', 'twitter.com', 'www.twitter.com',
     }
 

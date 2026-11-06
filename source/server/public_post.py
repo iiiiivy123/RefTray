@@ -88,18 +88,24 @@ def identity(url):
     if host in ('www.pinterest.com', 'pinterest.com'):
         match = re.fullmatch(r'/pin/(\d+)/?', parsed.path)
         platform = 'pinterest'
+    elif host in ('www.instagram.com', 'instagram.com'):
+        match = re.fullmatch(r'/(?:[\w.]+/)?p/([\w-]+)/?',parsed.path)
+        platform = 'instagram'
     elif host in ('x.com', 'www.x.com', 'twitter.com', 'www.twitter.com'):
         match = re.fullmatch(r'/(?:[\w]+|i/web)/status/(\d+)/?', parsed.path)
         platform = 'x'
     else:
         match = None
     if not match:
-        raise ValueError('当前接口支持 Pinterest Pin 和 X 原帖详情链接')
+        raise ValueError('当前接口支持 Pinterest Pin、Instagram 图片帖和 X 原帖详情链接')
     return platform, match[1]
 
 
 def resolve_post(url):
     expected = identity(url)
+    if expected[0] == 'instagram':
+        from .instagram_post import resolve_embed
+        return resolve_embed(expected[1])
     class SourceRedirect(HTTPRedirectHandler):
         def redirect_request(self, req, fp, code, msg, headers, newurl):
             if identity(newurl) != expected:

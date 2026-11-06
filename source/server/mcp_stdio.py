@@ -51,7 +51,7 @@ class Backend:
 
 TOOLS = [
     ('reftray_status', '读取本机后台状态（不返回凭据）', {}),
-    ('reftray_download_post', '提交原帖链接并保存已核对身份的公开图片（Pin 原图、静态故事图片或分享图）；明确报告尚未接入的登录会话，不保证完整轮播', {'url': {'type': 'string'}}),
+    ('reftray_download_post', '提交原帖链接并保存已核对身份的公开图片（Instagram 静态轮播、Pin 原图、静态故事图片或分享图）；明确报告尚未接入的登录会话，不保证完整轮播', {'url': {'type': 'string'}}),
     ('reftray_find_saved', '核对当前作品在素材库的实际文件和采集范围，可查浏览器扩展已保存的各平台作品', {'url': {'type':'string'}}),
     ('reftray_resolve_video', '调用原有视频解析器，保留主帖身份校验', {'url': {'type': 'string'}}),
     ('reftray_download_video', '核对原帖身份并提交一个视频下载；多视频先返回数量，再用 media_index（从1开始）选择，避免并发占用和丢失任务编号', {'url': {'type': 'string'}, 'media_index': {'type': 'integer', 'minimum': 1}}),
@@ -118,7 +118,7 @@ def dispatch(method, params, backend):
             try:
                 if name == 'reftray_download_post':
                     platform, post_id = identity(args['url'])
-                    source = ('https://www.pinterest.com/pin/' if platform == 'pinterest' else 'https://x.com/i/status/') + post_id
+                    source = {'pinterest':'https://www.pinterest.com/pin/', 'instagram':'https://www.instagram.com/p/', 'x':'https://x.com/i/status/'}[platform] + post_id
                 else:
                     source, platform = video_post(args['url'])
             except (KeyError, TypeError, ValueError):
