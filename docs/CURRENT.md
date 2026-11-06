@@ -15,7 +15,7 @@
 - R5独立命名管道验证连续超时，按QA停止，提案已回退，未放进候选包。评论图片夹具读取错误路径的复验已获用户授权并通过。
 - 成人内容定向后备和下载验收未执行；通用ACCESS分类及会话边界文档已做。不得将任务书全部勾为完成。
 - 已从实际素材库找到小红书/B站/YouTube/Instagram/ArtStation旧成功样本，私有样本和访问参数仅在本机work/review-fixes保存。线上回归进行中。
-- 历史安装命令曾在创建进程前被执行策略拒绝；原call为never/user/全访问，具体匹配规则仍无回执。当前安装已完成，此旧拒绝不能继续充当“等待用户安装”的阻塞。本轮未重试安装；核验见work/review-fixes/installed-0538-verification.json，历史证据见installer-policy-audit.json。
+- 原安装拒绝已作准确版本源码离线定位：整脚本中的本机健康检查URL与本地Start-Process被Windows URL启动检查组合命中，Never使其直接拒绝。原文、同版本语法解析和纯词项核验重建充分拒绝路径；未取回当时RuleMatch，不能排除额外同时命中。报告：work/review-fixes/policy-origin/FINDINGS.md及analysis-result.json。未执行安装脚本或改安全配置；此历史拒绝不作为当前“等待安装”的阻塞。
 - 当前聊天旧MCP连接仍Transport closed；独立使用实际登记命令已完成stdio握手、5工具列表及reftray_status查询，返回0.5.38，子进程正常退出。服务入口可用，桌面旧连接未恢复；后续已授权工作可通过原有服务入口推进，不重复安装或无限重试原生断连。证据见installed-0538-verification.json。撤回「设置→MCP服务器」及「插件→管理→MCP」点击指引：仅查过文档/静态代码，未实际验证界面可达；用户截图未显示对应入口，不得继续据此让用户寻找或点击重启。「连接」是远程设备。Chrome实际加载和全平台采集仍待验，原0.5.36失败不算新版结果。
 
 ## 以下为0.5.37历史交接，当前状态以上节为准
