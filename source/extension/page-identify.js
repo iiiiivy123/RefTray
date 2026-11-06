@@ -3,7 +3,9 @@
  const u=new URL(location.href),host=u.hostname;
  let root=document.querySelector('main article,article,[role="main"]')||document.querySelector('main');
  if(/(^|\.)(x\.com|twitter\.com)$/.test(host)){
-  const id=u.pathname.match(/\/status\/(\d+)/)?.[1];root=[...document.querySelectorAll('article[data-testid="tweet"]')].find(a=>a.querySelector('a[href*="/status/"] time')?.closest('a')?.getAttribute('href')?.match(/\/status\/(\d+)/)?.[1]===id);
+  const id=u.pathname.match(/\/status\/(\d+)/)?.[1];
+  if(!id)return {url:location.href,state:'unknown',reason:'请打开具体帖子后识别'};
+  root=[...document.querySelectorAll('article[data-testid="tweet"]')].find(a=>a.querySelector('a[href*="/status/"] time')?.closest('a')?.getAttribute('href')?.match(/\/status\/(\d+)/)?.[1]===id);
   if(!root)return {url:location.href,state:'unknown',reason:'尚未确认当前帖正文'};
   const images=new Set([...root.querySelectorAll('[data-testid="tweetPhoto"] img')].filter(i=>i.complete&&i.naturalWidth>0&&!i.closest('[data-testid="videoPlayer"],[data-testid="videoComponent"],[data-testid="quoteTweet"]')).map(i=>i.currentSrc||i.src).filter(src=>/^https:\/\/pbs\.twimg\.com\/media\//.test(src)));
   let videos=0,gifs=0;

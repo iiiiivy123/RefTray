@@ -98,7 +98,9 @@ async function readPagePayload(tabId, options, current) {
     if (isX && !options.video_only && !taskContext.options.video_only) {
       const id = new URL(current.url).pathname.match(/\/status\/(\d+)/)?.[1];
       xPageData = await loadedPageMedia(tabId, false);
-      if (!id || xPageData.postId !== id || !xPageData.has_gif&&!xPageData.media?.some(item => item.kind === 'photo'||item.kind==='gif') || options.md_only) throw new Error(payload.error);
+      const hasRequestedMedia = xPageData.has_gif || xPageData.media?.some(item =>
+        item.kind === 'photo' || item.kind === 'gif' || (item.kind === 'video' && options.include_videos));
+      if (!id || xPageData.postId !== id || !hasRequestedMedia || options.md_only) throw new Error(payload.error);
       Object.assign(payload,{error:null,platform:'x',canonical_url:current.url.split('?')[0],page_title:current.title,images:[],body_text:'',has_video:Boolean(xPageData.has_gif),collection_mode:options.collection_mode || 'images'});
     } else {
       const media=await loadedMedia(tabId);
@@ -350,7 +352,7 @@ async function videoSource(tab,options) {
   if(!options.source?.resolver_id&&options.source?.kind!=='gif'&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)){
     try{
       const {media}=await matureMedia(tab.url);
-      if(media.length===1)return media[0];
+      if(!options.source?.url&&media.length===1)return media[0];
       const identity=url=>url?.match(/\/(?:ext_tw_video|amplify_video)\/(\d+)\//)?.[1];
       const matched=media.find(m=>identity(m.url)&&identity(m.url)===identity(options.source?.url));
       if(matched)return matched;
@@ -388,6 +390,7 @@ async function videoSource(tab,options) {
       if(!root)return {error:'尚未识别URL对应的X主帖，未扫描回复或推荐视频'};
     }
     const videos = [...root.querySelectorAll('video')].filter(video => {
+      if(root!==document && (video.closest('article')!==root || video.closest('[data-testid="quoteTweet"]')))return false;
       const rect = video.getBoundingClientRect();
       return rect.width > 100 && rect.height > 100 && rect.bottom > 0 && rect.top < innerHeight && getComputedStyle(video).visibility !== 'hidden';
     });

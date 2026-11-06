@@ -92,3 +92,25 @@ test('a DOM-marked blob GIF may resolve in image mode; skipping GIF never invoke
  assert.equal(calls,1);assert.equal(r.media.length,1);assert.equal(r.media[0].kind,'gif');
  vm.runInContext('taskContext.options.skip_gifs=true',c);await vm.runInContext('loadedPageMedia(1,false)',c);assert.equal(calls,1);
 });
+
+test('X guest singleton cannot replace a different selected page video',async()=>{
+ const selected={kind:'video',url:'https://video.twimg.com/ext_tw_video/123/vid/main.mp4'};
+ const guest={kind:'video',url:'https://video.twimg.com/ext_tw_video/456/vid/other.mp4'};
+ const c=vm.createContext({URL,matureMedia:async()=>({media:[guest]})});
+ vm.runInContext(functionSource('videoSource','browserYouTubeCaptions'),c);
+ const result=await c.videoSource({url:'https://x.com/example/status/789'},{source:selected});
+ assert.equal(result.url,selected.url);
+});
+
+test('X image collection with video enabled accepts a video-only exact-post page record',async()=>{
+ const url='https://x.com/example/status/123';
+ const selected={kind:'video',url:'https://video.twimg.com/ext_tw_video/777/vid/main.mp4'};
+ const c=vm.createContext({URL,chrome:{tabs:{sendMessage:async()=>({error:'正文图片缺失'})}},
+  inject:async()=>{},loadedPageMedia:async()=>({postId:'123',media:[selected]})});
+ vm.runInContext('let taskContext={options:{}};'+functionSource('readPagePayload','loadedMedia'),c);
+ const result=await c.readPagePayload(1,{include_videos:true},{url,title:'Video'});
+ assert.equal(result._media[0].url,selected.url);
+ assert.equal(result.has_video,true);
+ await assert.rejects(c.readPagePayload(1,{include_videos:false},{url,title:'Video'}),/正文图片缺失/);
+ await assert.rejects(c.readPagePayload(1,{include_videos:true},{url:url+'4',title:'Other'}),/正文图片缺失/);
+});
