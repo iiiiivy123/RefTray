@@ -98,3 +98,4 @@
 !/docs/review-fixes.md
 !/tests/test_extension_install.py
 !/tests/collector/test_image_proxy.py
+!/docs/TASK.md
