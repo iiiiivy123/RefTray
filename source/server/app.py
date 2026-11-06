@@ -326,6 +326,16 @@ def create_app(runtime=None):
         quality: str = Field(default='best', pattern='^(best|1080|720|480)$')
         output_format: str = Field(default='original',pattern='^(original|audio)$')
 
+    @app.post('/media/resolve-post')
+    def resolve_post_images(value: ResolveMedia, request: Request):
+        authorize_settings(request)
+        from .public_post import resolve_post
+        from http.client import HTTPException as TransportError
+        try:
+            return resolve_post(value.url)
+        except (OSError, ValueError, TransportError) as exc:
+            raise HTTPException(422, str(exc))
+
     @app.post('/media/resolve')
     def resolve_media(value: ResolveMedia, request: Request):
         authorize_settings(request)

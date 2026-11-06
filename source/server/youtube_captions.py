@@ -1,20 +1,18 @@
 """One caption track from yt-dlp metadata; bounded downloads through existing URL guards."""
 import json
 import math
-import socket
-import ipaddress
 import time
 from urllib.parse import urlsplit, parse_qs
-from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.request import Request, HTTPRedirectHandler
+
+from .image_download import public_opener, validate_url
 
 
 def validate_caption_url(url):
     u = urlsplit(url)
     if u.scheme != 'https' or u.hostname not in ('www.youtube.com', 'youtube.com') or u.path != '/api/timedtext' or u.username or u.password or u.port not in (None,443):
         raise ValueError('字幕来源不支持')
-    addresses = socket.getaddrinfo(u.hostname, 443, type=socket.SOCK_STREAM)
-    if not addresses or any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):
-        raise ValueError('拒绝本机或内网字幕地址')
+    validate_url(url)
 
 
 class CaptionRedirect(HTTPRedirectHandler):
@@ -120,7 +118,7 @@ def fetch_track(chosen, timeout=15):
     _, url, code, automatic, translated = chosen
     try:
         validate_caption_url(url)
-        with build_opener(CaptionRedirect()).open(Request(url, headers={'User-Agent':'Mozilla/5.0'}), timeout=timeout) as response:
+        with public_opener(CaptionRedirect()).open(Request(url, headers={'User-Agent':'Mozilla/5.0'}), timeout=timeout) as response:
             if urlsplit(response.url).hostname not in ('www.youtube.com', 'youtube.com'):
                 raise ValueError('字幕重定向到未支持的来源')
             raw = response.read(5 * 1024 * 1024 + 1)

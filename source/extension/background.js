@@ -109,6 +109,19 @@ async function readPagePayload(tabId, options, current) {
     }
   }
   if (!payload) throw new Error('网页没有响应');
+  if(payload.platform==='pinterest' && options.collection_mode!=='text' && !options.md_only &&
+      !payload.images?.length && !payload.has_video){
+    const original=new URL(current.url);
+    if(/^(www\.)?pinterest\.com$/.test(original.hostname) && /^\/pin\/\d+\/?$/.test(original.pathname)){
+      const fallback=await service('/media/resolve-post',{url:original.origin+original.pathname});
+      const latest=await chrome.tabs.get(tabId);
+      if(new URL(latest.url).origin!==original.origin || new URL(latest.url).pathname!==original.pathname)
+        throw new Error('页面已切换，未保存其他 Pin 的图片');
+      if(payload.pinterest_motion && fallback.scope!=='verified_story_images')throw new Error('此 Pin 含未确认的动态内容，未保存封面');
+      payload.images=fallback.images;
+      payload.extraction_warnings=[...(payload.extraction_warnings||[]),fallback.warning];
+    }
+  }
   if (payload.platform === 'x' && options.collection_mode === 'text' && options.include_comments) {
     payload.extraction_warnings=(payload.extraction_warnings||[]).filter(w=>!w.includes('尚未适配评论'));
     try {
