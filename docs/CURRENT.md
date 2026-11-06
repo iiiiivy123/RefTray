@@ -46,7 +46,7 @@
 ## 2026-11-06 全仓审查交接
 
 - 用户要求审查整个产品与代码，覆盖架构、规范、历史返工、反复未完成项和产品用途，不只看0.5.37改动。新增docs/REVIEW_HANDOFF.md，并从AGENTS、CURRENT及版本交付说明接入；它是审查任务书，不是审查结论。
-- 远端重新fetch核验：main为ed948ddee35f62661bdd53bffe042bd23753e7b2，manifest0.5.28；0.5.37及后补构建检查在release/reftray-0.5.37-review，尚未合并main。本轮不执行合并或产品改动。
+- 合并前main为ed948ddee35f62661bdd53bffe042bd23753e7b2、版本0.5.28。0.5.37曾通过单独分支交付，现已按用户要求统一到main。
 
 ## 2026-11-06 主线合并与仓库整理
 
@@ -54,4 +54,5 @@
 - 新增docs/mcp.md，记录stdio启动路径、五项工具、参数、会话范围和升级连接步骤。
 - 旧远端分支含独有提交，已完整归档到本机archive分支与Git bundle；GitHub保留最新main。旧Releases元数据归档在work/repository-cleanup-20261106。
 - README等说明的批量写入命令曾被自动审批拦截，未给原因。用户随后明确允许逐文件补丁；中英文README、安装/使用/更新说明及文档索引已按此方式更新。
-- GitHub仅保留main；0.5.37已发布为Latest，安装包和SHA256校验文件均上传，服务器资产digest与本机已验证包一致。旧测试发布在新版下载入口更新后清理。
+- GitHub仅保留main及v0.5.37版本标记；0.5.37为唯一Release并设为Latest，安装包和SHA256校验文件均上传，服务器资产digest与本机已验证包一致。
+- 0.5.13、0.5.28的旧测试发布及远端tag已删除；本机保留旧tag、archive分支和完整Git bundle。README、安装与使用指南、MCP说明及下载入口已更新。

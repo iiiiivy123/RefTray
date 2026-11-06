@@ -2,7 +2,7 @@
 
 ## 下载与开始使用
 
-在 [本版 Release 的 Assets](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.28) 下载 **`InspirationCollector-0.5.28-Windows-x64-Setup.exe`**。同页提供 SHA256 校验文件，以及可单独下载的中文安装、更新说明。Source code ZIP 是源码，普通使用请选择安装包。
+0.5.28测试发布已清理，本文保留为历史更新记录。请在 [最新下载页](https://github.com/iiiiivy123/inspiration-collector/releases/latest) 获取当前Windows安装包和SHA256校验文件。
 
 **已有旧版：先在 Windows 托盘右键 → 退出灵感采集，再安装新版。** 安装后打开 `chrome://extensions`，重新加载扩展，并刷新已打开的作品网页。关闭 Chrome 后，后台仍会运行。
 

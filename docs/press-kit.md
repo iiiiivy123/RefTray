@@ -1,6 +1,6 @@
 # RefTray｜公开介绍资料 / Product fact sheet
 
-[项目主页](../README.md) · [English](../README_EN.md) · [下载](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.28) · [版权与隐私](rights-and-privacy.md)
+[项目主页](../README.md) · [English](../README_EN.md) · [下载](https://github.com/iiiiivy123/inspiration-collector/releases/latest) · [版权与隐私](rights-and-privacy.md)
 
 ## 30 秒认识 RefTray
 
