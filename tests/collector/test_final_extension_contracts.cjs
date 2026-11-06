@@ -114,3 +114,23 @@ test('X image collection with video enabled accepts a video-only exact-post page
  await assert.rejects(c.readPagePayload(1,{include_videos:false},{url,title:'Video'}),/正文图片缺失/);
  await assert.rejects(c.readPagePayload(1,{include_videos:true},{url:url+'4',title:'Other'}),/正文图片缺失/);
 });
+
+test('release checks separate offline, ignored, deferred, busy, old and newer releases',async()=>{
+ const store={}, panelNodes=new Map();let calls=0,shown=0,online=true;
+ const panel={show(){shown++;},close(){},querySelector(s){if(!panelNodes.has(s))panelNodes.set(s,{});return panelNodes.get(s);}};
+ const context=vm.createContext({AbortSignal,UI:{t:x=>x},document:{querySelector:s=>s==='dialog[open]'?null:panel},
+  chrome:{storage:{local:{get:async()=>store,set:async x=>Object.assign(store,x)}}},
+  fetch:async()=>{calls++;if(!online)throw Error('offline');return {ok:true,json:async()=>({tag_name:'v0.5.39',body:'release notes'})};}});
+ const updates=vm.runInContext(fs.readFileSync(path.join(extension,'release-check.js'),'utf8')+';RefTrayUpdates',context);
+ assert.equal(updates.newer('v0.10.0','0.9.99'),true);
+ assert.equal(updates.newer('v0.6.0-rc.1','0.5.38'),false);
+ await updates.notify('0.5.40',()=>false);await updates.notify('0.5.39',()=>false);
+ await updates.notify('0.5.38',()=>true);assert.equal(shown,0);
+ await updates.notify('0.5.38',()=>false);assert.equal(shown,1);assert.equal(calls,1);
+ assert.equal(panelNodes.get('p').textContent,'release notes');
+ await panelNodes.get('[data-later]').onclick();await updates.notify('0.5.38',()=>false);assert.equal(shown,1);
+ store.releaseLater.until=0;await updates.notify('0.5.38',()=>false);assert.equal(shown,2);
+ await panelNodes.get('[data-ignore]').onclick();await updates.notify('0.5.38',()=>false);assert.equal(shown,2);
+ delete store.releaseCheck;online=false;assert.equal(await updates.check('0.5.38'),null);
+ assert.match(store.releaseCheck.error,/offline/);assert.ok(store.releaseCheck.nextCheck>Date.now());
+});

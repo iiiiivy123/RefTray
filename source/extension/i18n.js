@@ -1,6 +1,7 @@
 // UI strings only. Captured titles, paths, OCR and source documents stay unchanged.
 (() => {
   const en={
+    '发现新版':'Update available','查看正式发布':'View release','稍后提醒':'Remind me later','忽略此版本':'Ignore this version',
     '管理':'Manage','任务':'Tasks','工具与帮助':'Tools & help','采集默认值':'Capture defaults','视频与保护':'Video & protection','内容偏好':'Content preferences',
     '正在连接本地后台…':'Connecting to local service…','本地后台已连接':'Local service connected','后台连接失败':'Local service unavailable','本地服务 · 素材保存在你的文件夹':'Local service · Files stay in your folders',
     '查看连接与诊断 ↗':'Connection & diagnostics ↗','默认值只影响未来新任务，续采保留原参数。':'Defaults apply to future tasks. Resume keeps original options.',

@@ -236,6 +236,7 @@ guarded(async()=>{
  const library=await Hub.api('/settings/library/check');if(!library.writable)throw new Error('素材目录不可写，请在设置中重新选择');
  await chrome.storage.local.set({collectorOnboarding:{connected:true,directory:library.directory,writable:true,checkedAt:Date.now(),firstSave:'optional'}});
  ready=true;await update();identify().catch(()=>{});if(d?.tabId===currentTab.id&&d.expires>Date.now()&&d.error)error(new Error(d.error));
+ if(!active&&!health.busy)RefTrayUpdates.notify(chrome.runtime.getManifest().version,()=>active||Boolean(resumeOptions)).catch(console.warn);
 })();
 
 q('#skip-video').onchange=guarded(async()=>{q('#video-action').value=q('#skip-video').checked?'skip':'save';render();await remember();});
