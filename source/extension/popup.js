@@ -246,7 +246,7 @@ async function identify(){
  if(q('#scope').value==='bulk'){UI.message(identifyStatus,'批量只扫描画板链接，开始后显示本轮数量；不逐个预读媒体。');return;}
  if(active||resumeOptions)return;
  const token=manualSelection;UI.message(identifyStatus,'正在识别已加载正文…');
- try{const [{result}]=await chrome.scripting.executeScript({target:{tabId:currentTab.id},files:['page-identify.js']});
+ try{const result=await previewCurrentTab(currentTab);
  if(result?.url!==currentTab.url||token!==manualSelection||q('#scope').value==='bulk'||active||resumeOptions)return;
  if(result?.state==='ready'){
  UI.message(identifyStatus,'预扫描图片 {images} · GIF {gifs} · 视频 {videos}；保存时核实',{images:result.images??'?',gifs:result.gifs??'?',videos:result.videos??'?'});
@@ -255,6 +255,30 @@ async function identify(){
  }catch(error){UI.message(identifyStatus,'未能识别，可手动选择采集内容。');}
 }
 identifyButton.onclick=guarded(identify);
+
+async function previewCurrentTab(tab){
+ const target={tabId:tab.id},url=new URL(tab.url);
+ const run=async(files,world='ISOLATED')=>(await chrome.scripting.executeScript({target,world,files}))[0]?.result;
+ if(/(^|\.)bilibili\.com$/.test(url.hostname)){
+   const read=await run(['document-source.js','bilibili.js'],'MAIN');
+   if(!read?.payload)return {url:tab.url,state:'unknown',reason:read?.error||'尚未确认当前稿件'};
+   const payload=read.payload;
+   return {url:tab.url,state:'ready',images:payload.images?.length,videos:read.source?1:undefined,
+     kind:payload.has_video?'video':payload.images?.length?'images':'plain'};
+ }
+ const result=await run(['document-source.js','pinterest-identity.js','platforms.js','artstation.js','page-identify.js']);
+ if(/(^|\.)(x\.com|twitter\.com|instagram\.com|xiaohongshu\.com)$/.test(url.hostname)){
+   const state=await run(['cat-instagram.js','cat-xhs.js','cat-media.js','page-media.js'],'MAIN');
+   const expected=url.pathname.match(/\/status\/(\d+)(?:\/|$)/)?.[1] ||
+     url.pathname.match(/\/(?:p|reels?)\/([\w-]+)\/?$/)?.[1] || url.pathname.match(/\/([a-f0-9]{24})\/?$/i)?.[1];
+   if(expected && state?.postId===expected && state.media?.length){
+     const count=kind=>state.media.filter(item=>item.kind===kind).length;
+     return {url:result.url,state:'ready',images:count('photo'),gifs:count('gif'),videos:count('video'),
+       kind:count('photo')||count('gif')?'images':'video'};
+   }
+ }
+ return result;
+}
 
 q('#retry-failed').onclick=guarded(async()=>{
  if(checkpoint?.mode&&checkpoint.mode!=='current'){

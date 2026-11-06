@@ -20,11 +20,23 @@ class Metadata(HTMLParser):
     def __init__(self):
         super().__init__()
         self.values = {}
+        self.canonical_links = []
+        self.head_complete = False
 
     def handle_starttag(self, tag, attrs):
+        if self.head_complete:
+            return
         attrs = dict(attrs)
+        if tag == 'body':
+            self.head_complete = True
+        if tag == 'link' and 'canonical' in (attrs.get('rel') or '').lower().split():
+            self.canonical_links.append(attrs.get('href', ''))
         if tag == 'meta' and attrs.get('property'):
             self.values[attrs['property']] = attrs.get('content', '')
+
+    def handle_endtag(self, tag):
+        if tag == 'head':
+            self.head_complete = True
 
 
 def identity(url):
@@ -74,17 +86,27 @@ class Backend:
         with build_opener(SourceRedirect()).open(Request(url, headers={'User-Agent': 'Mozilla/5.0'}), timeout=15) as response:
             if identity(response.url) != expected:
                 raise ValueError('网页重定向身份不匹配')
-            body = response.read(8 * 1024 * 1024 + 1)
-        if len(body) > 8 * 1024 * 1024:
-            raise ValueError('网页超过解析上限')
-        parser = Metadata()
-        parser.feed(body.decode('utf-8', 'replace'))
+            import codecs
+            decoder = codecs.getincrementaldecoder('utf-8')('replace')
+            parser = Metadata()
+            total = 0
+            while not parser.head_complete:
+                chunk = response.read1(65536)
+                if not chunk:
+                    raise ValueError('分享页面头部不完整，未保存')
+                total += len(chunk)
+                if total > 8 * 1024 * 1024:
+                    raise ValueError('网页超过解析上限')
+                parser.feed(decoder.decode(chunk))
         meta = parser.values
-        if identity(meta.get('og:url', '')) != expected:
+        identifiers = list(parser.canonical_links)
+        if meta.get('og:url'):
+            identifiers.append(meta['og:url'])
+        if not identifiers or any(identity(link) != expected for link in identifiers):
             raise ValueError('分享元数据主帖身份不匹配或缺失')
         if 'Age-restricted' in meta.get('og:description', ''):
             raise ValueError('SESSION_REQUIRED: 接口尚未接入Chrome登录会话；不是用户未登录')
-        if any(key.startswith('og:video') for key in meta):
+        if any(key.startswith('og:video') for key in meta) or meta.get('og:type','').lower().startswith('video'):
             raise ValueError('VIDEO_RESOLVE_REQUIRED: 请使用reftray_resolve_video，不把视频封面保存为图片')
         image = meta.get('og:image', '')
         parsed = urlsplit(image)

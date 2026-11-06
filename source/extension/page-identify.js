@@ -17,13 +17,19 @@
   }
   return {url:location.href,state:images.size||videos||gifs||root.innerText?.trim()?'ready':'loading',images:images.size,gifs,videos,kind:images.size||gifs?'images':videos?'video':'plain'};
  }
- if(/(^|\.)pinterest\.(com|cn)$/.test(host)){
-  if(!/^\/pin\/\d+\/?$/.test(u.pathname))return {url:location.href,state:'unknown',reason:'请打开具体 Pin 后识别；画板只扫描链接'};
-  const closeups=document.querySelectorAll('[data-test-id="closeup-body-image-container"]');
-  root=closeups.length===1?closeups[0]:document.querySelector('[data-test-id="pin-closeup"],[data-test-id="closeup"]');
+ if(/(^|\.)(youtube\.com|youtu\.be)$/.test(host)){
+  const target=host==='youtu.be'?u.pathname.slice(1):u.pathname==='/watch'?u.searchParams.get('v'):u.pathname.match(/^\/shorts\/([\w-]{11})\/?$/)?.[1];
+  const player=document.querySelector('#movie_player video');
+  const id=document.querySelector('meta[itemprop="videoId"]')?.content;
+  if(!target||id!==target||!player)return {url:u.href,state:'unknown',reason:'尚未确认当前视频播放器'};
+  return {url:u.href,state:'ready',videos:1,kind:'video'};
  }
- if(!root)return {url:location.href,state:'unknown',reason:'尚未确认当前作品正文'};
- const images=new Set([...root.querySelectorAll('img')].filter(i=>i.complete&&i.naturalWidth>0&&!i.closest('nav,aside,header,[data-testid="UserAvatar-Container"]')).map(i=>i.currentSrc||i.src).filter(Boolean));
- const videos=[...root.querySelectorAll('video')].filter(v=>v.currentSrc||v.src||v.querySelector('source'));
- const text=root.innerText?.trim();return {url:location.href,state:images.size||videos.length||text?'ready':'loading',images:images.size,videos:videos.length,kind:videos.length&&!images.size?'video':images.size?'images':text?'plain':null};
+ try{
+  const payload=/(^|\.)artstation\.com$/.test(host)?CollectorArtstation.extract(u.href):InspirationPlatforms.extract({collection_mode:'images'});
+  if(payload.pinterest_motion)return {url:u.href,state:'unknown',reason:'已识别动态内容，尚未确认正文媒体类型'};
+  const images=payload.images||[];
+  if(!images.length&&!payload.has_video)return {url:u.href,state:'unknown',reason:'尚未确认已加载的正文媒体'};
+  const gifs=images.filter(item=>/\.gif(?:[?#]|$)/i.test(item.url)).length;
+  return {url:u.href,state:'ready',images:images.length-gifs,gifs:gifs||undefined,kind:images.length?'images':payload.has_video?'video':null};
+ }catch(error){return {url:u.href,state:'unknown',reason:error.message};}
 })();

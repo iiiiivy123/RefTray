@@ -112,12 +112,13 @@ async function readPagePayload(tabId, options, current) {
   if (payload.platform === 'x' && options.collection_mode === 'text' && options.include_comments) {
     payload.extraction_warnings=(payload.extraction_warnings||[]).filter(w=>!w.includes('尚未适配评论'));
     try {
-      const [{result}] = await chrome.scripting.executeScript({target:{tabId},world:'MAIN',files:['x-comments.js']});
       const id=new URL(payload.canonical_url).pathname.match(/\/status\/(\d+)/)?.[1];
-      if(!result || result.postId!==id || !Array.isArray(result.comments))throw new Error('评论与当前帖子不匹配');
       const limit=Math.max(1,Math.min(100,Number(options.comment_limit)||10));
-      payload.comments=result.comments.slice(0,limit); payload.comments_status=`目标 ${limit} 条，实际读取 ${payload.comments.length} 条已加载直接回复；不足时未自动展开或滚动。`;
+      const result=await readXReplies(tabId,id,limit);
+      payload.comments=result.comments;
+      payload.comments_status=`目标 ${limit} 条，实际读取 ${payload.comments.length} 条直接回复。${result.reason}`;
     } catch(error) {
+      if(error.message==='USER_STOPPED')throw error;
       payload.comments=[];payload.comments_status='评论读取失败：'+error.message;
     }
     payload.extraction_warnings.push(payload.comments_status);
@@ -149,6 +150,44 @@ async function readPagePayload(tabId, options, current) {
     for(const comment of payload.comments||[])for(const url of comment.images||[])if(!payload.images.some(i=>i.url===url))payload.images.push({url,alt:'评论 '+comment.id,role:'comment',comment_id:comment.id});
   }
   return payload;
+}
+
+async function readXReplies(tabId, id, limit) {
+  if(!id)throw new Error('缺少主帖编号');
+  const comments=new Map();
+  let previousY=null, initialY=null, stagnant=0, reason='已达到本次加载上限。';
+  try {
+    for(let step=0;step<=12;step++){
+      await controlPoint();
+      const [{result}]=await chrome.scripting.executeScript({target:{tabId},world:'MAIN',files:['x-comments.js']});
+      if(result?.postId!==id || !Array.isArray(result.comments))throw new Error('评论与当前帖子不匹配');
+      const before=comments.size;
+      for(const reply of result.comments){
+        comments.set(reply.id,reply);
+        if(comments.size>=limit)return {comments:[...comments.values()],reason:''};
+      }
+      stagnant=step && comments.size===before ? stagnant+1 : 0;
+      if(stagnant>=3){reason='继续加载后没有出现更多可确认的直接回复。';break;}
+      if(step===12)break;
+      const [{result:position}]=await chrome.scripting.executeScript({target:{tabId},args:[id,previousY],func:(id,previousY)=>{
+        if(location.pathname.match(/\/status\/(\d+)/)?.[1]!==id)return null;
+        if(previousY!==null && Math.abs(scrollY-previousY)>4)return null;
+        const before=scrollY;
+        window.scrollBy({top:Math.max(300,innerHeight*.8),behavior:'instant'});
+        return {before,after:scrollY};
+      }});
+      if(!position){reason='页面或滚动位置已改变，已停止加载。';break;}
+      initialY??=position.before;
+      previousY=position.after;
+      await controlledWait(1000);
+    }
+    return {comments:[...comments.values()],reason};
+  } finally {
+    if(initialY!==null)await chrome.scripting.executeScript({target:{tabId},args:[id,previousY,initialY],func:(id,last,initial)=>{
+      if(location.pathname.match(/\/status\/(\d+)/)?.[1]===id && Math.abs(scrollY-last)<=4)
+        window.scrollTo({top:initial,behavior:'instant'});
+    }}).catch(()=>{});
+  }
 }
 
 async function loadedMedia(tabId) {
