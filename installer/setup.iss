@@ -24,6 +24,7 @@ UninstallDisplayIcon={app}\InspirationCollector.exe
 CloseApplications=no
 DisableProgramGroupPage=yes
 [Files]
+Source: "..\build-windows\payload\InspirationCollector.exe"; DestName: "upgrade-client.exe"; Flags: dontcopy
 Source: "..\build-windows\payload\*"; DestDir: "{app}"; Excludes: "*.pyc,__pycache__\*,Scripts\*,bin\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\source\server\maintenance.py"; Flags: dontcopy
 Source: "..\build-windows\payload\managed-files.json"; DestName: "incoming-managed-files.json"; Flags: dontcopy
@@ -48,14 +49,17 @@ begin
     Result := ExpandConstant('{localappdata}\Programs\InspirationCollector');
 end;
 
-function StopOwnedLauncher(): String;
+function StopOwnedLauncher(UseIncomingClient: Boolean): String;
 var
   ExitCode: Integer;
   Launcher: String;
 begin
   Result := '';
   if not CheckForMutexes('Local\InspirationCollectorLauncher') then exit;
-  Launcher := ExpandConstant('{app}\InspirationCollector.exe');
+  if UseIncomingClient then begin
+    ExtractTemporaryFile('upgrade-client.exe');
+    Launcher := ExpandConstant('{tmp}\upgrade-client.exe');
+  end else Launcher := ExpandConstant('{app}\InspirationCollector.exe');
   if not FileExists(Launcher) then begin
     Result := '后台仍在运行。请从系统托盘退出灵感采集后重试。';
     exit;
@@ -152,7 +156,7 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ExitCode: Integer;
 begin
-  Result := StopOwnedLauncher();
+  Result := StopOwnedLauncher(True);
   if Result <> '' then exit;
   Result := StopOwnedMcpClients();
   if Result <> '' then exit;
@@ -171,7 +175,7 @@ var
   Error, Params: String;
   ExitCode: Integer;
 begin
-  Error := StopOwnedLauncher();
+  Error := StopOwnedLauncher(False);
   if Error = '' then Error := StopOwnedMcpClients();
   Result := Error = '';
   if not Result then begin MsgBox(Error, mbError, MB_OK); exit; end;

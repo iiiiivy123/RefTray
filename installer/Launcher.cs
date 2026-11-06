@@ -30,25 +30,38 @@ internal static class Launcher {
   try{Marshal.StructureToPtr(limits,data,false);if(!SetInformationJobObject(job,9,data,(uint)size)||!AssignProcessToJobObject(job,service.Handle))throw new Exception("无法保护后台子进程，启动已停止。");}finally{Marshal.FreeHGlobal(data);}
  }
  static bool PrepareUpgrade(){
-  try{using(var pipe=new NamedPipeClientStream(".","InspirationCollectorControl",PipeDirection.InOut)){
-   pipe.Connect(3000);using(var writer=new StreamWriter(pipe,Encoding.UTF8,1024,true))using(var reader=new StreamReader(pipe,Encoding.UTF8,false,1024,true)){writer.AutoFlush=true;writer.WriteLine("prepare-upgrade");string result=reader.ReadLine();if(result!="ready")throw new Exception(result??"后台退出未确认");}
+  try{using(var pipe=new NamedPipeClientStream(".","InspirationCollectorControl",PipeDirection.InOut,PipeOptions.Asynchronous)){
+   pipe.Connect(3000);using(var writer=new StreamWriter(pipe,new UTF8Encoding(false),1024,true))using(var reader=new StreamReader(pipe,Encoding.UTF8,false,1024,true)){
+    var reply=reader.ReadLineAsync();writer.WriteLine("prepare-upgrade");writer.Flush();
+    if(!reply.Wait(120000))throw new Exception("等待后台更新回执超时，已停止安装。");
+    if(reply.Result!="ready")throw new Exception(reply.Result??"后台退出未确认");
+   }
   }
    for(int i=0;i<50;i++){try{using(var existing=Mutex.OpenExisting("Local\\InspirationCollectorLauncher")){if(existing.WaitOne(100)){existing.ReleaseMutex();return true;}}}catch(WaitHandleCannotBeOpenedException){return true;}catch(AbandonedMutexException){return true;}}
    throw new Exception("后台退出超时，请稍后重试。");
-  }catch(TimeoutException){return true;}catch(Exception error){MessageBox.Show(error.Message,"请先完成后台任务");return false;}
+  }catch(TimeoutException){
+   try{using(var existing=Mutex.OpenExisting("Local\\InspirationCollectorLauncher")){}}
+   catch(WaitHandleCannotBeOpenedException){return true;}
+   MessageBox.Show("后台仍在运行，但更新连接超时。请从托盘退出后重试。","请先退出后台");return false;
+  }catch(Exception error){MessageBox.Show(error.Message,"请先完成后台任务");return false;}
  }
  static void UpgradeListener(Control control){
-  var thread=new Thread(()=>{while(!control.IsDisposed){try{using(var pipe=new NamedPipeServerStream("InspirationCollectorControl",PipeDirection.InOut,1,PipeTransmissionMode.Byte,PipeOptions.None)){
-   pipe.WaitForConnection();using(var reader=new StreamReader(pipe,Encoding.UTF8,false,1024,true))using(var writer=new StreamWriter(pipe,Encoding.UTF8,1024,true)){
-    writer.AutoFlush=true;if(reader.ReadLine()!="prepare-upgrade"){writer.WriteLine("无效更新请求");return;}
+  var thread=new Thread(()=>{while(!control.IsDisposed){try{using(var pipe=new NamedPipeServerStream("InspirationCollectorControl",PipeDirection.InOut,1,PipeTransmissionMode.Byte,PipeOptions.Asynchronous)){
+   pipe.WaitForConnection();using(var reader=new StreamReader(pipe,Encoding.UTF8,false,1024,true)){
+    var request=reader.ReadLineAsync();
+    if(!request.Wait(3000))continue;
+    string command=request.Result;
+    using(var writer=new StreamWriter(pipe,new UTF8Encoding(false),1024,true)){
+    writer.AutoFlush=true;if(command!="prepare-upgrade"){writer.WriteLine("无效更新请求");continue;}
     string result="ready";try{try{Stop();}catch{
      var choice=MessageBox.Show("后台仍有任务或目录选择。是：停止接单，等待当前任务完成；否：本篇结束后停止；取消：保留运行并退出安装。目录选择窗口请手动完成或取消。","更新灵感采集",MessageBoxButtons.YesNoCancel,MessageBoxIcon.Question);
      if(choice==DialogResult.Cancel)throw new Exception("更新已取消，后台保持运行。");
      Stop(choice==DialogResult.Yes?"wait":"stop");
     }}catch(Exception error){result=error.Message;}writer.WriteLine(result);
     if(result=="ready")control.BeginInvoke((Action)(()=>Application.ExitThread()));
+    }
    }
-  }}catch(IOException){}catch(ObjectDisposedException){return;}}});thread.IsBackground=true;thread.Start();
+  }}catch(IOException){}catch(AggregateException error){error.Handle(e=>e is IOException || e is OperationCanceledException);}catch(ObjectDisposedException){return;}}});thread.IsBackground=true;thread.Start();
  }
  static readonly object logLock=new object();
  static string app=AppDomain.CurrentDomain.BaseDirectory;
