@@ -1,6 +1,6 @@
 # RefTray 当前交接
 
-当前主线：0.5.37已按用户要求合入本地main，正在推送并整理GitHub。旧main与所有历史分支已在本机archive分支及work/repository-before-main-0537-20261106.bundle归档；旧tag保留在本地。
+当前主线：0.5.37已按用户要求合入GitHub main。旧main与所有历史分支已在本机archive分支及work/repository-before-main-0537-20261106.bundle归档；旧tag保留在本地。
 
 更新：2026-11-06（Asia/Shanghai）。项目开发入口为本仓库；功能约定见 docs/SPEC.md，整仓审查任务见 docs/REVIEW_HANDOFF.md，版本交付记录见 docs/release-0.5.37.md。历史详细本机交接保存在原工作机 work/CURRENT-before-0537.md；Git历史保留旧版记录。
 
@@ -53,4 +53,5 @@
 - 用户随后要求统一main，清理GitHub历史分支及旧测试发布，并把MCP和新功能写进README。此前“尚未合并”的记录属于合并前状态。
 - 新增docs/mcp.md，记录stdio启动路径、五项工具、参数、会话范围和升级连接步骤。
 - 旧远端分支含独有提交，已完整归档到本机archive分支与Git bundle；GitHub保留最新main。旧Releases元数据归档在work/repository-cleanup-20261106。
-- README等说明的批量写入命令被自动审批拦截，未给原因；已请求用户允许逐文件补丁，等待回复。独立文档、合并和归档继续处理。
+- README等说明的批量写入命令曾被自动审批拦截，未给原因。用户随后明确允许逐文件补丁；中英文README、安装/使用/更新说明及文档索引已按此方式更新。
+- GitHub仅保留main；0.5.37已发布为Latest，安装包和SHA256校验文件均上传，服务器资产digest与本机已验证包一致。旧测试发布在新版下载入口更新后清理。

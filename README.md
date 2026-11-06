@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.28"><img src="docs/assets/download.svg" alt="下载 Windows 安装包" height="40"></a>
+  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/latest"><img src="docs/assets/download.svg" alt="下载 Windows 安装包" height="40"></a>
   &nbsp;
   <a href="docs/README.md"><img src="docs/assets/docs.svg" alt="项目文档" height="40"></a>
 </p>
@@ -39,18 +39,33 @@
 
 **需要 Windows 10/11 64 位 + Chrome。** 安装包内置 Python 与媒体组件，不用自己配置开发环境。
 
-1. **下载安装。** 前往 [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.28)，在 **Assets** 下载 Windows 安装包，不要下载源码 ZIP。
+1. **下载安装。** 前往 [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest)，在 **Assets** 下载 Windows 安装包，不要下载源码 ZIP。
 2. **启动本地程序。** 打开「灵感采集」，程序会在 Windows 右下角系统托盘运行。
 3. **加载 Chrome 扩展。** 打开 `chrome://extensions` → 开启「开发者模式」→「加载已解压的扩展程序」。从托盘菜单复制 `extension` 文件夹的实际地址，选择该文件夹。
 4. **保存第一份素材。** 固定工具栏扩展，选择本地素材库，打开支持的作品页并选择采集内容。
 
 [首次安装 →](docs/install.md) · [旧版更新 →](docs/update.md) · [完整教程与故障排查 →](docs/usage.md)
 
-当前版本是 **0.5.28 朋友试用版**。更新内容、测试结果和已知问题见 [版本说明](docs/release-0.5.28.md)。
+当前版本为 **0.5.37**，最新代码统一在 `main`。[版本说明](docs/release-0.5.37.md) · [完整代码审查交接](docs/REVIEW_HANDOFF.md)。
 
 > **更新旧版：** 先在系统托盘右键 → **退出灵感采集**，再安装新版，最后到 Chrome 扩展管理页点**重新加载**。仅关闭浏览器或弹窗不会退出后台。
 
 目前需要手动加载扩展，**尚未上架 Chrome 扩展商店，没有手机端和自动更新**。安装包暂未签名；请核实下载来源，不要关闭安全防护。
+
+## 0.5.37 更新
+
+- 管理页中/EN按钮，采集记录和任务记录每页20条。
+- X评论可保存已加载直接回复的文字与静态图片，默认10条，在设置和更多选项调整。
+- 本地视频抽帧、视频转GIF、提取M4A音频，原文件保留，结果另存。
+- 安装器同步已登记的扩展目录，处理本程序MCP进程占用。
+
+评论GIF与自动展开更多回复仍在待办。
+
+## 让 AI 调用 RefTray
+
+本机stdio MCP提供后台状态、Pinterest/X分享图片、视频解析与下载、任务结果查询。先启动托盘后台，再将安装目录的 `runtime/python.exe`、`-B` 和 `server/mcp_stdio.py` 完整路径填入AI客户端。[接入步骤与工具参数](docs/mcp.md)。
+
+MCP当前使用独立请求，尚未接入Chrome登录会话。登录内容、多图和评论使用浏览器扩展。
 
 ## 能在哪些网站使用？
 

@@ -2,9 +2,11 @@
 
 ## 1. 下载安装包
 
-打开 [0.5.28 下载页](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.28)，在 **Assets** 下载 `InspirationCollector-0.5.28-Windows-x64-Setup.exe`。页面上的 Source code ZIP 是源码，普通使用请选择 `.exe` 安装包。
+打开 [最新下载页](https://github.com/iiiiivy123/inspiration-collector/releases/latest)，在 **Assets** 下载 `InspirationCollector-0.5.37-Windows-x64-Setup.exe`。页面上的 Source code ZIP 是源码，普通使用请选择 `.exe` 安装包。
 
-安装包内置 Python、媒体组件和扩展文件。YouTube 等平台可能还需要额外的 JavaScript 运行组件，可在「帮助与工具」中查看检测结果。0.5.28 是朋友试用版，已知问题见 [版本说明](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/release-0.5.28.md)。
+安装包内置 Python、媒体组件和扩展文件。YouTube 等平台可能还需要额外的 JavaScript 运行组件，可在「帮助与工具」中查看检测结果。当前版本为0.5.37，更新内容和待办见 [版本说明](release-0.5.37.md)。
+
+AI客户端接入见 [MCP接口](mcp.md)。本地视频抽帧、视频转GIF和音频提取位于管理页“工具与帮助”。
 
 安装包尚未签名。请核实下载来源和 SHA256 校验文件，保留系统安全防护；来源不明的副本不要运行。
 

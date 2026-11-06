@@ -1,6 +1,13 @@
-# RefTray · 灵感采集 使用说明 · Windows v0.5.28
+# RefTray · 灵感采集 使用说明 · Windows v0.5.37
 
 [首次安装](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/install.md) · [从旧版更新](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/update.md)
+
+## 0.5.37 的使用入口
+
+- AI客户端通过 [MCP接口](mcp.md) 调用后台状态、分享图保存、视频解析/下载和任务结果。
+- 管理页“工具与帮助”提供本地视频抽帧、视频转GIF、提取M4A音频，结果保存在素材库“加工结果”。
+- 采集记录和任务记录每页20条，使用上一页/下一页翻页。
+- 评论默认条数在设置页，当前任务可在“更多选项”覆盖。当前处理已加载直接回复的文字和静态配图。
 
 程序、快捷方式、托盘和 Chrome 扩展继续显示「灵感采集 / Inspiration Collector」，保持安装位置与旧数据兼容。对外展示名称为 RefTray；使用用户选定的 A 款空白文件轮廓与右上方块图标。
 
@@ -15,7 +22,7 @@
 目前提供 Windows 10/11 64 位安装包，配合 Chrome 使用。安装包已内置 Python 和所需依赖，不需要自己安装或配置环境。
 
 1. 打开 [下载页面](https://github.com/iiiiivy123/inspiration-collector/releases)。
-2. 在 **Assets** 中下载 `InspirationCollector-0.5.28-Windows-x64-Setup.exe`，不要下载 Source code。
+2. 在 **Assets** 中下载 `InspirationCollector-0.5.37-Windows-x64-Setup.exe`，不要下载 Source code。
 3. **如果电脑已经安装过旧版，请先按第 7 节退出正在运行的「灵感采集」后台**，再双击安装包；全新安装可直接继续。按安装向导操作。
 4. 从开始菜单（或桌面快捷方式）打开 **灵感采集**。程序在后台运行，不会弹出主窗口；在 Windows 右下角系统托盘（可能收在向上的小箭头里）找到“灵感采集”。把鼠标停在图标上可查看名称。右键可打开本说明、打开或复制扩展文件夹、退出程序。
 
