@@ -126,11 +126,11 @@
 | 2 X、小红书 | 修正 X 把内层帖子图片或时间链接算给外层直接回复的问题。测试覆盖仅图片回复、排除无关父帖、直接回复 GIF。原日常 X 页面可见一张主图和六篇后续文章。 | 公开 NASA 视频的隔离 MCP 下载超时。六篇后续文章的直接父帖及 GIF 文件尚未核实。两条带原分享信息的小红书笔记在隔离扩展未返回完成状态，无素材文件。单篇、作者批量、LIVE 尚未通过。 |
 | 3 花瓣、ArtStation、微博、通用文章 | ArtStation 修正仅凭相同路径接受外站分享图的问题。IANA 公网原文经生产提取器和后台保存，Markdown 1002 字节，核对来源和 RFC 2606 正文。另用本地文章走通真实扩展弹窗。 | 通用公网文章的工具栏点击全程仍缺证据。花瓣画板和作者样本遇 405；ArtStation 原作四条下载链接可见，隔离页面遇验证，未核到四个文件；微博样本在弹窗识别后未返回任务结果，未核到文件。 |
 | 4 B站、Instagram、YouTube | 已纳入 B 站字幕按同一稿件、同一分 P 核验的修复。已有 B 站第 2P 视频落盘。Instagram 官方账号 Reel Chunk8-jurw 在候选版真实弹窗预扫 1 个视频，实际保存 1 个 H.264 MP4，480×854、4.97 秒、918120 字节。该样本自动字幕因缺本地识别模型返回部分完成。已有 YouTube 频道限 1 条实际保存，含字幕。 | B 站图文样本遇验证码，作者页要求登录，尚缺线上字幕及作者批量。Instagram 官方账号主页导航失败，作者批量待验。四条 YouTube 备选都实际有字幕（41、26、3、44 条），无字幕场景仍待验。 |
-| 5 预扫描和在线提醒 | Instagram Reel 预扫 1、落盘 1。已有 Instagram 两组轮播核到 4 和 10 张图片。新版检查读取服务端的限流期限，保留已缓存的版本。自动化覆盖限流缓存和忽略、稍后、忙碌、离线等行为。 | GitHub 官方 Latest 接口实测 403，剩余额度 0。已有缓存弹窗验证，在线正向提醒和其余站点逐项数量对照仍缺。 |
+| 5 预扫描和在线提醒 | Instagram Reel 预扫 1、落盘 1。已有 Instagram 两组轮播核到 4 和 10 张图片。新版检查读取服务端的限流期限，保留已缓存的版本。自动化覆盖限流缓存和忽略、稍后、忙碌、离线等行为。 | GitHub 首次返回 403、额度 0。按服务端期限等至 07:20 后，隔离 Chrome 以 0.5.36 测试版本、全新缓存走真实发布接口，弹窗显示「发现新版 v0.5.37」，说明与线上响应一致，点击稍后也核到存储记录。在线提醒通过。其余站点的逐项数量对照仍缺。 |
 | 6 视频中断、代理 | 移除前台 45 秒没人查询即取消的条件。受控慢速输入使用真实媒体，首查在第 50 秒，完成文件 11700770 字节，H.264/AAC、29.61 秒。主动停止、暂停/恢复、关闭后台请求停止均有回归。B 站同一真实视频源系统网络与直连均返回 HTTP 206、1024 字节。Instagram Reel 经系统代理实际保存；对同页媒体请求另做对照，系统代理有响应，直连报网络错误。 | Instagram 的直连在当前网络不可达。本次未覆盖所有平台、代理类型、整段视频的双路径下载。 |
 | 7 全量回归、合并、发布 | 顶层 Python 35 项、采集 Python 61 项、扩展 46 项，共 142 项通过。离线构建预检通过。逐文件校验包内 1787 项，核对后台及扩展源码；包内启动器在隔离目录启动并正常退出。按第 6 项仅修改原冻结清单中的 video.py，另七份逐一比对。 | 本地候选包与源码包已交付。正式安装和上述线上验收仍有缺口，未合并 main 或发布 GitHub Latest。 |
 
 安装包 SHA-256 为 6cde13a0cd98be335c4330e08eca1d9ad04d29260d87fd4f8e05d05bc0033925。当前正式目标为 F:/RefTray/app。已验证的回退资料为 0.5.38 的版本登记与安装包哈希；实际回退亦须走正式入口。
 
 ## 证据位置
-项目目录 F:/RefTray/source/work/review-fixes。包校验见 qa-0540-verification.json，回归见 seven-js.log、seven-py0.log、seven-py1.log，扩展版本和 Instagram 下载见 seven-browser.log、seven-popup-ig-reel.json，公网文章见 seven-article.log 和 seven-social-verification/assets，代理及中断见 video-real-proxy.json、seven-ig-network.log、unattended-video.log。安装边界的原始交接在 policy-origin/HANDOFF_NEXT_UPGRADE.md。报告和源码归档不包含签名链接、浏览器资料或日常素材。
+项目目录 F:/RefTray/source/work/review-fixes。包校验见 qa-0540-verification.json，回归见 seven-js.log、seven-py0.log、seven-py1.log，扩展版本和 Instagram 下载见 seven-browser.log、seven-popup-ig-reel.json，公网文章见 seven-article.log 和 seven-social-verification/assets，在线提醒见 seven-live-notice.json，代理及中断见 video-real-proxy.json、seven-ig-network.log、unattended-video.log。安装边界的原始交接在 policy-origin/HANDOFF_NEXT_UPGRADE.md。报告和源码归档不包含签名链接、浏览器资料或日常素材。
