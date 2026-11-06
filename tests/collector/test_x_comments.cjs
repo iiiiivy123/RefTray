@@ -31,3 +31,14 @@ test('YouTube preview requires the loaded player to belong to the URL',()=>{
  const run=()=>vm.runInNewContext(code,{URL,location,document});
  assert.equal(run().state,'unknown');id='abcdefghijk';assert.equal(run().videos,1);
 });
+
+test('only a direct reply contributes its own animated GIF source',()=>{
+ const parent='1234567890123456789', id='1234567890123456790';
+ const item=article(id,parent,'');
+ const url='https://video.twimg.com/tweet_video/own.mp4';
+ item.__reactProps$fixture.legacy.extended_entities={media:[{type:'animated_gif',video_info:{variants:[{content_type:'video/mp4',url}]}}]};
+ const ctx=vm.createContext({URL,location:{hostname:'x.com',pathname:'/user/status/'+parent},document:{querySelectorAll:selector=>selector.startsWith('article')?[item]:[]}});
+ vm.runInContext(fs.readFileSync('source/extension/cat-media.js','utf8'),ctx);
+ const result=vm.runInContext(source,ctx);
+ assert.deepEqual(Array.from(result.comments[0].gifs),[url]);
+});

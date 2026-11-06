@@ -1,4 +1,5 @@
 import json
+import hashlib
 import sys
 import tempfile
 import unittest
@@ -18,6 +19,21 @@ class ExtensionUpgradeTests(unittest.TestCase):
         (path / 'background.js').write_text(version)
         (path / 'reftray-a.ico').write_bytes(b'icon')
         return path
+
+    def test_only_proven_obsolete_files_removed_and_unknown_source_files_not_copied(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            current = self.extension(root, 'new', '0.5.39')
+            prior = self.extension(root, 'registered', '0.5.38')
+            incoming = {f.relative_to(current):hashlib.sha256(f.read_bytes()).hexdigest() for f in current.iterdir()}
+            stale = {Path(n):hashlib.sha256(b'original').hexdigest() for n in ('removed.js','edited.js')}
+            (prior / 'removed.js').write_bytes(b'original')
+            (prior / 'edited.js').write_bytes(b'user edit')
+            (current / 'unowned.js').write_bytes(b'not from package')
+            sync_extensions(current, [prior], incoming, stale)
+            self.assertFalse((prior / 'removed.js').exists())
+            self.assertFalse((prior / 'unowned.js').exists())
+            self.assertEqual((prior / 'edited.js').read_bytes(), b'user edit')
 
     def test_old_loaded_path_updates_across_multiple_install_locations(self):
         with tempfile.TemporaryDirectory() as temporary:

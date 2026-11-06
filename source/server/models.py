@@ -10,7 +10,7 @@ class ImageItem(BaseModel):
     alt: str | None = None
     data_base64: str | None = None
     content_type: str | None = None
-    source_kind: Literal['image', 'video_frame'] = 'image'
+    source_kind: Literal['image', 'video_frame', 'comment_gif'] = 'image'
     role: Literal['body', 'comment'] = 'body'
     comment_id: str | None = Field(default=None, max_length=100)
     frame_time: float | None = Field(default=None, ge=0, allow_inf_nan=False)

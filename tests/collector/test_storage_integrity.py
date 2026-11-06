@@ -43,6 +43,36 @@ class StorageIntegrityTests(unittest.TestCase):
         self.assertEqual(markdown.count('![正文图片]'), 2)
         self.assertEqual(markdown.count(data['images'][2]['file']), 1)
 
+    def test_reply_animation_converts_into_a_linked_gif_and_preserves_text_on_failure(self):
+        from email.message import Message
+        from unittest.mock import MagicMock
+        from server.models import CommentItem
+        import shutil
+        import subprocess
+        source = self.root / 'source.mp4'
+        subprocess.run([shutil.which('ffmpeg'), '-v', 'error', '-f', 'lavfi', '-i',
+                        'testsrc2=size=80x60:rate=10', '-t', '0.6', '-c:v', 'libx264', str(source)], check=True)
+        response = MagicMock(status=200)
+        response.headers = Message()
+        response.headers['Content-Type'] = 'video/mp4'
+        response.read.return_value = source.read_bytes()
+        url = 'https://video.twimg.com/tweet_video/test.mp4'
+        images = [ImageItem(url=url, source_kind='comment_gif', role='comment', comment_id='123')]
+        request = self.request(images=images, comments_requested=True, comments=[CommentItem(id='123', text='reply', images=[url])])
+        with patch('server.comment_gif.public_opener') as opener:
+            opener.return_value.open.return_value.__enter__.return_value = response
+            result = self.storage.collect(request)
+            self.assertEqual(result['failed_images'], 0)
+            folder = Path(result['directory'])
+            gif = next(folder.rglob('*.gif'))
+            with Image.open(gif) as animation:
+                self.assertGreater(animation.n_frames, 1)
+            self.assertIn(gif.name, next(folder.rglob('*.md')).read_text('utf-8'))
+            response.read.return_value = b'incomplete'
+            result = self.storage.collect(request.model_copy(update={'duplicate_policy': 'refresh'}))
+            self.assertTrue(result['partial'])
+            self.assertTrue(gif.exists())
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)

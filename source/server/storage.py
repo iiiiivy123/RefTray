@@ -398,6 +398,12 @@ class Storage:
         return metadata
 
     def _download(self, item: ImageItem) -> tuple[bytes, str]:
+        if item.source_kind == 'comment_gif':
+            from .comment_gif import read_gif
+            if item.role != 'comment' or not item.comment_id or item.data_base64:
+                raise ValueError('评论动图缺少归属或来源不符')
+            data = read_gif(item.url, self.settings.timeout)
+            return data, validate_image(data)
         if item.data_base64:
             if len(item.data_base64) > 40 * 1024 * 1024:
                 raise ValueError('image exceeds 30MB')

@@ -26,9 +26,10 @@ args:
 | --- | --- | --- |
 | `reftray_status` | 查看后台版本、连接状态和素材库 | 无 |
 | `reftray_download_post` | 保存 Pinterest Pin 或 X 原帖中已核对的公开图片 | `url` |
+| `reftray_find_saved` | 按作品链接核对本地已有素材，返回文件、目录及已保存范围；无符合记录时返回空列表 | `url` |
 | `reftray_resolve_video` | 解析原帖视频来源 | `url` |
 | `reftray_download_video` | 提交一个原帖视频下载；多视频先返回数量供选择 | `url`，可选 `media_index`（从1开始） |
-| `reftray_job_status` | 查询保存结果、错误和实际文件位置 | `job_id`，`kind`（`collect` 或 `video`） |
+| `reftray_job_status` | 查询保存结果、错误和实际文件位置 | `job_id`，`kind`（`collect`、`video` 或失败记录 `task`） |
 
 图片接口支持 Pinterest 和 X 原帖链接，X 返回分享图；Pinterest 除分享图外，还可核对 Pin 原图及逐页静态故事图片。返回的 scope 和 warning 说明此次保存范围。多图和评论请用浏览器扩展。视频接口支持 X 主帖、YouTube 单视频及 Shorts、B 站单稿件（保留指定分 P），沿用现有解析器，下载提交后继续查询任务，完成时会返回保存结果。
 

@@ -1,4 +1,4 @@
-# RefTray · 灵感采集 使用说明 · Windows v0.5.37
+# RefTray · 灵感采集 使用说明 · Windows
 
 [首次安装](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/install.md) · [从旧版更新](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/update.md)
 

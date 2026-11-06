@@ -69,3 +69,57 @@ class McpVideoDispatchTests(unittest.TestCase):
             reply, _ = self.call(backend, url=link)
             self.assertTrue(reply['isError'])
             self.assertEqual(backend.starts, [])
+
+    def test_preflight_error_returns_a_durable_sanitized_task_id(self):
+        class Journal(Backend):
+            def api(self, path, body=None):
+                if path == '/media/resolve':
+                    raise ValueError('Unavailable https://video.example/test?token=private')
+                if path == '/tasks':
+                    self.record = body
+                    return {'ok': True}
+                if path == '/tasks/' + self.record['id']:
+                    return {'item': self.record['data']}
+                raise AssertionError(path)
+        backend = Journal()
+        reply, _ = self.call(backend, url='https://x.com/example/status/123?secret=private')
+        self.assertTrue(reply['isError'])
+        self.assertIn(backend.record['id'], reply['content'][0]['text'])
+        self.assertNotIn('private', json.dumps(backend.record))
+        status = dispatch('tools/call', {'name':'reftray_job_status', 'arguments':{'kind':'task','job_id':backend.record['id']}}, backend)
+        self.assertEqual(json.loads(status['content'][0]['text'])['item']['status'], 'failed')
+
+class PublicPinTests(unittest.TestCase):
+    def resolve(self, patch_pin=None, query_id='123', extra_head=''):
+        from unittest.mock import MagicMock, patch
+        from urllib.parse import quote
+        from server.public_post import resolve_post
+        pin = {'entityId':'123', '__typename':'Pin', 'isEligibleForImageDownload':True,
+               'isViewerRestricted':False, 'isVideo':False,'images_orig':{'url':'https://i.pinimg.com/originals/example.jpg'}}
+        pin.update(patch_pin or {})
+        request = quote(json.dumps({'variables':{'pinId':query_id}}))
+        args = json.dumps(request) + ',' + json.dumps({'data':{'v3GetPinQueryv2':{'data':pin}}})
+        html = ('<html><head>'+extra_head+'</head><body><script data-relay-completed-request>'
+                'window.__PWS_RELAY_REGISTER_COMPLETED_REQUEST__('+args+');</script></body></html>').encode()
+        response = MagicMock(url='https://www.pinterest.com/pin/123/')
+        response.read1.side_effect = [html[pos:pos+19] for pos in range(0,len(html),19)] + [b'']
+        with patch('server.public_post.public_opener') as opener:
+            opener.return_value.open.return_value.__enter__.return_value = response
+            return resolve_post(response.url)
+
+    def test_incremental_source_must_match_pin_and_explicit_rights(self):
+        self.assertEqual(self.resolve()['scope'], 'verified_pin_image')
+        for patch_pin, query in [({}, '456'), ({'entityId':'456'}, '123'), ({'isViewerRestricted':True}, '123'),
+                                 ({'isVideo':True}, '123'), ({'images_orig':{'url':'https://i.pinimg.com.evil.invalid/a'}}, '123')]:
+            with self.subTest(patch=patch_pin,query=query), self.assertRaises(ValueError):
+                self.resolve(patch_pin, query)
+        with self.assertRaises(ValueError):
+            self.resolve(extra_head='<link rel="canonical" href="https://www.pinterest.com/pin/456/">')
+
+    def test_mixed_story_cannot_save_only_its_cover(self):
+        block = {'__typename':'StoryPinImageBlock','images_750x':{'url':'https://i.pinimg.com/750x/a.jpg'}}
+        story = {'storyPinData':{'pages':[{'blocks':[block]}]}}
+        self.assertEqual(self.resolve(story)['scope'], 'verified_story_images')
+        story['storyPinData']['pages'].append({'blocks':[{'__typename':'StoryPinVideoBlock'}]})
+        with self.assertRaises(ValueError):
+            self.resolve(story)

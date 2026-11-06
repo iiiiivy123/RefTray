@@ -207,7 +207,7 @@ var
   ExitCode: Integer;
 begin
   if CurStep = ssPostInstall then begin
-    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\extension_install.py') + '" --program "' + ExpandConstant('{app}') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\extension_install.py') + '" --program "' + ExpandConstant('{app}') + '" --previous-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
       RaiseException('扩展目录更新未执行，安装未完成。请保留当前目录并重试安装。')
     else if ExitCode <> 0 then
       RaiseException('扩展目录更新或文件核验失败，安装未完成。未将旧扩展标为已更新，请保留当前目录并重试安装。');

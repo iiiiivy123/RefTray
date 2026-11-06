@@ -1,7 +1,7 @@
 const Hub = (() => {
   let health;
   async function handshake(){
-    const response=await localFetch('http://127.0.0.1:8766/health',{signal:AbortSignal.timeout(5000)});
+    const response=await reftrayHealth('http://127.0.0.1:8766/health',localFetch);
     if(!response.ok)throw new Error('保存服务不可用');
     return response.json();
   }

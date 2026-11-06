@@ -60,6 +60,25 @@ class LocalToolTests(unittest.TestCase):
             self.api('/history/2147483647/open', b'{}')
         self.assertEqual(missing.exception.code, 404)
 
+    def test_health_pairs_browser_origin_and_keeps_native_clients(self):
+        from server.extension_origin import paired_origins
+        origin = next(iter(paired_origins()))
+        for method,headers,code in [
+                ('GET', {}, 200),
+                ('POST', {'Origin':origin, 'Sec-Fetch-Mode':'cors'}, 200),
+                ('GET', {'Sec-Fetch-Site':'none'}, 403),
+                ('POST', {'Origin':'chrome-extension://'+'z'*32}, 403),
+                ('POST', {'Origin':'https://example.org'}, 403)]:
+            req=Request(self.base+'/health', method=method, headers=headers)
+            if code==200:
+                with self.opener.open(req,timeout=5) as response:
+                    self.assertTrue(json.load(response).get('settings_token'))
+            else:
+                with self.assertRaises(HTTPError) as rejected:
+                    self.opener.open(req,timeout=5)
+                self.assertEqual(rejected.exception.code,code)
+                self.assertNotIn(b'settings_token',rejected.exception.read())
+
     def test_real_gif_and_audio_preserve_source(self):
         original = hashlib.sha256(self.sample.read_bytes()).hexdigest()
         for format in ('gif', 'audio'):

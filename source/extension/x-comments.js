@@ -43,7 +43,9 @@
         if(/^(jpg|jpeg|png)$/i.test(url.searchParams.get('format')||''))url.searchParams.set('name','orig');
         return url.href;
       });
-      if(String(content).trim()||images.length)comments.set(id,{id,url:linkFor(id),text:String(content).trim().slice(0,10000),author:author?String(author).slice(0,1000):null,images:[...new Set(originals)]});
+      const record=globalThis.XEagleMedia?.tweetRecord(value);
+      const gifs=record?.tweetId===id ? record.media.filter(item=>item.kind==='gif').map(item=>item.url) : [];
+      if(String(content).trim()||images.length||gifs.length)comments.set(id,{id,url:linkFor(id),text:String(content).trim().slice(0,10000),author:author?String(author).slice(0,1000):null,images:[...new Set(originals)],gifs:[...new Set(gifs)]});
     }
     for(const [key,descriptor] of Object.entries(Object.getOwnPropertyDescriptors(value)).slice(0,300)) {
       if(['return','alternate','stateNode','_owner','ownerDocument','parentNode'].includes(key))continue;

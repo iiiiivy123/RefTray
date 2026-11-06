@@ -31,6 +31,7 @@ function client(responses){
     calls.push({url,options});const next=responses.shift();if(next instanceof Error)throw next;
     if(!next)throw new Error('unexpected request');return {ok:next.status<400,status:next.status,json:async()=>next.body};
   }});
+  vm.runInContext(fs.readFileSync(require.resolve('../../source/extension/health-client.js'),'utf8'),context);
   vm.runInContext(fs.readFileSync(require.resolve('../../source/extension/hub-api.js'),'utf8')+';globalThis.client=Hub;',context);
   return {api:context.client.api,invalidateOptions:context.client.invalidateOptions,calls,storage,removed};
 }

@@ -1,5 +1,5 @@
 const BUILD = '0.5.0';
-if (typeof importScripts === 'function') importScripts('task-progress.js','task-store.js','capture-options.js','batch.js','task-services.js');
+if (typeof importScripts === 'function') importScripts('health-client.js','task-progress.js','task-store.js','capture-options.js','batch.js','task-services.js');
 let healthCache,taskContext={options:{},imageQuotaUsed:0};
 
 let videoSession;
@@ -160,7 +160,15 @@ async function readPagePayload(tabId, options, current) {
   }
   if(payload.platform==='x'&&options.collection_mode==='text'&&options.include_comments&&options.include_images!==false&&!options.md_only){
     payload.images ||= [];
-    for(const comment of payload.comments||[])for(const url of comment.images||[])if(!payload.images.some(i=>i.url===url))payload.images.push({url,alt:'评论 '+comment.id,role:'comment',comment_id:comment.id});
+    for(const comment of payload.comments||[]){
+      const gifs=new Set(options.skip_gifs===false ? comment.gifs : []);
+      comment.images=[...new Set([...(comment.images||[]),...gifs])];
+      for(const url of comment.images){
+        if(!payload.images.some(item=>item.url===url)){
+          payload.images.push({url,alt:'评论 '+comment.id,role:'comment',comment_id:comment.id,source_kind:gifs.has(url)?'comment_gif':'image'});
+        }
+      }
+    }
   }
   return payload;
 }
@@ -172,7 +180,7 @@ async function readXReplies(tabId, id, limit) {
   try {
     for(let step=0;step<=12;step++){
       await controlPoint();
-      const [{result}]=await chrome.scripting.executeScript({target:{tabId},world:'MAIN',files:['x-comments.js']});
+      const [{result}]=await chrome.scripting.executeScript({target:{tabId},world:'MAIN',files:['cat-media.js','x-comments.js']});
       if(result?.postId!==id || !Array.isArray(result.comments))throw new Error('评论与当前帖子不匹配');
       const before=comments.size;
       for(const reply of result.comments){
@@ -286,7 +294,10 @@ async function submit(payload, pageUrl, port) {
   payload.duplicate_policy ??= taskContext.options.duplicate_policy || 'fill';
   payload.min_free_mb ??= taskContext.options.min_free_mb ?? 256;
   if (taskContext.directory) payload.save_directory = taskContext.directory;
-  if (!payload?.images?.length && !(payload.collection_mode === 'text' && payload.body_text?.trim())) throw new Error("页面没有找到可保存正文或图片");
+  if (!payload?.images?.length && !(payload?.collection_mode === 'text' && payload.body_text?.trim())){
+    const details=(payload?.extraction_warnings||[]).filter(Boolean).join(' ');
+    throw new Error(details || '页面没有找到可保存正文或图片');
+  }
   if(pageUrl.includes('xiaohongshu.com')){
     const known=payload.duplicate_policy==='refresh'?[]:(await service('/assets/known',{urls:payload.images.map(i=>i.url).slice(0,100)})).known;
     const missing={...payload,images:payload.images.filter(i=>!known.includes(i.url))};
@@ -618,7 +629,7 @@ async function videoMessage(message, sender) {
 }
 
 async function authorContext(tab, port) {
-  const response = await fetch(`http://127.0.0.1:${port}/health`).catch(() => null);
+  const response = await reftrayHealth(`http://127.0.0.1:${port}/health`).catch(() => null);
   if (!response?.ok) throw new Error('本地保存服务未连接，尚未开始浏览作品。');
   const health = await response.json();
   if (!health.author_flat_images) throw new Error('本地保存服务尚未更新为作者图片平铺模式，请重启采集服务。尚未开始浏览作品。');
@@ -796,12 +807,10 @@ async function collect(mode, port, options = {}, testTarget) {
     if(!['author','board'].includes(mode))throw new Error('独立视频批量需要作者或画板入口');
     options={...options,collection_mode:'images',include_images:false,include_comments:false,include_videos:true};
   }
-  taskContext.options = options;
-  taskContext.imageQuotaUsed=0;
   resolvedMedia=new Map();
   const pending=(await chrome.storage.local.get(['collectorBackendPending'])).collectorBackendPending;
   if(pending){
-    const h=await fetch('http://127.0.0.1:'+port+'/health').then(r=>r.json());healthCache=h;
+    const h=await reftrayHealth('http://127.0.0.1:'+port+'/health').then(r=>r.json());healthCache=h;
     const status=await service((pending.kind==='video'?'/video/status/':'/collect/status/')+pending.jobId).catch(error=>{if(/不存在|重启|404/.test(error.message))return {status:'missing'};throw error;});
     if(['running','stopping'].includes(status.status))throw new Error('上一篇后台仍在收尾，请等待完成后再开始');
     await chrome.storage.local.remove('collectorBackendPending');
@@ -812,14 +821,13 @@ async function collect(mode, port, options = {}, testTarget) {
   if (active) await chrome.storage.local.remove("liblibActiveJob");
   const tab = testTarget ? await chrome.tabs.get(testTarget.id) : (await chrome.tabs.query({active: true, currentWindow: true}))[0];
   if(testTarget && tab.url !== testTarget.url) throw new Error('测试目标页面已改变，请重新选择标签页。');
-  taskContext.batch=undefined;
   taskContext = {imageQuotaUsed:0,options:CaptureOptions.snapshot(options),control:'running',backendJobId:null,id:crypto.randomUUID(),url:tab?.url?.replace(/([?&])(?:xsec_token|xsec_source)=[^&#]*/g,'$1'), mode, title:tab?.title};
   if (!tab?.id || (!/^https?:/i.test(tab.url || "") && !(mode === 'video' && tab.url === chrome.runtime.getURL('video.html')))) throw new Error("请打开普通网页后再采集");
   await chrome.storage.local.set({liblibActiveJob: {mode, startedAt: Date.now(), build: BUILD, testRunId:testTarget?.runId}});
   await chrome.storage.local.set({liblibControl: "running"});
   await reportProgress({message: mode === 'author' ? '准备读取作者主页' : '准备保存当前页'});
   try {
-    const health = await fetch(`http://127.0.0.1:${port}/health`).then(r => r.json());
+    const health = await reftrayHealth(`http://127.0.0.1:${port}/health`).then(r => r.json());
     healthCache = health;
     const extensionRelease=chrome.runtime.getManifest().version;
     if(health.release&&health.release!==extensionRelease)throw new Error(`扩展 ${extensionRelease} 与后台 ${health.release} 版本不一致。请在 chrome://extensions 重新加载「灵感采集」，再刷新作品网页；确认加载的是本次安装目录中的 extension。`);
@@ -863,7 +871,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if(_sender.id!==chrome.runtime.id||!['popup.html','manage.html'].some(p=>_sender.url?.split('#')[0]===chrome.runtime.getURL(p))){sendResponse({ok:false,error:'无效的目录选择入口'});return false;}
     const requestId=message.requestId;
     (async()=>{
-      const h=await fetch('http://127.0.0.1:8766/health').then(r=>r.json());
+      const h=await reftrayHealth('http://127.0.0.1:8766/health').then(r=>r.json());
       const base='http://127.0.0.1:8766/settings/choose-folder',headers={'X-Collector-Token':h.settings_token};
       const r=await fetch(base,{method:'POST',headers,signal:AbortSignal.timeout(5000)});
       const job=await r.json();if(!r.ok)throw new Error(job.detail||'无法选择文件夹');
@@ -893,7 +901,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     (async () => {
       const {inspirationLastVideo} = await chrome.storage.local.get(['inspirationLastVideo']);
       if (!inspirationLastVideo) throw new Error('还没有已下载的视频');
-      const health = await fetch('http://127.0.0.1:8766/health').then(r => r.json());
+      const health = await reftrayHealth('http://127.0.0.1:8766/health').then(r => r.json());
       await downloadApi(8766, health.settings_token, `/video/open/${encodeURIComponent(inspirationLastVideo.assetId)}`, {});
       return {ok: true};
     })().then(sendResponse).catch(error => sendResponse({ok: false, error: error.message}));
@@ -938,10 +946,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (taskRunning) {sendResponse({ok: false, error: '任务仍在结束中，请稍候。'}); return false;}
   taskRunning = true;
+  const previousContext=taskContext;
   collect(message.mode || "current", message.port || 8766, message.options, message.testTarget).then(async (result) => {
     await reportProgress({percent: 100, status: result.status==='partial'||result.partial||result.failed_images&&result.new_images?'partial':result.failed_images||result.status==='failed'?'failed':'completed', message: result.message || `保存完成，新增 ${result.new_images} 张`, directory:taskContext.batch?.directory||result.directory, details:result.details || result.warnings?.join('\n')});
     sendResponse({ok: true, result});
   }).catch(async (error) => {
+    if(taskContext===previousContext){
+      sendResponse({ok:false,error:error.message||'任务未能开始'});
+      return;
+    }
     const reason = error.message === 'USER_STOPPED' ? '已停止，已保存内容和断点保留。' : error.message.includes('NEEDS_ATTENTION') ? '页面需要验证或登录，任务已暂停。处理后回到原主页续采。' : error.message || '这次未能完成，请查看详情。';
     await reportProgress({status:error.message==='USER_STOPPED'?'stopped':error.message.includes('NEEDS_ATTENTION')?'paused':'failed', message:reason,directory:taskContext.batch?.directory||taskContext?.stopResult?.directory,details:error.message});
     sendResponse({ok: false, error: reason});

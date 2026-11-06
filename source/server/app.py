@@ -29,7 +29,9 @@ def create_app(runtime=None):
         initialize_folders(settings.inbox)
     storage = runtime.storage if runtime is not None else Storage(settings)
     app = FastAPI(title="灵感采集", version="0.5.0")
-    app.add_middleware(CORSMiddleware, allow_origin_regex=r"^(chrome-extension|edge-extension)://.+$", allow_methods=["GET", "HEAD", "POST", "OPTIONS"], allow_headers=["Content-Type", "X-Collector-Token", "Range"], expose_headers=['Content-Length', 'Content-Range', 'Accept-Ranges'])
+    from .extension_origin import paired_origins
+    origins = paired_origins()
+    app.add_middleware(CORSMiddleware, allow_origins=sorted(origins), allow_methods=["GET", "HEAD", "POST", "OPTIONS"], allow_headers=["Content-Type", "X-Collector-Token", "Range"], expose_headers=['Content-Length', 'Content-Range', 'Accept-Ranges'])
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', '[::1]'], www_redirect=False)
     settings_token = secrets.token_urlsafe(32)
     jobs: dict[str, dict[str, object]] = {}
@@ -55,7 +57,15 @@ def create_app(runtime=None):
 
 
     @app.get("/health")
-    def health() -> dict[str, object]:
+    @app.post("/health")
+    def health(request: Request) -> dict[str, object]:
+        origin = request.headers.get('origin')
+        browser = origin is not None or any(key.startswith('sec-fetch-') for key in request.headers)
+        if browser and origin not in origins:
+            raise HTTPException(403, '需要通过已登记的扩展目录连接；升级后请刷新扩展。')
+        return health_data()
+
+    def health_data() -> dict[str, object]:
         # Protocol stays compatible; release identifies the deployed capabilities.
         cached = capability_cache.snapshot()
         return {**health_protocol(), "download_protection": True, "disk_protection": False, "streaming_capture": True, "release": RELEASE, "md_only": True, "bilibili_mux": cached["values"].get("mp4_remux"), "components": cached["values"], "capabilities_state": cached["state"], "library_configured": settings.library_configured, "native_folder_picker": True, "busy": bool(active_urls) or videos.busy() or local_tools_busy() or any(item.get("state") == "pending" for item in folder_requests.values())}
@@ -249,7 +259,7 @@ def create_app(runtime=None):
             storage.settings = updated
             if value.layout is not None:
                 catalog.defaults({**CaptureDefaults(**catalog.defaults()).model_dump(), "layout": value.layout})
-            return health()
+            return health_data()
 
 
     class OpenDirectoryRequest(BaseModel):
