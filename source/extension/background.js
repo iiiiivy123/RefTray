@@ -518,8 +518,13 @@ async function downloadVideo(tab, port, options, health, extractAfter) {
   if(source.subtitle_mode!=='none'&&!/(^|\.)youtube\.com$/.test(new URL(source.canonical_url).hostname)){
     try{
     const [{result:cues}]=await chrome.scripting.executeScript({target:{tabId:tab.id},args:[source.canonical_url],func:canonical=>{
-      if(new URL(canonical).pathname!==location.pathname)return [];
-      if(/(^|\.)youtube\.com$/.test(location.hostname)&&new URL(canonical).searchParams.get('v')!==new URL(location.href).searchParams.get('v'))return [];
+      const expected=new URL(canonical), actual=new URL(location.href);
+      if(expected.origin!==actual.origin || expected.pathname.replace(/\/$/,'')!==actual.pathname.replace(/\/$/,''))return [];
+      if(/(^|\.)bilibili\.com$/.test(actual.hostname)){
+        const part=url=>{const values=url.searchParams.getAll('p');return !values.length?'1':
+          values.length===1&&/^[1-9]\d*$/.test(values[0])?values[0]:null;};
+        if(!part(expected)||part(expected)!==part(actual))return [];
+      }
       const videos=[...document.querySelectorAll('video')];if(videos.length!==1)return [];
       const track=[...videos[0].textTracks].find(track=>['subtitles','captions'].includes(track.kind)&&track.cues?.length);
       return track?[...track.cues].slice(0,100000).map(cue=>({start:cue.startTime,end:cue.endTime,text:cue.text})):[];

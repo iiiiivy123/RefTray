@@ -53,3 +53,20 @@ test('YouTube playlist only admits selected-tab cards with matching video and pl
  const list=profile(url,doc,{contents:{twoColumnBrowseResultsRenderer:{tabs}}});
  assert.deepEqual(list.urls,['https://www.youtube.com/watch?v=11111111111']);
 });
+
+test('loaded Bilibili captions require the selected part and allow a canonical trailing slash',()=>{
+ const source=fs.readFileSync('source/extension/background.js','utf8');
+ const begin=source.indexOf('func:canonical=>{',source.indexOf("if(source.subtitle_mode!=='none'&&!"));
+ assert.ok(begin>=0);
+ const end=source.indexOf('\n    }});',begin);
+ const callback=source.slice(begin+5,end)+'\n}';
+ const stem='https://www.bilibili.com/video/BV1oxdmBKEbY';
+ function read(expected,actual){
+  return vm.runInNewContext('('+callback+')(expected)',{URL,expected,location:new URL(actual),document:{querySelectorAll:()=>[{textTracks:[{kind:'subtitles',cues:[{startTime:0,endTime:1,text:'sample'}]}]}]}});
+ }
+ assert.equal(read(stem+'/?p=2',stem+'?p=2')[0].text,'sample');
+ assert.equal(read(stem+'/?p=1',stem).length,1);
+ for(const url of [stem+'?p=1',stem+'?p=2&p=1',stem+'?p=',stem.replace('www.','other.')+'?p=2']){
+   assert.equal(read(stem+'/?p=2',url).length,0);
+ }
+});
