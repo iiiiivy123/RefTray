@@ -1,6 +1,7 @@
 """Local-file-only remux. Downloads still pass the collector CDN/IP/size guards."""
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import time
@@ -11,7 +12,10 @@ def executables():
     ffmpeg = Path(os.environ.get('COLLECTOR_FFMPEG', str(root/'ffmpeg.exe')))
     ffprobe = Path(os.environ.get('COLLECTOR_FFPROBE', str(root/'ffprobe.exe')))
     # The local conversion component supports HEVC/AV1-only tracks as well as AVC.
-    full = Path(os.environ.get('COLLECTOR_GIF_FFMPEG', ''))
+    configured_full = os.environ.get('COLLECTOR_GIF_FFMPEG')
+    if not configured_full and not any(os.environ.get(k) for k in ('COLLECTOR_FFMPEG','COLLECTOR_FFPROBE')):
+        configured_full = shutil.which('ffmpeg')
+    full = Path(configured_full or '')
     if full.is_absolute() and full.is_file() and full.with_name('ffprobe.exe').is_file():
         ffmpeg, ffprobe = full, full.with_name('ffprobe.exe')
     if not all(p.is_absolute() and p.is_file() for p in (ffmpeg, ffprobe)):

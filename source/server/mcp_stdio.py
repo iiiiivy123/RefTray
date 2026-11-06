@@ -5,8 +5,15 @@ import re
 import sys
 import uuid
 from html.parser import HTMLParser
+from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
+
+if __package__:
+    from .media_resolver import canonical as video_post
+else:  # Installed MCP clients start this file by path.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from server.media_resolver import canonical as video_post
 
 
 class Metadata(HTMLParser):
@@ -119,11 +126,11 @@ def dispatch(method, params, backend):
         elif name == 'reftray_download_post':
             result = backend.download_post(args['url'])
         elif name == 'reftray_resolve_video':
-            identity(args['url'])
-            result = backend.api('/media/resolve', {'url': args['url'], 'captions': False})
+            url, _ = video_post(args['url'])
+            result = backend.api('/media/resolve', {'url': url, 'captions': False})
         elif name == 'reftray_download_video':
-            platform, _ = identity(args['url'])
-            media = backend.api('/media/resolve', {'url': args['url'], 'captions': False})['media']
+            url, platform = video_post(args['url'])
+            media = backend.api('/media/resolve', {'url': url, 'captions': False})['media']
             if not media:
                 raise ValueError('未解析到原帖视频')
             index = args.get('media_index')
@@ -135,7 +142,7 @@ def dispatch(method, params, backend):
             else:
                 health = backend.api('/health')
                 source = media[(index or 1) - 1]
-                job = backend.api('/video/start', {**source, 'canonical_url': args['url'],
+                job = backend.api('/video/start', {**source, 'canonical_url': url,
                       'platform': platform, 'save_directory': health['inbox'], 'capture_kind': 'video',
                       'capture_scope': 'single', 'directory_schema': 'function-platform-v2'})
                 result = {'jobs': [job], 'media_count': len(media), 'media_index': index or 1}

@@ -13,7 +13,14 @@ def canonical(value):
     if u.scheme != 'https' or u.username or u.password or u.port not in (None,443):
         raise ValueError('仅接受公开作品的HTTPS地址')
     if u.hostname in ('youtube.com','www.youtube.com','m.youtube.com','youtu.be'):
-        identity = u.path.strip('/') if u.hostname == 'youtu.be' else parse_qs(u.query).get('v',[''])[0] if u.path == '/watch' else u.path.removeprefix('/shorts/').strip('/')
+        if u.hostname == 'youtu.be':
+            identity = u.path.strip('/')
+        elif u.path == '/watch':
+            identity = parse_qs(u.query).get('v',[''])[0]
+        elif u.path.startswith('/shorts/'):
+            identity = u.path[len('/shorts/'):].rstrip('/')
+        else:
+            identity = ''
         if not re.fullmatch(r'[\w-]{11}', identity):
             raise ValueError('请打开具体YouTube视频或Shorts；不采集频道/播放列表')
         return 'https://www.youtube.com/watch?v='+identity, 'youtube'

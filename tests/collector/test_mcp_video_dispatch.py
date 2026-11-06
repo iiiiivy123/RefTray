@@ -53,3 +53,19 @@ class McpVideoDispatchTests(unittest.TestCase):
             reply, _ = self.call(backend, media_index=index)
             self.assertTrue(reply['isError'])
             self.assertEqual(backend.starts, [])
+
+    def test_single_work_routes_use_shared_canonical_and_keep_part(self):
+        for link, expected, platform in [
+                ('https://youtu.be/abcdefghijk', 'https://www.youtube.com/watch?v=abcdefghijk', 'youtube'),
+                ('https://www.bilibili.com/video/BV1234567890?p=2', 'https://www.bilibili.com/video/BV1234567890/?p=2', 'bilibili')]:
+            with self.subTest(link=link):
+                backend = Backend(1)
+                reply, _ = self.call(backend, url=link)
+                self.assertFalse(reply['isError'])
+                self.assertEqual(backend.starts[0]['canonical_url'], expected)
+                self.assertEqual(backend.starts[0]['platform'], platform)
+        for link in ['https://www.youtube.com/abcdefghijk', 'https://www.youtube.com/playlist?list=123']:
+            backend = Backend(1)
+            reply, _ = self.call(backend, url=link)
+            self.assertTrue(reply['isError'])
+            self.assertEqual(backend.starts, [])
