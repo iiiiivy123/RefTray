@@ -100,3 +100,4 @@
 !/tests/collector/test_image_proxy.py
 !/docs/TASK.md
 !/tests/collector/check_upgrade_listener.py
+!/tools/review_windows_upgrade.py
