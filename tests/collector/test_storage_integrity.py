@@ -84,6 +84,15 @@ class StorageIntegrityTests(unittest.TestCase):
         self.assertEqual((result['new_images'], len(result['files']), result['omitted_images'], result['partial']), (2, 2, 3, True))
         self.assertIsNone(self.storage.catalog.lookup('https://example.org/read?id=1', ['images']))
 
+    def test_refresh_reuses_generated_document_and_protects_hand_edits(self):
+        folder = Path(self.storage.collect(self.request())['directory'])
+        original, = folder.glob('*.md')
+        self.storage.collect(self.request(duplicate_policy='refresh'))
+        self.assertEqual(list(folder.glob('*.md')), [original])
+        original.write_text('My edits',encoding='utf-8')
+        self.storage.collect(self.request(duplicate_policy='refresh', body_text='New source'))
+        self.assertEqual(original.read_text('utf-8'),'My edits')
+        self.assertEqual(len(list(folder.glob('*.md'))),2)
     def test_handwritten_markdown_is_preserved(self):
         first = self.storage.collect(self.request())
         target = next(Path(first['directory']).glob('*.md'))

@@ -14,6 +14,8 @@ def attach(app, settings, authorize):
     jobs = {}
     gate = threading.Lock()
     cancel = threading.Event()
+    state_lock = threading.Lock()
+    stop_requests = {}
 
     @app.post('/tools/media')
     async def start(request: Request, format: str, name: str = 'video'):
@@ -42,8 +44,10 @@ def attach(app, settings, authorize):
             target = directory / (stem + '_' + key[:8] + ('.gif' if format == 'gif' else '.m4a'))
             for old in list(jobs):
                 if len(jobs) < 20: break
-                if jobs[old]['status'] in ('completed', 'failed'): jobs.pop(old)
+                if jobs[old]['status'] in ('completed', 'failed', 'stopped'): jobs.pop(old)
             job = jobs[key] = {'status': 'processing', 'message': '正在转换GIF…' if format == 'gif' else '正在提取音频…'}
+            with state_lock:
+                stop_requests[key] = requested = threading.Event()
         except BaseException:
             temporary.cleanup()
             gate.release()
@@ -51,7 +55,7 @@ def attach(app, settings, authorize):
 
         def run():
             def checkpoint():
-                if cancel.is_set(): raise ValueError('加工已停止，原文件保留')
+                if cancel.is_set() or requested.is_set(): raise InterruptedError('加工已停止，原文件保留')
             try:
                 if format == 'gif':
                     from .gif_media import convert
@@ -59,11 +63,16 @@ def attach(app, settings, authorize):
                 else:
                     from .media_output import transform
                     transform(source, target, SimpleNamespace(output_format='audio', trim_start=0, trim_end=0), checkpoint)
-                job.update(status='completed', message='加工完成，原文件保留', path=str(target), bytes=target.stat().st_size)
+                with state_lock:
+                    checkpoint()
+                    job.update(status='completed', message='加工完成，原文件保留', path=str(target), bytes=target.stat().st_size)
             except Exception as error:
                 target.unlink(missing_ok=True)
-                job.update(status='failed', message=str(error))
+                with state_lock:
+                    job.update(status='stopped' if isinstance(error, InterruptedError) else 'failed', message=str(error))
             finally:
+                with state_lock:
+                    stop_requests.pop(key, None)
                 temporary.cleanup()
                 gate.release()
         threading.Thread(target=run, daemon=True).start()
@@ -74,6 +83,17 @@ def attach(app, settings, authorize):
         authorize(request)
         if job_id not in jobs: raise HTTPException(404, '加工任务不存在或后台已重启')
         return dict(jobs[job_id])
+
+    @app.post('/tools/media/{job_id}/stop')
+    def stop(job_id: str, request: Request):
+        authorize(request)
+        with state_lock:
+            job = jobs.get(job_id)
+            if not job: raise HTTPException(404, '加工任务不存在或后台已重启')
+            if job['status'] == 'processing':
+                stop_requests[job_id].set()
+                job.update(status='stopping', message='正在停止并清理本次加工…')
+            return dict(job)
 
     @app.post('/tools/media/{job_id}/open')
     def open_result(job_id: str, request: Request):

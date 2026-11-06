@@ -82,3 +82,21 @@ class LocalToolTests(unittest.TestCase):
             with self.assertRaises(HTTPError) as error:
                 self.api(path, b'invalid', token=token)
             self.assertEqual(error.exception.code, expected)
+
+    def test_stop_is_scoped_to_one_job_and_preserves_input(self):
+        longer = Path(self.temp.name) / 'cancel-input.mp4'
+        subprocess.run([shutil.which('ffmpeg'), '-v','error','-stream_loop','15','-i',str(self.sample),'-c','copy',str(longer)],check=True)
+        original = longer.read_bytes()
+        job = self.api('/tools/media?format=gif&name=cancel-input.mp4', original)['job_id']
+        with self.assertRaises(HTTPError) as denied:
+            self.api('/tools/media/' + job + '/stop', b'{}', token='bad')
+        self.assertEqual(denied.exception.code,403)
+        self.api('/tools/media/' + job + '/stop', b'{}')
+        for _ in range(100):
+            result = self.api('/tools/media/' + job)
+            if result['status'] in ('stopped','completed','failed'): break
+            time.sleep(.1)
+        self.assertEqual(result['status'],'stopped',result)
+        self.assertFalse(list(Path(self.temp.name).rglob('cancel-input_*.gif')))
+        self.assertEqual(original,longer.read_bytes())
+        self.assertEqual(self.api('/tools/media/' + job + '/stop', b'{}')['status'],'stopped')

@@ -217,7 +217,7 @@ class Storage:
             if not existing.get('reading_file') and (page_dir / markdown_name).exists(): markdown_name = safe(request.page_title or '未命名笔记') + '_' + page_id[:6] + '.md'
             metadata['reading_file'] = markdown_name
             previous_doc = page_dir / markdown_name
-            if previous_doc.is_file() and (request.duplicate_policy == 'refresh' or not existing.get('reading_sha256') or fingerprint(previous_doc) != existing.get('reading_sha256')):
+            if previous_doc.is_file() and (not existing.get('reading_sha256') or fingerprint(previous_doc) != existing['reading_sha256']):
                 # Preserve an edited or untracked document, rather than overwrite it.
                 from uuid import uuid4
                 markdown_name = safe(request.page_title or '未命名笔记') + '_' + uuid4().hex[:8] + '.md'

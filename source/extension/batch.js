@@ -269,9 +269,10 @@ async function runXBatch(tab, port, options) {
   return runSocialBatch(tab,port,options,'x');
 }
 async function runSocialBatch(tab, port, options, platform) {
-  const artstation=platform==='artstation',instagram=platform==='instagram',bilibili=platform==='bilibili',youtube=platform==='youtube',label=artstation?'ArtStation':youtube?'YouTube':bilibili?'B站':instagram?'Instagram':'X';
+  const huaban=platform==='huaban',artstation=platform==='artstation',instagram=platform==='instagram',bilibili=platform==='bilibili',youtube=platform==='youtube',label=huaban?'花瓣':artstation?'ArtStation':youtube?'YouTube':bilibili?'B站':instagram?'Instagram':'X';
   const postId = value => {
     const u=new URL(value);
+    if(huaban)return /^(www\.)?huaban\.com$/.test(u.hostname)?u.pathname.match(/^\/pins\/(\d+)\/?$/)?.[1]:null;
     if(artstation)return /(^|\.)artstation\.com$/.test(u.hostname)?u.pathname.match(/^\/artwork\/([a-zA-Z0-9]+)\/?$/)?.[1]:null;
     if(youtube)return /(^|\.)youtube\.com$/.test(u.hostname)&&u.pathname==='/watch'?u.searchParams.get('v'):null;
     if(bilibili)return /^(www\.)?bilibili\.com$/.test(u.hostname)?u.pathname.match(/^\/(?:video\/BV[\da-zA-Z]{10}|opus\/\d+|read\/cv\d+)\/?$/)?.[0]:null;
@@ -282,7 +283,7 @@ async function runSocialBatch(tab, port, options, platform) {
     await batchProblem(tab.id);
     const current=await chrome.tabs.get(tab.id);
     if(/\/(accounts\/login|challenge|checkpoint|i\/flow|login)(\/|$)/i.test(new URL(current.url).pathname))throw new Error('NEEDS_ATTENTION: 请先完成登录或验证，再回作者主页续采。');
-    const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id},world:youtube?'MAIN':'ISOLATED',files:[artstation?'artstation-list.js':youtube?'youtube.js':bilibili?'bilibili.js':instagram?'instagram-profile.js':'x-profile.js']});
+    const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id},world:youtube?'MAIN':'ISOLATED',files:[huaban?'huaban-list.js':artstation?'artstation-list.js':youtube?'youtube.js':bilibili?'bilibili.js':instagram?'instagram-profile.js':'x-profile.js']});
     if (!result || result.error) throw new Error(result?.error || '无法读取作者主页');
     return result;
   };

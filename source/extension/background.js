@@ -335,6 +335,7 @@ async function waitForTab(tabId) {
 async function pageProblem(tabId) {
   const [{result}] = await boundedRead(chrome.scripting.executeScript({target: {tabId}, func: () => {
     const sample = `${document.title}\n${document.body?.innerText || ""}`.slice(0, 5000);
+    if (/^(www\.)?huaban\.com$/.test(location.hostname) && /405\s*[：:]\s*异常访问/.test(sample))return "verification";
     if (/验证码|安全验证|访问异常|操作频繁|verify|captcha|security check|登录后继续|log in to continue|login required/i.test(sample)) return "verification";
     if (/你访问的页面不见了|当前笔记暂时无法浏览|笔记已失效/i.test(sample)) return "unavailable";
     return null;
@@ -823,6 +824,7 @@ async function collect(mode, port, options = {}, testTarget) {
     }
     if(mode==='author' && new URL(tab.url).hostname==='www.xiaohongshu.com') return await runXhsBatch(tab,port,options);
     if(mode==='author' && /(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)) return await runXBatch(tab,port,options);
+    if(mode==='author' && /^(www\.)?huaban\.com$/.test(new URL(tab.url).hostname))return await runSocialBatch(tab,port,options,'huaban');
     if(mode==='author' && /(^|\.)artstation\.com$/.test(new URL(tab.url).hostname))return await runSocialBatch(tab,port,options,'artstation');
     if(mode==='author' && /(^|\.)instagram\.com$/.test(new URL(tab.url).hostname)) return await runSocialBatch(tab,port,options,'instagram');
     if(mode==='author' && /(^|\.)bilibili\.com$/.test(new URL(tab.url).hostname))return await runSocialBatch(tab,port,options,'bilibili');
