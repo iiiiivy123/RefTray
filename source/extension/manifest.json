@@ -5,7 +5,7 @@
     "open_in_tab": true
   },
   "name": "灵感采集",
-  "version": "0.5.41",
+  "version": "0.5.42",
   "icons": {
     "16": "icon-16.png",
     "32": "icon-32.png",
@@ -51,5 +51,19 @@
       "32": "icon-32.png",
       "48": "icon-48.png"
     }
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.x.com/*",
+        "https://*.twitter.com/*"
+      ],
+      "js": [
+        "cat-media.js",
+        "x-session.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ]
 }

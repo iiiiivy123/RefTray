@@ -65,7 +65,7 @@ async function recordPost(key, record) {
     taskContext.batch.directory ||= taskContext.batch.mode==='board'?record.directory:parent;
   }
   await saveBatch();
-  await reportProgress({percent:Math.min(100,Math.round(batchCount()/taskContext.batch.limit*100)),message: batchSummary(taskContext.batch), details: Object.values(taskContext.batch.records).filter(r => r.reason).map(r => r.reason).join('\n')});
+  await reportProgress({percent:null,stage:'scanning',message: batchSummary(taskContext.batch), details: Object.values(taskContext.batch.records).filter(r => r.reason).map(r => r.reason).join('\n')});
 }
 async function batchProblem(tabId) {
   const problem = await pageProblem(tabId);
@@ -81,9 +81,9 @@ async function processBatchPost(tab, port, group, payload) {
   if(taskContext.options.skip_gifs)media=media.filter(m=>m.kind!=='gif'&&m.extension!=='gif'&&!m.live_missing);
   if(!taskContext.options.video_only&&!taskContext.options.md_only&&!taskContext.options.include_videos&&payload.has_video&&(media.some(m=>m.kind==='video')||payload.platform==='x'&&!media.length&&!payload.images?.length)&&!media.some(m=>m.kind==='photo'||m.kind==='gif'))return {status:'skipped',quota_exempt:true,url:payload.canonical_url,reason:'已跳过视频，不占目标篇数'};
   if(taskContext.options.skip_gifs&&(foundMedia.length>media.length||payload._skippedMotion)){
-    payload.has_live_photo=false;payload.images=media.filter(m=>m.kind==='photo').map(m=>({url:m.url,alt:''}));
+    payload.has_live_photo=false;if(payload.platform!=='x')payload.images=media.filter(m=>m.kind==='photo').map(m=>({url:m.url,alt:''}));
     payload.has_video=media.some(m=>m.kind==='video');
-    if(!media.length&&(!textMode||!payload.body_text?.trim()))return {status:'skipped',quota_exempt:true,url:payload.canonical_url,reason:'已按设置跳过动图，不占目标篇数'};
+    if(!media.length&&!payload.images?.length&&(!textMode||!payload.body_text?.trim()))return {status:'skipped',quota_exempt:true,url:payload.canonical_url,reason:'已按设置跳过动图，不占目标篇数'};
   }
   if(!taskContext.options.md_only&&(media.some(m=>m.live_missing)||payload.has_live_photo&&!media.some(m=>m.live_photo))){failed=true;reasons.push('部分实况动图动态源尚未确认，静态封面不代表完整动图');}
   let videoMeta={};
@@ -104,7 +104,7 @@ async function processBatchPost(tab, port, group, payload) {
   // Persist this post now; media downloads use their own per-source protection.
   if(payload._preflightIssue){failed=true;reasons.push(payload._preflightIssue);}
   const photos = media.filter(m => m.kind === 'photo').map(m => ({url: m.url, alt: ''}));
-  if ((photos.length || media.length || payload._media?.length || payload._preparedMedia?.length) && (!textMode || taskContext.options.include_images)) payload.images = photos;
+  if ((photos.length || media.length || payload._media?.length || payload._preparedMedia?.length) && (!textMode || taskContext.options.include_images)) payload.images = payload.platform==='x' ? [...new Map([...(payload.images||[]),...photos].map(i=>[i.url,i])).values()] : photos;
   if(textMode&&taskContext.options.include_comments&&taskContext.options.include_images&&!taskContext.options.md_only){for(const c of payload.comments||[])for(const url of c.images||[])if(!payload.images.some(i=>i.url===url))payload.images.push({url,alt:'评论 '+c.id,role:'comment',comment_id:c.id});}
   if(taskContext.options.skip_gifs)payload.images=(payload.images||[]).filter(i=>! /\.gif(?:[?#]|$)/i.test(i.url));
   if(textMode && !taskContext.options.include_images && !taskContext.options.ocr_enabled)payload.images=[];
@@ -310,8 +310,20 @@ async function runSocialBatch(tab, port, options, platform) {
         await controlPoint();
         if(!workTab)workTab=await chrome.tabs.create({url,active:false});
         else await chrome.tabs.update(workTab.id,{url});
+        let timelineRecord=null;
+        if(platform==='x'){
+          const [{result}]=await chrome.scripting.executeScript({target:{tabId:tab.id},world:'MAIN',args:[postId(url)],func:id=>globalThis.RefTrayXSession?.get(id)||null});
+          const handle=new URL(profile.author_url).pathname.slice(1).toLowerCase();
+          if(result?.postId===postId(url) && result.account?.toLowerCase()===handle)timelineRecord=result;
+        }
         let payload, issue='未识别到当前帖正文或媒体，可能未加载或不可访问';
-        for(let attempt=0;attempt<18;attempt++) {
+        if(timelineRecord && !taskContext.options.include_comments && !taskContext.options.md_only){
+          payload={platform:'x',canonical_url:url,page_title:timelineRecord.text?.slice(0,100)||tab.title,author_handle:timelineRecord.account,
+            body_text:timelineRecord.text||'',collection_mode:taskContext.options.collection_mode||'images',
+            images:timelineRecord.media.filter(m=>m.kind==='photo').map(m=>({url:m.url,alt:''})),
+            _media:timelineRecord.media,has_video:timelineRecord.media.some(m=>m.kind==='video'||m.kind==='gif'),extraction_warnings:[]};
+        }
+        for(let attempt=0;!payload&&attempt<18;attempt++) {
           await controlledWait(1000);
           const current=await chrome.tabs.get(workTab.id);
           if(/\/(i\/flow|login|account\/access|accounts\/login|challenge|checkpoint)(\/|$)/i.test(new URL(current.url).pathname))throw new Error('NEEDS_ATTENTION: 需要登录或验证，处理后回作者主页续采。');

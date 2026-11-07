@@ -1,5 +1,5 @@
 // Read only media belonging to the open post from already-loaded page state.
-// CAT-LOGUE's pure parsers are used under MIT; no network hooks or requests.
+// CAT-LOGUE's MIT parsers read page props and the bounded X response cache.
 (() => {
   const host = location.hostname, path = location.pathname;
   const xhs = /(^|\.)xiaohongshu\.com$/.test(host);
@@ -38,7 +38,8 @@
     try { roots.push(JSON.parse(body)); } catch (_) {}
   }
   const stack = roots, seen = new WeakSet();
-  let best = [], visits = 0, author_handle;
+  const session=x ? globalThis.RefTrayXSession?.get(id) : null;
+  let best = session?.media || [], visits = 0, author_handle=session?.account;
   while (stack.length && visits++ < 5000) {
     const value = stack.pop();
     if (!value || typeof value !== 'object' || seen.has(value)) continue;
@@ -54,12 +55,12 @@
       }
       if (x && String(value.rest_id || value.id_str || '') === id) record = globalThis.XEagleMedia.tweetRecord(value);
     } catch (_) {}
-    if (record?.media?.length > best.length) best = record.media;
+    if(record?.media?.length)best=[...new Map([...best,...record.media].map(m=>[m.kind+':'+m.url,m])).values()];
     const children = Object.values(value);
     for (let i = 0; i < Math.min(children.length, 500); i++) if (children[i] && typeof children[i] === 'object') stack.push(children[i]);
   }
   let hasGif=false;
-  if(x&&!best.length){
+  if(x&&!best.some(m=>m.kind==='gif'||m.kind==='video')){
     const article=[...document.querySelectorAll('article[data-testid="tweet"]')].find(a=>a.querySelector('a[href*="/status/"] time')?.closest('a')?.getAttribute('href')?.match(/\/status\/(\d+)/)?.[1]===id);
     for(const video of article?.querySelectorAll('video')||[]){
       if(video.mediaKeys||video.closest('article')!==article||video.closest('[data-testid="quoteTweet"]'))continue;
@@ -71,7 +72,7 @@
       best.push({kind:gif?'gif':'video',url,extension:'mp4'});
     }
   }
-  return {postId: id, author_handle, has_gif:hasGif||best.some(m=>m.kind==='gif'), media: best.slice(0, 100).filter(item => {
+  return {postId: id, author_handle, session_text:session?.text, session_ready:Boolean(globalThis.RefTrayXSession), has_gif:hasGif||best.some(m=>m.kind==='gif'), media: best.slice(0, 100).filter(item => {
     try {
       const url = new URL(item.url);
       return url.protocol === 'https:' && /(^|\.)(xhscdn\.com|xhscdn\.net|xhsimg\.com|cdninstagram\.com|fbcdn\.net|twimg\.com)$/.test(url.hostname);

@@ -88,6 +88,12 @@ async function pagePayload(tabId, options = {}) {
   return payload;
 }
 async function readPagePayload(tabId, options, current) {
+  if(/(^|\.)huaban\.com$/.test(new URL(current.url).hostname)){
+    await chrome.scripting.executeScript({target:{tabId},world:'MAIN',files:['huaban.js']});
+    const [{result}]=await chrome.scripting.executeScript({target:{tabId},world:'MAIN',func:()=>CollectorHuaban.extract(location.href)});
+    if(result)return {...result,collection_mode:options.collection_mode||'images',include_images:options.include_images!==false,md_only:Boolean(options.md_only),ocr_enabled:Boolean(options.ocr_enabled)};
+  }
+
   if(/(^|\.)artstation\.com$/.test(new URL(current.url).hostname)){
     await chrome.scripting.executeScript({target:{tabId},files:['document-source.js','artstation.js']});
     const [{result}]=await chrome.scripting.executeScript({target:{tabId},func:()=>CollectorArtstation.extract(location.href)});
@@ -154,11 +160,13 @@ async function readPagePayload(tabId, options, current) {
   if(pageData?.author_handle)payload.author_handle=pageData.author_handle;
   if(pageData?.media?.some(item=>item.kind==='video'||item.kind==='gif'))payload.has_video=true;
   if (!options.md_only) {
-    const mediaPage = xPageData || pageData || await loadedPageMedia(tabId,false);
+    const mediaPage = xPageData || pageData || await loadedPageMedia(tabId,false).catch(error=>{if(payload.platform==='x' && payload.images?.length)return {media:[],resolution_error:error.message};throw error;});
     if(payload.platform==='x' && mediaPage.postId && mediaPage.postId!==new URL(payload.canonical_url).pathname.match(/\/status\/(\d+)/)?.[1]) throw new Error('页面已切换，请回到目标帖子后重试');
+    if(mediaPage.resolution_error)payload._preflightIssue=mediaPage.resolution_error;
+    if(payload.platform==='x'){payload.author_handle ||= mediaPage.author_handle;payload.body_text ||= mediaPage.session_text||'';}
     const found = mediaPage.media || [];
     const media = options.skip_gifs?found.filter(m=>m.kind!=='gif'&&m.extension!=='gif'&&!m.live_missing):found;
-    if(found.length)payload.images=[];
+    if(found.length && payload.platform!=='x')payload.images=[];
     payload._skippedMotion=found.length>media.length||Boolean(mediaPage.has_gif&&options.skip_gifs);
     if(options.skip_gifs)payload.has_live_photo=false;
     payload._media=media;
@@ -166,7 +174,7 @@ async function readPagePayload(tabId, options, current) {
     if(payload.platform==='xhs'&&!options.skip_gifs)payload.has_live_photo=media.some(m=>m.live_missing)||Boolean(payload.has_live_photo&&!media.some(m=>m.live_photo));
     const photos = media.filter(item => item.kind === 'photo').map(item => ({url: item.url, alt: ''}));
     if (photos.length) {
-      payload.images = photos;
+      payload.images = payload.platform==='x' ? [...new Map([...(payload.images||[]),...photos].map(item=>[item.url,item])).values()] : photos;
       payload.extraction_warnings = (payload.extraction_warnings || []).filter(w => !w.startsWith('仅采集已加载') && !w.startsWith('仅取得帖子分享图'));
       payload.extraction_warnings.push('图片来自与当前帖子编号匹配的已加载页面数据，跨站兼容性仍待实测。');
     }
@@ -231,7 +239,7 @@ async function setMediaQuality(tabId){
   await chrome.scripting.executeScript({target:{tabId},world:'MAIN',args:[taskContext.options.video_quality||'best',taskContext.options.output_format||'original'],func:(value,format)=>{globalThis.__collectorVideoQuality=['best','1080','720','480'].includes(value)?value:'best';globalThis.__collectorOutputFormat=format==='audio'?'audio':'original';}});
 }
 async function loadedPageMedia(tabId, resolveVideo=true) {
-  let resolvingGif=false;
+  let resolvingGif=false, observed;
   await setMediaQuality(tabId);
   const tab=await chrome.tabs.get(tabId);
   if(/(^|\.)bilibili\.com$/.test(new URL(tab.url).hostname)) {
@@ -243,15 +251,16 @@ async function loadedPageMedia(tabId, resolveVideo=true) {
   try {
     await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['cat-instagram.js', 'cat-xhs.js', 'cat-media.js']});
     const [{result}] = await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['page-media.js']});
+    observed=result;
     if(result?.has_gif&&!taskContext.options.skip_gifs&&!result.media?.some(m=>m.kind==='gif')){
       resolvingGif=true;
       const resolved=await matureMedia(tab.url),media=(resolved.media||[]).filter(m=>m.kind==='gif');
-      if(!media.length)throw new Error('页面标记为 GIF，但尚未解析到属于当前帖子的动图源；未保存封面');
+      if(!media.length)throw new Error('页面标记为 GIF，但尚未解析到属于当前帖子的动图源；请刷新原帖后重试');
       return {...result,media:[...(result.media||[]).filter(m=>m.kind==='photo'),...media]};
     }
     if(resolveVideo&&!result?.media?.length&&healthCache&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)&&/\/status\/\d+/.test(new URL(tab.url).pathname))return await matureMedia(tab.url);
     return result || {media:[]};
-  } catch(error){if(resolvingGif||resolveVideo&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname))throw error;return {media:[]};} // DOM extraction remains available if page state is absent.
+  } catch(error){if(resolvingGif && observed?.media?.some(m=>m.kind==='photo'))return {...observed,resolution_error:error.message};if(resolvingGif||resolveVideo&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname))throw error;return {media:[]};} // DOM extraction remains available if page state is absent.
 }
 
 async function includeProtectedImages(payload, pageUrl) {
@@ -403,7 +412,7 @@ async function collectCurrent(tab, port, options = {}) {
   const problem = await pageProblem(tab.id);
   if (problem) throw new Error('页面正在验证或无法访问，已停止保存。');
   const payload = await pagePayload(tab.id, options);
-  if(options.include_videos||!options.md_only&&!options.skip_gifs&&payload._media?.some(m=>m.kind==='gif')){
+  if(payload._preflightIssue||options.include_videos||!options.md_only&&!options.skip_gifs&&payload._media?.some(m=>m.kind==='gif')){
     // Save body/images before resolving optional video attachments.
     const result=await processBatchPost(tab,port,{},payload);
     if(result.status==='failed')throw new Error(result.reason||'未保存任何文件');
@@ -441,6 +450,12 @@ async function videoSource(tab,options) {
     return {...selected,canonical_url:tab.url,page_title:tab.title,platform:'artstation'};
   }
 
+  if(/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)){
+    if(options.source?.url)return {...options.source,canonical_url:tab.url.split('?')[0],page_title:tab.title};
+    const page=await loadedPageMedia(tab.id,false),motion=(page.media||[]).filter(m=>m.kind==='gif'||m.kind==='video');
+    if(motion.length===1)return {...motion[0],canonical_url:tab.url.split('?')[0],page_title:tab.title};
+    if(motion.length>1)throw new Error('当前帖有多个动态媒体，请选择其中一个或使用全部视频排队');
+  }
   if(!options.source?.resolver_id&&options.source?.kind!=='gif'&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)){
     try{
       const {media}=await matureMedia(tab.url);
@@ -1009,7 +1024,7 @@ async function previewCollection(tabId,url){
     if(/\.gif(?:[?#]|$)/i.test(item.url))gifs.add(item.url);
     else if(!gifs.has(item.url))photos.add(item.url);
   }
-  return {url,state:'ready',images:photos.size,gifs:gifs.size,
+  return {url,state:'ready',images:photos.size,gifs:gifs.size,warning:payload._preflightIssue||'',
     videos:videos.size||(!payload.has_video?0:undefined),
     kind:photos.size||gifs.size?'images':payload.has_video?'video':'plain'};
 }

@@ -35,12 +35,12 @@ test('D4 partial frame extraction reaches final collectVideo result',async()=>{
   const result=await vm.runInContext("collectVideo({id:1,url:'chrome-extension://test/video.html'},8766,{})",context);
   assert.equal(result.partial,true);assert.equal(result.omitted_images,3);assert.doesNotMatch(result.message,/抽帧完成/);
 });
-test('T1 media 5→80 percent never changes overall batch 3/5, unknown total stays unknown',()=>{
+test('T1 media 5→80 percent never changes overall batch 3/5, streaming batch uses requested target',()=>{
   const context=vm.createContext({});vm.runInContext(fs.readFileSync(path.join(extension,'task-progress.js'),'utf8'),context);
   const job={limit:5,queue:['a','b','c','d','e'],queue_complete:true,records:{a:{status:'saved'},b:{status:'saved'},c:{status:'failed'}}};
   const first=context.TaskProgress.reduce({}, {percent:5},job),second=context.TaskProgress.reduce(first,{percent:80},job);
   assert.equal(first.percent,60);assert.equal(second.percent,60);assert.equal(second.batch.processed,3);assert.equal(second.current.percent,80);
-  const unknown=context.TaskProgress.reduce(second,{percent:80},{...job,queue_complete:false});assert.equal(unknown.percent,null);assert.equal(unknown.batch.total,null);
+  const unknown=context.TaskProgress.reduce(second,{percent:80},{...job,queue_complete:false});assert.equal(unknown.percent,60);assert.equal(unknown.batch.total,5);
 });
 
 test('Pinterest ring distinguishes scanning, fixed queue, complete, partial, paused and stopped',()=>{

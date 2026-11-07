@@ -72,12 +72,12 @@
  globalThis.PopupPresentation={
   resultSummary,
   paint(p,active){
-   const t=s=>globalThis.UI?.t(s)||s,b=p?.batch;const states={needs_library:'素材库未就绪',completed:'已完成',partial:'部分完成',failed:'保存失败',stopped:'已停止',paused:'已暂停',stopping:'正在收尾'};
+   const t=s=>globalThis.UI?.t(s)||s,b=p?.batch;const states={awaiting_approval:'等待确认',needs_library:'素材库未就绪',completed:'已完成',partial:'部分完成',failed:'保存失败',stopped:'已停止',paused:'已暂停',stopping:'正在收尾'};
    q('#retry-failed').hidden=active||!['partial','failed','stopped'].includes(p?.status);
    q('#task-result-summary').textContent=resultSummary(p);
    q('#result-title').textContent=t(states[p?.status]||(active?'处理中':'待开始'));
    const display=TaskProgress.labels(p||{},active,UI.language==='en');
-   if(active&&display.phase>=0)q('#result-title').textContent=(UI.language==='en'?['Resolving','Downloading','Processing','Saving']:['正在解析','正在下载','正在处理','正在保存'])[display.phase];
+   if(active&&p?.status!=='awaiting_approval'&&display.phase>=0)q('#result-title').textContent=(UI.language==='en'?['Resolving','Downloading','Processing','Saving']:['正在解析','正在下载','正在处理','正在保存'])[display.phase];
    q('#result-aggregate').textContent=display.aggregate;q('#result-counts').textContent=display.counts;
    q('#result-current').textContent=active?display.current:(!b?(['failed','partial'].includes(p?.status)?resultSummary(p):p?.message||t('选择采集内容后开始')):'');
    q('#result-stages').hidden=!active||display.phase<0;

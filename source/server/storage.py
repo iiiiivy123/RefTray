@@ -86,20 +86,13 @@ class Storage:
         with ThreadPoolExecutor(max_workers=6) as pool:
             items = request.images
             total = max(len(items), 1)
-            read_count = 0
             progress_lock = threading.Lock()
             def load(item):
-                nonlocal read_count
-                try:
-                    cached = self.catalog.cached(item.url, image=True) if request.duplicate_policy != 'refresh' and not item.data_base64 else None
-                    if cached:
-                        data = cached.read_bytes()
-                        return data, validate_image(data)
-                    return self._download(item)
-                finally:
-                    with progress_lock:
-                        read_count += 1
-                        progress(10 + int(read_count / total * 70), f'读取图片 {read_count}/{total}，按顺序保存')
+                cached = self.catalog.cached(item.url, image=True) if request.duplicate_policy != 'refresh' and not item.data_base64 else None
+                if cached:
+                    data = cached.read_bytes()
+                    return data, validate_image(data)
+                return self._download(item)
             def queued():
                 remaining = iter(items)
                 pending = deque((item, pool.submit(load, item)) for item in islice(remaining, 6))
@@ -154,8 +147,9 @@ class Storage:
                     # Do not expose signed CDN queries; keep the real download failure.
                     parsed = urlparse(item.url)
                     warnings.append(f"图片 {done}（{parsed.hostname}）：{type(exc).__name__}: {str(exc)[:300]}")
-                with progress_lock:
-                    progress(10 + int(read_count / total * 70), f"保存图片 {done}/{total}")
+                finally:
+                    with progress_lock:
+                        progress(10 + int(done / total * 70), f"已处理图片 {done}/{total}")
         merged_images = list(known_images.values())
         metadata = {
             **existing,

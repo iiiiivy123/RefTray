@@ -47,28 +47,31 @@ def run_local(command, checkpoint, timeout=120, progress=None):
             command = [command[0], '-progress', str(progress_file), '-nostats', *command[1:]]
         proc = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        def read_progress():
+            if progress_file and progress_file.exists():
+                with progress_file.open('rb') as stream:
+                    stream.seek(max(0, progress_file.stat().st_size - 8192))
+                    lines = stream.read().decode('utf-8', 'replace').splitlines()
+                for line in reversed(lines):
+                    if line.startswith('out_time_us='):
+                        try:
+                            seconds = max(0, int(line.split('=', 1)[1])) / 1000000
+                        except ValueError:
+                            continue
+                        progress(seconds)
+                        break
         started = time.monotonic()
         try:
             while proc.poll() is None:
                 checkpoint()
-                if progress_file and progress_file.exists():
-                    with progress_file.open('rb') as stream:
-                        stream.seek(max(0, progress_file.stat().st_size - 8192))
-                        lines = stream.read().decode('utf-8', 'replace').splitlines()
-                    for line in reversed(lines):
-                        if line.startswith('out_time_us='):
-                            try:
-                                seconds = max(0, int(line.split('=', 1)[1])) / 1000000
-                            except ValueError:
-                                continue
-                            progress(seconds)
-                            break
+                read_progress()
                 if time.monotonic()-started > timeout:
                     raise ValueError('本地音视频处理超时')
                 time.sleep(.1)
             checkpoint()
             if proc.returncode:
                 raise ValueError('本地音视频处理失败，临时文件未标记为成功')
+            read_progress()
         finally:
             if proc.poll() is None:
                 proc.kill()

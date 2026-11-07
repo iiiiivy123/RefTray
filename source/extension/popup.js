@@ -249,10 +249,11 @@ async function identify(){
  try{const result=await previewCurrentTab(currentTab);
  if(result?.url!==currentTab.url||token!==manualSelection||q('#scope').value==='bulk'||active||resumeOptions)return;
  if(result?.state==='ready'){
- UI.message(identifyStatus,'预扫描图片 {images} · GIF {gifs} · 视频 {videos}；保存时核实',{images:result.images??'?',gifs:result.gifs??'?',videos:result.videos??'?'});
+ UI.message(identifyStatus,'预扫描图片 {images} · GIF {gifs} · 视频 {videos}；保存时核实',{images:result.images??'未识别',gifs:result.gifs??'未识别',videos:result.videos??'待确认类型/数量'});
+ if(result.warning)identifyStatus.textContent+=' · 部分动态媒体读取失败：'+result.warning;
  if(!site.mode&&result.kind&&!manualSelection){q('#collection-mode').value=result.kind;render();}
  }else UI.message(identifyStatus,result?.reason||'正文仍在加载，可重新识别或手动选择。');
- }catch(error){UI.message(identifyStatus,'未能识别，可手动选择采集内容。');}
+ }catch(error){UI.message(identifyStatus,'识别失败：'+error.message);}
 }
 identifyButton.onclick=guarded(identify);
 const scanMoreButton=document.createElement('button');

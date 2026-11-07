@@ -42,8 +42,9 @@ async function approveDownloads(entries){
   const format=n=>n>=1073741824?(n/1073741824).toFixed(2)+' GB':(n/1048576).toFixed(1)+' MB';
   const message=`实际画质：${qualities}\n当前媒体已知大小 ${format(known)}（可本地复用 ${format(local)}），${unknown} 项大小或地址未知。\n单个下载上限 ${format((taskContext.options.max_video_mb||512)*1048576)}；下载中超限会停止。\n逐篇保存，不预扫整批。确认同时授权本任务后续符合上限的媒体；总量未知。不会检查或预留磁盘空间。`;
   await chrome.storage.local.set({collectorApproval:{state:'pending',message,createdAt:Date.now()}});
-  await reportProgress({message:'媒体预检完成，等待确认下载',details:message});
+  await reportProgress({status:'awaiting_approval',percent:null,message:'媒体预检完成，等待确认下载',details:message});
   while(true){await controlPoint();const {collectorApproval:a}=await chrome.storage.local.get(['collectorApproval']);if(a?.state==='approved')break;if(!a||a.state==='rejected')throw new Error('USER_STOPPED');await wait(750);}
   downloadConsent=true;
+  await reportProgress({status:"running",stage:"downloading",percent:null,message:"开始下载"});
   await chrome.storage.local.remove('collectorApproval');
 }

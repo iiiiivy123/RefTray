@@ -121,7 +121,7 @@
       media,
       relatedTweetIds: relatedIds,
       text: String(legacy.full_text || ""),
-      account: String(user && user.legacy && user.legacy.screen_name || "")
+      account: String(user && (user.legacy?.screen_name || user.core?.screen_name) || "")
     };
   }
 

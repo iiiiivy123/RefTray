@@ -189,6 +189,7 @@
       const galleries = cfg.gallery ? [...root.querySelectorAll(cfg.gallery)] : [root];
       const nodes = [...new Set(galleries.flatMap(node => node.tagName === 'IMG' ? [node] : [...node.querySelectorAll('img')]))];
       for (const img of nodes) {
+        if(kind==='x' && img.closest('[data-testid="videoPlayer"],[data-testid="videoComponent"]'))continue;
         if (img.closest('.comment-item,header,[data-testid="User-Name"],[data-testid="quoteTweet"]') || kind==='instagram'&&img.closest('ul ul li')) continue;
         if(kind==='generic'&&img.closest('nav,footer,aside,[role="banner"],[data-ad],[data-ad-slot],.advertisement,.ad-container,.ad-slot,.adsbygoogle,[id^="google_ads"],[id^="ad-"],[class*="ad-slot"],.mw-editsection,.navbox'))continue;
         const url = imageUrl(img, kind);

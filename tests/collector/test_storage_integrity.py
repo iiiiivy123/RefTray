@@ -104,6 +104,15 @@ class StorageIntegrityTests(unittest.TestCase):
         self.assertEqual(source_key('https://www.pinterest.com/pin/123/?foo=bar'), 'https://www.pinterest.com/pin/123')
         self.assertEqual(source_key('https://www.youtube.com/watch?v=abcdefghijk&utm_source=x'), 'https://www.youtube.com/watch?v=abcdefghijk')
 
+    def test_image_progress_advances_for_written_and_existing_items(self):
+        request = self.request(collection_mode='images', images=[self.item(), self.item()])
+        for repeat in range(2):
+            progress = []
+            result = self.storage.collect(request, lambda value, text: progress.append((value, text)))
+            processed = [(value, text) for value, text in progress if text.startswith('已处理图片')]
+            self.assertEqual(processed, [(45, '已处理图片 1/2'), (80, '已处理图片 2/2')])
+            self.assertTrue(result['files'])
+
     def test_storage_frame_limit_returns_only_confirmed_files_and_omission(self):
         frames = []
         for index in range(5):

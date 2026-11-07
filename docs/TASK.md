@@ -194,3 +194,13 @@ Chrome 接收 MCP 请求有一个使用条件：目标页面和采集弹窗要�
 
 ## 证据
 项目 F:/RefTray/source/work/review-fixes 下的 next-js.log、next-py.log、next-root.log、next-queue.log、next-bridge.log、next-bridge-proof.json、qa-0541-verification.json。测试使用独立目录，没有把测试文件写进日常素材库。
+
+## 2026-11-07 · 0.5.42 验收反馈修复
+用户授权：修复 X 图片/GIF 分流、已登录页面媒体读取、X 批量、花瓣和进度；弹窗/设置页重排须先给方案，未批准前不实施。小红书批量实测通过，保留。自动升级暂停。
+设计：沿用扩展 MAIN world 内容脚本，在 X 页开始加载时仅观察该页已经发出的 TweetDetail/UserTweets/UserMedia 响应；按帖 ID 保存最小媒体结果，最多 120 帖/15 分钟，不读取或导出 Cookie/请求头、不保存原响应、不主动调用账号接口。主世界数据仍视为不可信，保持 CDN 与后台地址验证。资料：https://developer.chrome.com/docs/extensions/reference/manifest/content-scripts 。安装新版后需要刷新原 X 页面。
+实现：新增 x-session.js；X 视频优先页面媒体，公开解析作为后备；静态图与 GIF 合并时互不清空；动态解析失败保留静态图并报部分失败；X 作者批量可使用主页已经加载且作者/帖 ID 匹配的媒体，详情页读取仍为后备。花瓣新增按精确 pin_id 读取页面内状态的适配，未取得真实原帖页面，线上效果待验。
+进度：图片以顺序写入处理数推进，重复/失败也结算；批量左圈按已处理篇数/目标，右侧显示当前篇媒体进度；等待确认不再转圈，文字更新保留当前进度。FFmpeg 退出后补读最后一次进度。
+验证：扩展 56 项、采集 Python 68 项、顶层 35 项通过。真实隔离 Chrome 加载扩展，受控普通 X 响应验证登录请求保留、fetch/XHR、后台标签页、图片与 GIF 并存。此测试不是线上 X 保存验收。证据 work/review-fixes/0542-*.log、0542-chrome-proof.json。
+测试执行纠正：首次直接调用安装 runtime 的 unittest，导入到了已安装 app/server；改用显式 sys.path 插入候选 source 后重跑通过。交付依据是显式候选路径的检查。
+小红书：cat-xhs.js、runXhsBatch 保持不变。用户截图文件夹六张 JPG 与六个 GIF 为旧文件，metadata 保留旧图，0.5.41 截图新增为 0；本轮没有删除旧文件，也没有把历史封面清理标为完成。
+未完成：真实 X 主帖/作者批量保存、花瓣原 Pin 保存仍需用户 Chrome 验收；小红书楼中楼规则与设置页重排等待方案确认；一键升级继续暂停。未覆盖日常安装、未发布 GitHub。
