@@ -134,3 +134,5 @@
 
 ## 证据位置
 项目目录 F:/RefTray/source/work/review-fixes。包校验见 qa-0540-verification.json，回归见 seven-js.log、seven-py0.log、seven-py1.log，扩展版本和 Instagram 下载见 seven-browser.log、seven-popup-ig-reel.json，公网文章见 seven-article.log 和 seven-social-verification/assets，在线提醒见 seven-live-notice.json，代理及中断见 video-real-proxy.json、seven-ig-network.log、unattended-video.log。安装边界的原始交接在 policy-origin/HANDOFF_NEXT_UPGRADE.md。报告和源码归档不包含签名链接、浏览器资料或日常素材。
+2026-11-07 续查：用户无需另行下载安装包。0.5.40 安装包已在本机；正式升级仍受原交接要求的宿主审批/复核约束，当前 never 且未发现可调用的正式复核接口，不拆命令或换工具执行。只阻塞安装相关动作。
+Instagram 作者页新增明确网络证据 ig-profile-diagnosis.json：主页 302 到 /accounts/login/，随后 429，作品链接 0。当前隔离会话未取得作者列表。直连失败仅对应禁用代理的对照；系统代理下载 Reel 已通过。补查代码发现只有作者页头部、未读到作品链接时可返回空队列，现源码改为明确失败，避免误报批量空成功。扩展测试 48 项通过，新增空列表及归属/去重回归。该修复尚未纳入既有 0.5.40 候选包。
