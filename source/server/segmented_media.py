@@ -1,11 +1,9 @@
 """Server-owned selections bridge preflight to yt-dlp's native downloaders."""
 import copy
-import ipaddress
 import json
 import os
 import secrets
 import shutil
-import socket
 import subprocess
 import sys
 import threading
@@ -24,9 +22,9 @@ def guard_url(url, platform):
     if (u.scheme != 'https' or u.username or u.password or u.port not in (None, 443)
             or not any(u.hostname == d or (u.hostname or '').endswith('.' + d) for d in domains)):
         raise ValueError('分段来源与作品平台不匹配')
-    addresses = socket.getaddrinfo(u.hostname, 443, type=socket.SOCK_STREAM)
-    if not addresses or any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):
-        raise ValueError('拒绝本机或内网媒体地址')
+    from .image_download import validate_url
+    validate_url(url)
+
 
 
 def register(item, canonical, platform):

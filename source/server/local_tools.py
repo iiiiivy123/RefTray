@@ -45,7 +45,7 @@ def attach(app, settings, authorize):
             for old in list(jobs):
                 if len(jobs) < 20: break
                 if jobs[old]['status'] in ('completed', 'failed', 'stopped'): jobs.pop(old)
-            job = jobs[key] = {'status': 'processing', 'message': '正在转换GIF…' if format == 'gif' else '正在提取音频…'}
+            job = jobs[key] = {'status': 'processing', 'percent': 0, 'message': '正在转换GIF…' if format == 'gif' else '正在提取音频…'}
             with state_lock:
                 stop_requests[key] = requested = threading.Event()
         except BaseException:
@@ -54,18 +54,24 @@ def attach(app, settings, authorize):
             raise
 
         def run():
+            def progress(fraction):
+                with state_lock:
+                    job['percent'] = max(job.get('percent', 0), round(fraction * 100))
+                    if job['status'] == 'processing':
+                        job['message'] = ('正在核验输出文件…' if fraction >= .99 else
+                                          ('正在转换 GIF' if format == 'gif' else '正在提取音频') + f' {job["percent"]}%')
             def checkpoint():
                 if cancel.is_set() or requested.is_set(): raise InterruptedError('加工已停止，原文件保留')
             try:
                 if format == 'gif':
                     from .gif_media import convert
-                    convert(source, target, checkpoint, min_free_mb=0)
+                    convert(source, target, checkpoint, min_free_mb=0, progress=progress)
                 else:
                     from .media_output import transform
-                    transform(source, target, SimpleNamespace(output_format='audio', trim_start=0, trim_end=0), checkpoint)
+                    transform(source, target, SimpleNamespace(output_format='audio', trim_start=0, trim_end=0), checkpoint, progress=progress)
                 with state_lock:
                     checkpoint()
-                    job.update(status='completed', message='加工完成，原文件保留', path=str(target), bytes=target.stat().st_size)
+                    job.update(status='completed', percent=100, message='加工完成，原文件保留', path=str(target), bytes=target.stat().st_size)
             except Exception as error:
                 target.unlink(missing_ok=True)
                 with state_lock:

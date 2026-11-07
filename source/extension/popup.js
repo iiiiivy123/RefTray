@@ -255,29 +255,26 @@ async function identify(){
  }catch(error){UI.message(identifyStatus,'未能识别，可手动选择采集内容。');}
 }
 identifyButton.onclick=guarded(identify);
+const scanMoreButton=document.createElement('button');
+scanMoreButton.type='button';scanMoreButton.className='text-button';scanMoreButton.textContent='向下加载并扫描';
+identifyButton.after(scanMoreButton);
+scanMoreButton.onclick=guarded(async()=>{
+ if(active||resumeOptions||q('#scope').value==='bulk')return;
+ scanMoreButton.disabled=true;
+ try{
+  UI.message(identifyStatus,'正在向下加载当前页，最多 12 屏…');
+  const response=await chrome.runtime.sendMessage({type:'SCAN_LOADED_PAGE',tabId:currentTab.id,url:currentTab.url});
+  if(!response?.ok)throw new Error(response?.error||'扫描失败');
+  await identify();
+  identifyStatus.textContent+=' · '+response.result.reason+'；扫描内容保留 5 分钟用于保存。';
+ }finally{scanMoreButton.disabled=false;}
+});
+
 
 async function previewCurrentTab(tab){
- const target={tabId:tab.id},url=new URL(tab.url);
- const run=async(files,world='ISOLATED')=>(await chrome.scripting.executeScript({target,world,files}))[0]?.result;
- if(/(^|\.)bilibili\.com$/.test(url.hostname)){
-   const read=await run(['document-source.js','bilibili.js'],'MAIN');
-   if(!read?.payload)return {url:tab.url,state:'unknown',reason:read?.error||'尚未确认当前稿件'};
-   const payload=read.payload;
-   return {url:tab.url,state:'ready',images:payload.images?.length,videos:read.source?1:undefined,
-     kind:payload.has_video?'video':payload.images?.length?'images':'plain'};
- }
- const result=await run(['document-source.js','pinterest-identity.js','platforms.js','artstation.js','page-identify.js']);
- if(/(^|\.)(x\.com|twitter\.com|instagram\.com|xiaohongshu\.com)$/.test(url.hostname)){
-   const state=await run(['cat-instagram.js','cat-xhs.js','cat-media.js','page-media.js'],'MAIN');
-   const expected=url.pathname.match(/\/status\/(\d+)(?:\/|$)/)?.[1] ||
-     url.pathname.match(/\/(?:p|reels?)\/([\w-]+)\/?$/)?.[1] || url.pathname.match(/\/([a-f0-9]{24})\/?$/i)?.[1];
-   if(expected && state?.postId===expected && state.media?.length){
-     const count=kind=>state.media.filter(item=>item.kind===kind).length;
-     return {url:result.url,state:'ready',images:count('photo'),gifs:count('gif'),videos:count('video'),
-       kind:count('photo')||count('gif')?'images':'video'};
-   }
- }
- return result;
+ const response=await chrome.runtime.sendMessage({type:'PREVIEW_COLLECTOR',tabId:tab.id,url:tab.url});
+ if(!response?.ok)throw new Error(response?.error||'读取预扫描失败');
+ return response.preview;
 }
 
 q('#retry-failed').onclick=guarded(async()=>{
@@ -288,3 +285,9 @@ q('#retry-failed').onclick=guarded(async()=>{
  checkpoint=copy;resumeOptions=CaptureOptions.resolve({resume:copy});showOptions(resumeOptions);q('#scope').value='bulk';render();await start();
  }else await start();
 });
+
+// The connection is active only while the user keeps this panel open.
+const browserRequestTimer=setInterval(()=>{
+ if(!active)chrome.runtime.sendMessage({type:'POLL_BROWSER_REQUESTS'}).catch(()=>{});
+},3000);
+window.addEventListener('pagehide',()=>clearInterval(browserRequestTimer));

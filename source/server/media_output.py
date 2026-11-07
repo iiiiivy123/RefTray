@@ -26,7 +26,7 @@ def conversion_component(required=()):
     return executable
 
 
-def transform(source, target, value, checkpoint):
+def transform(source, target, value, checkpoint, progress=None):
     info = bilibili_media.inspect(source)
     duration = float(info.get('format', {}).get('duration', 0))
     length = duration - value.trim_start - value.trim_end
@@ -80,7 +80,7 @@ def transform(source, target, value, checkpoint):
         command += ['-c:a', 'copy' if copy_audio else 'aac', '-f', 'mp4']
     command += ['-movflags', '+faststart', str(target)]
     try:
-        bilibili_media.run_local(command, checkpoint, timeout=10800)
+        bilibili_media.run_local(command, checkpoint, timeout=10800, **({'progress': lambda seconds: progress(min(.98, seconds/length))} if progress else {}))
         result = bilibili_media.inspect(target)
         actual = float(result.get('format', {}).get('duration', 0))
         if abs(actual - length) > max(.3, length * .01):

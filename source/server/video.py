@@ -21,7 +21,7 @@ from .catalog import Catalog
 from .retention import prune_finished, STATUS_LIMIT, STATUS_TTL
 
 MAX_BYTES = 1048576 * 1048576
-HOSTS = ('xhscdn.com', 'xhscdn.net', 'xiaohongshu.com', 'pinimg.com', 'hbimg.com', 'huaban.com', 'video.twimg.com', 'cdninstagram.com', 'fbcdn.net', 'weibocdn.com', 'sinaimg.cn', 'bilivideo.com', 'bilivideo.cn', 'googlevideo.com')
+HOSTS = ('artstation.com', 'xhscdn.com', 'xhscdn.net', 'xiaohongshu.com', 'pinimg.com', 'hbimg.com', 'huaban.com', 'video.twimg.com', 'cdninstagram.com', 'fbcdn.net', 'weibocdn.com', 'sinaimg.cn', 'bilivideo.com', 'bilivideo.cn', 'googlevideo.com')
 
 
 def validate_url(value):

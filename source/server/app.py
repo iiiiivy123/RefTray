@@ -42,6 +42,12 @@ def create_app(runtime=None):
     last_extension = None
     catalog = storage.catalog
     videos = runtime.videos if runtime is not None else VideoDownloads(catalog)
+    for record in catalog.tasks() if catalog is not None else ():
+        if record.get('mode') in ('video-queue', 'browser-capture') and record.get('status') == 'running':
+            catalog.save_task({**record, 'status': 'interrupted', 'completed': False,
+                               'message': '后台已重启，已保存结果保留，请核对后重新提交'})
+    from .video_queue import VideoQueue
+    video_queue = VideoQueue(videos, catalog, lambda: settings)
     import_previews = {}
     folder_requests = {}
     local_tools_busy = lambda: False
@@ -74,7 +80,7 @@ def create_app(runtime=None):
     def health_data() -> dict[str, object]:
         # Protocol stays compatible; release identifies the deployed capabilities.
         cached = capability_cache.snapshot()
-        return {**health_protocol(), "download_protection": True, "disk_protection": False, "streaming_capture": True, "release": RELEASE, "last_paired_extension": last_extension, "md_only": True, "bilibili_mux": cached["values"].get("mp4_remux"), "components": cached["values"], "capabilities_state": cached["state"], "library_configured": settings.library_configured, "native_folder_picker": True, "busy": bool(active_urls) or videos.busy() or local_tools_busy() or any(item.get("state") == "pending" for item in folder_requests.values())}
+        return {**health_protocol(), "download_protection": True, "disk_protection": False, "streaming_capture": True, "release": RELEASE, "last_paired_extension": last_extension, "md_only": True, "bilibili_mux": cached["values"].get("mp4_remux"), "components": cached["values"], "capabilities_state": cached["state"], "library_configured": settings.library_configured, "native_folder_picker": True, "busy": bool(active_urls) or video_queue.busy() or videos.busy() or local_tools_busy() or any(item.get("state") == "pending" for item in folder_requests.values())}
 
 
     def health_protocol() -> dict[str, object]:
@@ -322,6 +328,8 @@ def create_app(runtime=None):
             if value.save_directory != str(settings.inbox):
                 raise HTTPException(409, '保存目录已改变，请重新开始')
             try:
+                if video_queue.busy():
+                    raise ValueError('视频队列正在运行，请完成或停止后再开始')
                 return {'job_id': videos.start(settings.inbox, value)}
             except ValueError as exc:
                 raise HTTPException(409, str(exc)) from exc
@@ -351,6 +359,22 @@ def create_app(runtime=None):
             return resolve_post(value.url)
         except (OSError, ValueError, TransportError) as exc:
             raise HTTPException(422, str(exc))
+
+    @app.post('/video/queue')
+    def start_video_queue(value: ResolveMedia, request: Request):
+        authorize_settings(request)
+        try:
+            return video_queue.start(value.url)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @app.post('/video/queue/{identity}/stop')
+    def stop_video_queue(identity: str, request: Request):
+        authorize_settings(request)
+        try:
+            return video_queue.stop(identity)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
 
     @app.post('/media/resolve')
     def resolve_media(value: ResolveMedia, request: Request):
@@ -506,12 +530,15 @@ def create_app(runtime=None):
             for job in jobs.values():
                 if job['status'] == 'running':
                     job.update(status='stopping', message='本篇结束后停止，正在收尾', cancel_acknowledged=False)
+        video_queue.stop()
         videos.request_stop_all()
         local_tools_stop()
 
     from types import SimpleNamespace
     app.state.runtime = SimpleNamespace(settings=settings, storage=storage, videos=videos, jobs=jobs, active_urls=active_urls,
                                         folder_requests=folder_requests, capability_cache=capability_cache, request_stop_all=request_stop_all)
+    from .browser_bridge import attach as attach_browser
+    attach_browser(app, authorize_settings, origins, catalog)
     from .local_tools import attach
     local_tools_busy, local_tools_stop = attach(app, lambda: settings, authorize_settings)
     return app

@@ -93,6 +93,37 @@ class LocalToolTests(unittest.TestCase):
                 self.assertEqual(last['release'], expected)
                 self.assertGreater(last['seen_at'], 0)
 
+    def test_browser_request_requires_paired_claim_and_persists_result(self):
+        from server.extension_origin import paired_origins
+        origin = next(iter(paired_origins()))
+        def request(path, body, browser=None):
+            headers = {'Content-Type': 'application/json', 'X-Collector-Token': self.token}
+            if browser: headers['Origin'] = browser
+            with self.opener.open(Request(self.base+path, data=json.dumps(body).encode(), headers=headers), timeout=5) as response:
+                return json.load(response)
+        job = request('/browser/capture', {'url':'https://example.org/article?xsec_token=private', 'mode':'text'})
+        with self.assertRaises(HTTPError) as rejected:
+            request('/browser/claim', {})
+        self.assertEqual(rejected.exception.code, 403)
+        item = request('/browser/claim', {}, origin)['item']
+        self.assertEqual(item['id'], job['job_id'])
+        self.assertIsNone(request('/browser/claim', {}, origin)['item'])
+        with self.assertRaises(HTTPError):
+            request('/browser/result/'+item['id'], {'status':'completed','message':'saved'}, 'https://example.org')
+        request('/browser/result/'+item['id'], {'status':'completed','message':'saved','result':{'files':['a.md']}}, origin)
+        saved = self.api('/tasks/'+item['id'])['item']
+        self.assertEqual(saved['status'], 'completed')
+        self.assertNotIn('private', json.dumps(saved))
+
+    def test_conversion_progress_reports_processed_media_time(self):
+        from server.bilibili_media import run_local
+        seen = []
+        run_local([shutil.which('ffmpeg'), '-v', 'error', '-re', '-f', 'lavfi',
+                   '-i', 'color=red:s=64x64:r=10', '-t', '1', '-f', 'null', '-'],
+                  lambda: None, timeout=5, progress=seen.append)
+        self.assertTrue(any(value > 0 for value in seen), seen)
+        self.assertTrue(all(value <= 1.1 for value in seen), seen)
+
     def test_real_gif_and_audio_preserve_source(self):
         original = hashlib.sha256(self.sample.read_bytes()).hexdigest()
         for format in ('gif', 'audio'):

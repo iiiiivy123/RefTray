@@ -8,37 +8,6 @@
   const clean = (value) => (value || "").replace(/\s+/g, " ").trim();
   const canonicalImage = (url) => url.replace(/[?&](imageView2|x-oss-process|width|height|w|h)=[^&]*/gi, "").replace(/[?&]+$/, "");
 
-  function collectPage() {
-    const host = location.hostname.toLowerCase();
-    if(/(^|\.)bilibili\.com$/.test(host))return {canonical_url:location.href,images:[],extraction_warnings:['B站仅使用专用稿件提取，不扫描整页图片']};
-    const canonical = host.includes("xiaohongshu.com") ? location.href.split("#")[0] : document.querySelector('link[rel="canonical"]')?.href || location.href.split("#")[0];
-    const allImages = [...document.querySelectorAll("img")];
-    const largestVisible = allImages.map((img) => ({img, rect: img.getBoundingClientRect()}))
-      .filter(({rect}) => rect.width >= 300 && rect.height >= 300 && rect.bottom > 0 && rect.top < innerHeight)
-      .sort((a, b) => b.rect.width * b.rect.height - a.rect.width * a.rect.height)[0]?.img;
-    let root = document.querySelector("article, main, [role='main']") || document.body;
-    if (host.includes("xiaohongshu.com") && largestVisible) {
-      root = largestVisible;
-      while (root.parentElement && root.parentElement.querySelectorAll("img").length <= 30) root = root.parentElement;
-    }
-    const urls = [...root.querySelectorAll("img")].map((img) => {
-      const rect = img.getBoundingClientRect();
-      const srcset = (img.srcset || "").split(",").map((part) => part.trim().split(/\s+/)[0]).filter(Boolean);
-      const minSize = host.includes("xiaohongshu.com") ? 60 : 180;
-      return {url: srcset.at(-1) || img.currentSrc || img.src, alt: clean(img.alt), visible: rect.width >= minSize && rect.height >= minSize && rect.bottom > 0 && rect.top < innerHeight && getComputedStyle(img).visibility !== "hidden" && getComputedStyle(img).display !== "none"};
-    }).filter((item) => item.visible && /^https?:/i.test(item.url) && !/avatar|icon|logo|emoji|sticker|comment|qrcode|iconfont/i.test(item.url))
-      .filter((item) => !host.includes("pinterest.") || /pinimg\.com/i.test(item.url))
-      .filter((item) => !host.includes("huaban.com") || /huaban|hbimg/i.test(item.url));
-    const seen = new Set();
-    const images = urls.filter((item) => {
-      const key = canonicalImage(item.url);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).map(({url, alt}) => ({url, alt})).slice(0, 30);
-    return {canonical_url: canonical, page_title: clean(document.querySelector("h1")?.textContent) || document.querySelector('meta[property="og:title"]')?.content || document.title || null, selected_text: clean(window.getSelection()?.toString()) || null, images};
-  }
-
   function workLinks() {
     const host = location.hostname.toLowerCase();
     const links = [...document.querySelectorAll("a[href]")].map((anchor) => new URL(anchor.href, location.href).href.split("#")[0]);
@@ -143,7 +112,6 @@
     return [...found].slice(0, 500);
   }
 
-  window.__liblibCollectorPayload = collectPage();
   const listener = (message, _sender, sendResponse) => {
     if (message.type === 'LIBLIB_VERSION') sendResponse({version: VERSION});
     if (message.type === 'LIBLIB_CARDS') sendResponse({cards: cards().map(({id, url}) => ({id, url}))});

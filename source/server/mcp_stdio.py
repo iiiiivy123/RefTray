@@ -52,6 +52,9 @@ class Backend:
 TOOLS = [
     ('reftray_status', '读取本机后台状态（不返回凭据）', {}),
     ('reftray_download_post', '提交原帖链接并保存已核对身份的公开图片（Instagram 静态轮播、Pin 原图、静态故事图片或分享图）；明确报告尚未接入的登录会话，不保证完整轮播', {'url': {'type': 'string'}}),
+    ('reftray_capture_browser', '通过已配对的 Chrome 扩展采集已打开的网页，可利用现有登录页面；请保持目标页的采集弹窗打开', {'url': {'type':'string'}, 'mode': {'type':'string','enum':['images','text','video']}}),
+    ('reftray_download_videos', '将原帖全部视频交给后台顺序下载，返回持久任务号；失败保留各项结果', {'url': {'type': 'string'}}),
+    ('reftray_stop_queue', '停止指定的视频下载队列，已保存文件保留', {'job_id': {'type':'string'}}),
     ('reftray_find_saved', '核对当前作品在素材库的实际文件和采集范围，可查浏览器扩展已保存的各平台作品', {'url': {'type':'string'}}),
     ('reftray_resolve_video', '调用原有视频解析器，保留主帖身份校验', {'url': {'type': 'string'}}),
     ('reftray_download_video', '核对原帖身份并提交一个视频下载；多视频先返回数量，再用 media_index（从1开始）选择，避免并发占用和丢失任务编号', {'url': {'type': 'string'}, 'media_index': {'type': 'integer', 'minimum': 1}}),
@@ -65,13 +68,22 @@ def dispatch(method, params, backend):
     if method == 'ping':
         return {}
     if method == 'tools/list':
-        return {'tools': [{'name': name, 'description': description, 'inputSchema': {'type': 'object', 'properties': properties, 'required': [key for key in properties if key != 'media_index'], 'additionalProperties': False}} for name, description, properties in TOOLS]}
+        return {'tools': [{'name': name, 'description': description, 'inputSchema': {'type': 'object', 'properties': properties, 'required': [key for key in properties if key not in ('media_index', 'mode')], 'additionalProperties': False}} for name, description, properties in TOOLS]}
     if method != 'tools/call':
         raise ValueError('Unsupported method')
     name, args = params['name'], params.get('arguments', {})
     try:
         if name == 'reftray_status':
             result = backend.api('/health')
+        elif name == 'reftray_capture_browser':
+            result = backend.api('/browser/capture', {'url':args['url'], 'mode':args.get('mode','images')})
+        elif name == 'reftray_download_videos':
+            url, _ = video_post(args['url'])
+            result = backend.api('/video/queue', {'url': url})
+        elif name == 'reftray_stop_queue':
+            if not re.fullmatch(r'[a-f0-9]{32}', args['job_id']):
+                raise ValueError('无效的队列编号')
+            result = backend.api('/video/queue/'+args['job_id']+'/stop', {})
         elif name == 'reftray_find_saved':
             item = backend.api('/history/lookup', {'url':args['url'], 'required':[]}).get('item')
             result = ({'status':'verified_local', **{key:item[key] for key in ('directory','files','coverage','platform')}}
@@ -111,19 +123,23 @@ def dispatch(method, params, backend):
         message = str(exc)
         if isinstance(exc, HTTPError):
             message = exc.read(4096).decode('utf-8', 'replace')
-        if name in ('reftray_download_post', 'reftray_download_video'):
+        if name in ('reftray_download_post', 'reftray_download_video', 'reftray_download_videos', 'reftray_capture_browser'):
             # Keep only an allowlisted work identity; share tokens and signed media URLs
             # must never enter the user-visible task journal.
             task_id = uuid.uuid4().hex
             try:
-                if name == 'reftray_download_post':
+                if name == 'reftray_capture_browser':
+                    from urllib.parse import urlsplit, urlunsplit
+                    parsed = urlsplit(args['url'])
+                    source, platform = urlunsplit((parsed.scheme, parsed.hostname or '', parsed.path, '', '')), 'browser'
+                elif name == 'reftray_download_post':
                     platform, post_id = identity(args['url'])
                     source = {'pinterest':'https://www.pinterest.com/pin/', 'instagram':'https://www.instagram.com/p/', 'x':'https://x.com/i/status/'}[platform] + post_id
                 else:
                     source, platform = video_post(args['url'])
             except (KeyError, TypeError, ValueError):
                 source, platform = '', ''
-            stage = '提交图片采集' if name == 'reftray_download_post' else '提交视频下载'
+            stage = '提交 Chrome 采集' if name == 'reftray_capture_browser' else '提交图片采集' if name == 'reftray_download_post' else '提交视频下载'
             reason = re.sub(r'https?://[^\s\"<>]+', '[链接已省略]', message)[:500]
             try:
                 backend.api('/tasks', {'id': task_id, 'data': {

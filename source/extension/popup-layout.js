@@ -4,7 +4,7 @@
  const main=q('#main-options'),advanced=make('details','advanced-options','advanced-options');
  const summary=make('summary');summary.innerHTML='<span>更多选项</span><small id="advanced-summary" hidden>自动去重补齐</small><span class="control-arrow" aria-hidden="true"></span>';
  const body=make('div',null,'advanced-body');advanced.append(summary,body);
- const comments=make('label',null,'field');comments.innerHTML='<span>评论条数</span><input id="comment-limit" type="number" min="1" max="100" value="10">';body.append(comments);const commentHelp=make('p',null,'hint');commentHelp.textContent='仅已加载的直接回复；保存文字和静态图片，评论GIF尚未接入。';body.append(commentHelp);
+ const comments=make('label',null,'field');comments.innerHTML='<span>评论条数</span><input id="comment-limit" type="number" min="1" max="100" value="10">';body.append(comments);const commentHelp=make('p',null,'hint');commentHelp.textContent='按目标数量加载直接回复，保存文字、原图和 GIF；不足时会显示原因。';body.append(commentHelp);
  const duplicate=q('#duplicate-policy').closest('label');duplicate.hidden=false;
  for(const selector of ['#quality-row','#quality-help','#subtitle-row','#subtitle-help','#trim-options'])body.append(q(selector));
  body.append(duplicate,q('#duplicate-help'),q('#secondary-options'));main.append(advanced);

@@ -145,7 +145,26 @@
     // Nested wrappers are one post; unrelated multiple roots are not.
     roots = roots.filter(node => !roots.some(other => other !== node && other.contains(node)));
     let root = roots.length === 1 ? roots[0] : null;
-    if(kind==='generic')root=document.querySelector('#mw-content-text .mw-parser-output,#mw-content-text,.mw-parser-output')||root||document.body;
+    if(kind==='generic'){
+      const articles=[...document.querySelectorAll('article')].filter(visible);
+      const topArticles=articles.filter(node=>!articles.some(other=>other!==node&&other.contains(node)));
+      if(topArticles.length>1)throw new Error('当前页包含多篇文章，请打开其中一篇详情后采集。');
+      root=document.querySelector('#mw-content-text .mw-parser-output,#mw-content-text,.mw-parser-output')||topArticles[0]||root;
+      if(!root || root===document.body)throw new Error('未找到明确的文章正文，请打开文章详情页后重试。');
+      const originalImages=[...root.querySelectorAll('img')];
+      const copy=root.cloneNode(true);
+      [...copy.querySelectorAll('img')].forEach((image,index)=>{
+        const original=originalImages[index];
+        if(!original || !visible(original))image.remove();
+        else {
+          image.setAttribute('data-src',original.currentSrc||original.src);
+          image.setAttribute('width',String(original.naturalWidth||original.width||0));
+          image.setAttribute('height',String(original.naturalHeight||original.height||0));
+        }
+      });
+      root=copy;
+      for(const node of root.querySelectorAll('script,style,noscript,template,[hidden],[aria-hidden="true"],nav,aside,footer,[role="navigation"],[role="complementary"],[role="banner"],.related-posts,.related-articles,.recommendations,.recommended,.advertisement,.adsbygoogle,[data-ad],[data-ad-slot]'))node.remove();
+    }
     const warnings = [];
     if (!root && kind !== 'pinterest') warnings.push('未定位到单帖正文区域，仅读取本页明确的分享元数据；不会抓取推荐流。');
     const text = node => (node?.innerText || node?.textContent || '').trim().slice(0, 100000);
@@ -179,7 +198,7 @@
         if (/avatar|profile_images|emoji|sticker|qrcode/i.test(url)) continue;
         const wikiAsset=kind==='generic'&&/(^|\.)(wiki\.gg|stardewvalleywiki\.com)$/.test(location.hostname)&&Boolean(img.closest('a[href*="File:"],a.image,a.mw-file-description'))&&/\/images\//.test(new URL(url,location.href).pathname);
         if (!wikiAsset && Math.max(img.naturalWidth || 0, img.width || 0) < (kind==='generic'?48:180)) continue;
-        if(kind==='generic'&&(!visible(img)||/doubleclick\.net|googlesyndication\.com|googleadservices\.com/i.test(url)))continue;
+        if(kind==='generic'&&(/doubleclick\.net|googlesyndication\.com|googleadservices\.com/i.test(url)))continue;
         if (kind === 'instagram' && !/\.(cdninstagram\.com|fbcdn\.net)$/.test(new URL(url || location.href).hostname)) continue;
         add(url, img.alt || '');
       }

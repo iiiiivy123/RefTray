@@ -72,7 +72,20 @@ async function boundedRead(promise, milliseconds=25000) {
 async function pagePayload(tabId, options = {}) {
   const current=await boundedRead(chrome.tabs.get(tabId));
   const timeout=/(^|\.)(youtube\.com|youtu\.be|x\.com|twitter\.com)$/.test(new URL(current.url).hostname)?145000:25000;
-  return boundedRead(readPagePayload(tabId,options,current),timeout);
+  const payload=await boundedRead(readPagePayload(tabId,options,current),timeout);
+  if((await chrome.tabs.get(tabId)).url!==current.url)throw new Error('页面已切换，请回到目标作品后重新采集');
+  const store=chrome.storage.session;
+  const scan=store ? (await store.get('collectorPageScans')).collectorPageScans?.[tabId] : null;
+  if(scan && scan.url===current.url && scan.expires>Date.now()){
+    const union=(left,right)=>[...new Map([...left,...right].map(item=>[item.url,item])).values()];
+    if(!options.md_only && options.include_images!==false)payload.images=union(scan.images||[],payload.images||[]);
+    if(!options.md_only)payload._media=union(scan.media||[],payload._media||[]);
+    payload.has_video=payload.has_video||scan.has_video;
+    if(options.collection_mode==='text' && (scan.body_text||'').length>(payload.body_text||'').length){
+      payload.body_text=scan.body_text;payload.document_source=scan.document_source;
+    }
+  }
+  return payload;
 }
 async function readPagePayload(tabId, options, current) {
   if(/(^|\.)artstation\.com$/.test(new URL(current.url).hostname)){
@@ -398,7 +411,7 @@ async function collectCurrent(tab, port, options = {}) {
   }
   if(options.skip_gifs&&payload._skippedMotion&&!payload.images?.length&&!payload.body_text?.trim())return {status:'skipped',message:'已按设置跳过动图，没有其他可保存内容',new_images:0};
   const saved=await submit(payload, tab.url, port);
-  if(payload.has_live_photo)return {...saved,status:'partial',message:'静态图片已保存，但实况动图尚未保存完整。',details:'检测到 LIVE 动图；当前未确认其动态视频源，不能把静态封面当作完整动图。'};
+  if(payload.has_live_photo)return {...saved,status:'partial',message:'静态图片已保存，但实况动图尚未保存完整。',details:'检测到 LIVE 动图，已保存静态图片，动态视频源尚未找到。'};
   return saved;
 }
 
@@ -413,6 +426,21 @@ async function downloadApi(port, token, path, body) {
 
 async function videoSource(tab,options) {
   let resolverWarning='';
+  if(/(^|\.)artstation\.com$/.test(new URL(tab.url).hostname)){
+    let selected=options.source;
+    if(!selected){
+      const payload=await readPagePayload(tab.id,{},tab);
+      if(payload._media.length!==1)throw new Error('作品有多个视频，请用图文采集并开启包含视频，按顺序保存');
+      selected=payload._media[0];
+    }
+    if(selected.embedded_url){
+      const result=await matureMedia(selected.embedded_url);
+      if(result.media.length!==1)throw new Error('嵌入播放器未返回唯一视频');
+      return {...result.media[0],resolver_warning:'来自 ArtStation 作品 '+tab.url};
+    }
+    return {...selected,canonical_url:tab.url,page_title:tab.title,platform:'artstation'};
+  }
+
   if(!options.source?.resolver_id&&options.source?.kind!=='gif'&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)){
     try{
       const {media}=await matureMedia(tab.url);
@@ -871,7 +899,136 @@ async function collect(mode, port, options = {}, testTarget) {
   }
 }
 
+let scanInProgress=false;
+async function scanLoadedPage(tabId,url){
+  if(taskRunning||scanInProgress)throw new Error('已有任务或扫描正在运行');
+  if(!chrome.storage.session)throw new Error('当前浏览器不支持保存扫描结果');
+  scanInProgress=true;
+  const options={collection_mode:'text',include_images:true,include_videos:true,include_comments:false,ocr_enabled:false};
+  let initial=null,last=null,stagnant=0,reason='已达到本次 12 屏上限，可再次扫描。';
+  const images=new Map(),media=new Map();
+  let best={},hasVideo=false;
+  try{
+    healthCache=await reftrayHealth('http://127.0.0.1:8766/health').then(response=>response.json());
+    for(let step=0;step<12;step++){
+      const tab=await chrome.tabs.get(tabId);
+      if(tab.url!==url)throw new Error('页面已切换，已停止扫描');
+      const payload=await readPagePayload(tabId,options,tab);
+      for(const item of payload.images||[])if(item.role!=='comment')images.set(item.url,item);
+      for(const item of payload._media||[])media.set(item.url,item);
+      if((payload.body_text||'').length>(best.body_text||'').length)best=payload;
+      hasVideo ||= !!payload.has_video;
+      if(images.size+media.size>=500){reason='已达到本次 500 个媒体上限';break;}
+      const [{result}]=await chrome.scripting.executeScript({target:{tabId},args:[url,last],func:(expected,last)=>{
+        if(location.href!==expected || last!==null&&Math.abs(scrollY-last)>5)return null;
+        const before=scrollY;window.scrollBy({top:Math.max(300,innerHeight*.8),behavior:'instant'});
+        return {before,after:scrollY};
+      }});
+      if(!result){reason='检测到页面或滚动位置发生变化，已停止自动滚动';break;}
+      initial??=result.before;last=result.after;
+      stagnant=result.before===result.after?stagnant+1:0;
+      if(stagnant>=3){reason='已滚到当前页面底部';break;}
+      await wait(700);
+    }
+    if((await chrome.tabs.get(tabId)).url!==url)throw new Error('页面已切换，已停止扫描');
+    const snapshot={url,expires:Date.now()+300000,images:[...images.values()],media:[...media.values()],
+      body_text:best.body_text||'',document_source:best.document_source,has_video:hasVideo};
+    if(JSON.stringify(snapshot).length>1800000)throw new Error('扫描内容过大，请分段采集');
+    const saved=(await chrome.storage.session.get('collectorPageScans')).collectorPageScans||{};
+    const recent=Object.entries(saved).filter(([id,item])=>id!==String(tabId)&&item.expires>Date.now()).slice(-3);
+    await chrome.storage.session.set({collectorPageScans:{...Object.fromEntries(recent),[tabId]:snapshot}});
+    return {reason,images:images.size,media:media.size};
+  }finally{
+    if(initial!==null)await chrome.scripting.executeScript({target:{tabId},args:[url,last,initial],func:(url,last,initial)=>{
+      if(location.href===url&&Math.abs(scrollY-last)<5)window.scrollTo({top:initial,behavior:'instant'});
+    }}).catch(()=>{});
+    scanInProgress=false;
+  }
+}
+
+let browserBridgeBusy=false;
+async function receiveBrowserCapture(){
+  if(taskRunning || scanInProgress || browserBridgeBusy)return;
+  browserBridgeBusy=true;
+  let item,health,ownsTask=false;
+  const api=async(path,value)=>{
+    const response=await fetch('http://127.0.0.1:8766'+path,{method:'POST',
+      headers:{'Content-Type':'application/json','X-Collector-Token':health.settings_token},
+      body:JSON.stringify(value||{}),signal:AbortSignal.timeout(10000)});
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.detail||'Chrome 采集连接失败');
+    return data;
+  };
+  try{
+    health=await reftrayHealth('http://127.0.0.1:8766/health').then(r=>r.json());
+    if(health.release!==chrome.runtime.getManifest().version)return;
+    ({item}=await api('/browser/claim',{}));
+    if(!item)return;
+    const identity=value=>{
+      const u=new URL(value);u.hash='';
+      for(const key of [...u.searchParams.keys()])if(/^(xsec_token|xsec_source|utm_.+|igsh|igshid|fbclid)$/i.test(key))u.searchParams.delete(key);
+      u.searchParams.sort();return u.href.replace(/\/(?=\?|$)/,'');
+    };
+    const target=identity(item.url);
+    const tabs=(await chrome.tabs.query({})).filter(tab=>/^https?:/.test(tab.url||'')&&identity(tab.url)===target);
+    if(tabs.length!==1)throw new Error(tabs.length?'相同网页打开了多个标签，请保留一个后重试':'请先在 Chrome 打开请求中的网页后重试');
+    if(taskRunning)throw new Error('已有采集任务正在运行，请完成后重试');
+    taskRunning=true;ownsTask=true;
+    const options={collection_mode:item.mode==='text'?'text':'images',include_images:true,
+      include_videos:item.mode==='video',include_comments:false,ocr_enabled:false,subtitle_mode:'none'};
+    const result=await collect(item.mode==='video'?'download':'current',8766,options,{id:tabs[0].id,url:tabs[0].url,runId:item.id});
+    const status=result.partial||result.failed_images?'partial':'completed';
+    await reportProgress({status,percent:100,message:result.message||'Chrome 页面已保存',directory:result.directory});
+    await api('/browser/result/'+item.id,{status,message:result.message||'Chrome 页面已保存',result});
+  }catch(error){
+    if(item){
+      const message=String(error.message).replace(/https?:\/\/[^\s"<>]+/g,'[链接]').slice(0,1000);
+      if(ownsTask)await reportProgress({status:'failed',message}).catch(()=>{});
+      await api('/browser/result/'+item.id,{status:'failed',message}).catch(()=>{});
+    }
+  }finally{
+    if(ownsTask)taskRunning=false;
+    browserBridgeBusy=false;
+  }
+}
+
+async function previewCollection(tabId,url){
+  if(taskRunning)throw new Error('当前任务正在运行，请完成后重新识别');
+  const tab=await chrome.tabs.get(tabId);
+  if(tab.url!==url)throw new Error('页面已切换，请重新识别');
+  const health=await reftrayHealth('http://127.0.0.1:8766/health').then(r=>r.json());
+  healthCache=health;
+  const payload=await pagePayload(tabId,{collection_mode:'text',include_images:true,include_videos:true,include_comments:false,ocr_enabled:false});
+  if((await chrome.tabs.get(tabId)).url!==url)throw new Error('页面已切换，请重新识别');
+  const media=payload._media||[];
+  const gifs=new Set(media.filter(m=>m.kind==='gif').map(m=>m.url));
+  const videos=new Set(media.filter(m=>m.kind==='video'||m.media_kind).map(m=>m.url));
+  const photos=new Set();
+  for(const item of payload.images||[]){
+    if(item.role==='comment')continue;
+    if(/\.gif(?:[?#]|$)/i.test(item.url))gifs.add(item.url);
+    else if(!gifs.has(item.url))photos.add(item.url);
+  }
+  return {url,state:'ready',images:photos.size,gifs:gifs.size,
+    videos:videos.size||(!payload.has_video?0:undefined),
+    kind:photos.size||gifs.size?'images':payload.has_video?'video':'plain'};
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if(message.type==='SCAN_LOADED_PAGE'){
+    if(_sender.id!==chrome.runtime.id)return false;
+    scanLoadedPage(message.tabId,message.url).then(result=>sendResponse({ok:true,result})).catch(error=>sendResponse({ok:false,error:error.message}));return true;
+  }
+  if(message.type==='POLL_BROWSER_REQUESTS'){
+    if(_sender.id!==chrome.runtime.id || _sender.url?.split('#')[0]!==chrome.runtime.getURL('popup.html'))return false;
+    receiveBrowserCapture();sendResponse({ok:true});return false;
+  }
+  if(message.type==='PREVIEW_COLLECTOR'){
+    if(_sender.id!==chrome.runtime.id){sendResponse({ok:false,error:'无效的扩展请求'});return false;}
+    previewCollection(message.tabId,message.url).then(preview=>sendResponse({ok:true,preview})).catch(error=>sendResponse({ok:false,error:error.message}));
+    return true;
+  }
+
   if(message.type==='CHOOSE_TASK_FOLDER'){
     if(_sender.id!==chrome.runtime.id||!['popup.html','manage.html'].some(p=>_sender.url?.split('#')[0]===chrome.runtime.getURL(p))){sendResponse({ok:false,error:'无效的目录选择入口'});return false;}
     const requestId=message.requestId;
@@ -949,7 +1106,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse({ok: false, error: '界面与后台版本不一致，请在扩展管理页重新加载灵感采集。'});
     return false;
   }
-  if (taskRunning) {sendResponse({ok: false, error: '任务仍在结束中，请稍候。'}); return false;}
+  if (taskRunning || scanInProgress) {sendResponse({ok: false, error: '任务或扫描正在运行，请稍候。'}); return false;}
   taskRunning = true;
   const previousContext=taskContext;
   collect(message.mode || "current", message.port || 8766, message.options, message.testTarget).then(async (result) => {

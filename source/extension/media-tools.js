@@ -16,7 +16,7 @@
 
    const response=await fetch('http://127.0.0.1:8766/tools/media?format='+q('#format').value+'&name='+encodeURIComponent(file.name),{method:'POST',headers:{'Content-Type':'application/octet-stream','X-Collector-Token':health.settings_token},body:file});
    const result=await response.json();if(!response.ok)throw Error(result.detail||'本地加工提交失败');job=result.job_id;q('#stop').disabled=false;q('#stop').hidden=false;
-   for(;;){const state=await Hub.api('/tools/media/'+job);q('#status').textContent=state.message+(state.path?'\n'+state.path:'');if(state.status==='stopped')break;if(state.status==='failed')throw Error(state.message);if(state.status==='completed'){q('#open').hidden=false;break;}await new Promise(r=>setTimeout(r,1000));}
+   for(;;){const state=await Hub.api('/tools/media/'+job);if(Number.isFinite(state.percent)){q('#progress').max=100;q('#progress').value=state.percent;}q('#status').textContent=state.message+(state.path?'\n'+state.path:'');if(state.status==='stopped')break;if(state.status==='failed')throw Error(state.message);if(state.status==='completed'){q('#open').hidden=false;break;}await new Promise(r=>setTimeout(r,1000));}
   }catch(e){q('#status').textContent=e.message;}
   finally{q('#stop').hidden=true;q('#start').disabled=q('#file').disabled=q('#format').disabled=false;q('#progress').hidden=true;}
  };

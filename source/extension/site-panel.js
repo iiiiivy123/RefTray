@@ -3,7 +3,7 @@
   function describe(value) {
     let u; try { u = new URL(value); } catch (_) { return {site: '未知页面', bulk: null, current: '当前页'}; }
     const host = u.hostname;
-    if(/(^|\.)artstation\.com$/.test(host))return {site:'ArtStation',bulk:null,current:'当前作品',hint:'保存当前作品已加载图片与说明；不包含推荐作品、嵌入视频或3D预览'};
+    if(/(^|\.)artstation\.com$/.test(host))return {site:'ArtStation',bulk:null,current:'当前作品',hint:'保存当前作品图片、说明和已识别视频；3D 预览保留来源链接'};
     if(/(^|\.)(youtube\.com|youtu\.be)$/.test(host))return {site:'YouTube',bulk:null,current:'当前视频'};
     if (/(^|\.)bilibili\.com$/.test(host))return {site:'B站',bulk:host==='space.bilibili.com'?'author':null,current:'当前稿件',hint:'批量仅采UP主投稿视频；广告、推荐和其他UP主内容不保存'};
     if (/(^|\.)instagram\.com$/.test(host)) return {site:'Instagram',bulk:'author',current:'当前帖',hint:'打开作者主页的帖子或 Reels 列表；逐帖核对作者后采集'};

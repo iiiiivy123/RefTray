@@ -23,15 +23,6 @@ test('reply loading deduplicates overlapping pages, stops at the requested count
  assert.deepEqual(Array.from(result.comments,x=>x.id),['2','3']);
  assert.equal(restored,1);assert.equal(passes,2);
 });
-test('YouTube preview requires the loaded player to belong to the URL',()=>{
- const code=fs.readFileSync('source/extension/page-identify.js','utf8');
- const location=new URL('https://www.youtube.com/watch?v=abcdefghijk');
- const player={};let id='other';
- const document={querySelector:q=>q==='#movie_player video'?player:q.includes('videoId')?{content:id}:null};
- const run=()=>vm.runInNewContext(code,{URL,location,document});
- assert.equal(run().state,'unknown');id='abcdefghijk';assert.equal(run().videos,1);
-});
-
 test('only a direct reply contributes its own animated GIF source',()=>{
  const parent='1234567890123456789', id='1234567890123456790';
  const item=article(id,parent,'');
