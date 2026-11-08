@@ -4,13 +4,13 @@
 
 ## 名称与定位
 
-**英文名称：RefTray**  
-**中文名称：灵感采集**  
-**组合写法：RefTray · 灵感采集**  
-**类别描述：Windows + Chrome 本地素材采集工具**  
+**英文名称：RefTray**
+**中文名称：灵感采集**
+**组合写法：RefTray · 灵感采集**
+**类别描述：Windows + Chrome 本地素材采集工具**
 **英文描述：Local-first reference and media collector**
 
-**把网页素材，存进自己的文件夹。**  
+**把网页素材，存进自己的文件夹。**
 **Your references. Your folders.**
 
 RefTray 帮助创作者将有权保存的网页图片、图文笔记和视频参考整理到本机素材库，支持部分网站的批量采集和视频抽帧。文件保存在用户选择的本地目录；支持范围以平台和页面类型为准。
@@ -56,7 +56,7 @@ RefTray 帮助创作者将有权保存的网页图片、图文笔记和视频参
 
 ## 名称、文档与二进制兼容
 
-当前朋友试用版为 **0.5.28**。安装器、Windows 快捷方式、托盘与扩展继续使用「灵感采集 / Inspiration Collector」，对外介绍使用 RefTray · 灵感采集。图标已在本版统一。
+当前预发布版为 **0.5.47**，稳定版为 **0.5.37**。安装器、Windows 快捷方式、托盘与扩展继续使用「灵感采集 / Inspiration Collector」，对外介绍使用 RefTray · 灵感采集。图标已在本版统一。
 
 本次不重命名仓库，不全局替换 `InspirationCollector`、`LIBLIB_ROOT`、安装器 AppId、状态目录或用户素材路径。宣传稿和演示脚本使用当前展示名称；发布前核对对应版本的功能。
 

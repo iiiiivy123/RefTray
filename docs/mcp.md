@@ -20,29 +20,38 @@ args:
 
 把示例路径换成自己的安装路径。默认安装位置为 `%LOCALAPPDATA%\Programs\InspirationCollector`；自选位置的用户沿用自己的目录。接口默认连接 `127.0.0.1:8766`。自定义端口时，在客户端为接口进程设置 `REFTRAY_MCP_PORT`。
 
-## 可以调用什么
+## 0.5.47 可以调用什么
 
 | 工具 | 用途 | 参数 |
 | --- | --- | --- |
-| `reftray_status` | 查看后台版本、连接状态和素材库 | 无 |
-| `reftray_download_post` | 保存 Instagram 公开图片帖、Pinterest Pin 或 X 原帖中已核对的公开图片 | `url` |
-| `reftray_find_saved` | 按作品链接核对本地已有素材，返回文件、目录及已保存范围；无符合记录时返回空列表 | `url` |
-| `reftray_resolve_video` | 解析原帖视频来源 | `url` |
-| `reftray_download_video` | 提交一个原帖视频下载；多视频先返回数量供选择 | `url`，可选 `media_index`（从1开始） |
-| `reftray_job_status` | 查询保存结果、错误和实际文件位置 | `job_id`，`kind`（`collect`、`video` 或失败记录 `task`） |
+| `reftray_status` | 查看后台版本、连接和素材库 | 无 |
+| `reftray_download_post` | 保存 Instagram 公开静态轮播、Pinterest Pin 或 X 分享图片 | `url` |
+| `reftray_capture_browser` | 通过 Chrome 扩展采集当前登录页面 | `url`，`mode`：`images`、`text`、`video`，默认 `images` |
+| `reftray_find_saved` | 按作品链接查本地已有文件和保存范围 | `url` |
+| `reftray_resolve_video` | 解析原帖视频 | `url` |
+| `reftray_download_video` | 下载一个视频；多视频时可指定第几个 | `url`，可选 `media_index`，从 1 开始 |
+| `reftray_download_videos` | 将一帖中的全部视频按顺序下载 | `url` |
+| `reftray_stop_queue` | 停止视频队列，保留已保存文件 | `job_id` |
+| `reftray_job_status` | 查询进度、结果和文件位置 | `job_id`，`kind`：`collect`、`video`、`task` |
 
-Instagram 公开图片帖会核对嵌入数据里的原帖编号，逐项保存静态图片并单列跳过的视频数。其余图片入口支持 Pinterest 和 X 原帖链接，X 返回分享图；Pinterest 除分享图外，还可核对 Pin 原图及逐页静态故事图片。返回的 scope 和 warning 说明此次保存范围。多图和评论请用浏览器扩展。视频接口支持 X 主帖、YouTube 单视频及 Shorts、B 站单稿件（保留指定分 P），沿用现有解析器，下载提交后继续查询任务，完成时会返回保存结果。
+## 使用 Chrome 当前登录页面
 
-多视频返回 `status: selection_required`、`media_count` 和空的 `jobs`，表示尚未启动下载。再次调用时传 `media_index` 选择一个视频，随后用返回的任务号查询。当前没有自动排队下载全部视频。
+在 Chrome 打开目标作品，保持 RefTray 采集弹窗打开，再调用 `reftray_capture_browser`。请求交给已配对的扩展，由扩展读取当前页面并采集。返回任务号后，用 `reftray_job_status` 查询，`kind` 填 `task`。
 
-## 登录与代理
+这个入口已经接入 Chrome 页面；普通下载工具由后台直接访问来源网站。无需导出 Cookie。X 登录视频的页面读取已修改，真实下载验证还没完成。
 
-MCP 当前没有接入 Chrome 登录会话。登录后可见的内容请使用已登录 Chrome 中的扩展采集；接口遇到会话要求时会返回 `SESSION_REQUIRED`。Chrome 登录保持原样，无需为接口反复退出、重新登录。
+## 下载一帖中的多个视频
 
-访问来源网站需要使用当前网络可用的连接方式。本机后台和 MCP 之间使用本地地址；来源网站及媒体下载沿用对应下载路径的代理处理。网络错误请查看返回的具体阶段。
+想全部下载，调用 `reftray_download_videos`，随后按返回的任务号查询 `kind: task`，需要停止时调用 `reftray_stop_queue`。
 
-## 更新后
+只想选其中一个，调用 `reftray_download_video`。返回 `selection_required` 时，按 `media_count` 选择序号，再传 `media_index` 下载。
 
-覆盖安装前先完成或停止任务，退出托盘后台。安装完成后启动后台，并刷新 AI 客户端的 MCP 连接。升级时接口进程可能被安装器关闭，客户端重新连接即可。
+直接视频接口支持 X 主帖、YouTube 单视频和 Shorts、B站视频；B站链接里的分 P 参数会保留。
 
-[返回首页](../README.md) · [更新步骤](update.md) · [版本说明](release-0.5.37.md)
+## 连接和更新
+
+保留平时访问这些网站所用的代理设置。MCP 与后台在本机通信，下载仍需要访问来源网站。
+
+升级会关闭旧 MCP 进程。启动新版后台后，刷新 AI 客户端的连接，再用 `reftray_status` 核对版本。
+
+[返回首页](../README.md) · [更新步骤](update.md) · [版本说明](release-0.5.47.md)

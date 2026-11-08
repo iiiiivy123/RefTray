@@ -12,12 +12,12 @@
 | --- | --- |
 | [首次安装](install.md) | 下载正确安装包、加载扩展、选择自己的素材库 |
 | [旧版更新](update.md) | 退出后台、覆盖安装、重载扩展与保留数据 |
-| [0.5.37 版本说明](release-0.5.37.md) | 更新内容、验证记录和待办 |
+| [0.5.47 预发布说明](release-0.5.47.md) | 更新内容、验证记录和待办 |
 | [MCP接口](mcp.md) | AI接入、工具参数、会话与网络 |
 | [全仓代码审查交接](REVIEW_HANDOFF.md) | 产品、架构、规范、历史问题和审查范围 |
 | [安装与使用教程](usage.md) | 下载安装、加载 Chrome 扩展、选择素材库、日常使用、更新与故障排查 |
-| [使用场景与常见问题](use-cases.md) | 小红书 Markdown、Pinterest 画板、图文、视频与批量采集的适用范围 |
-| [English use cases](use-cases-en.md) | English workflow examples and supported-scope explanations |
+| [使用场景与常见问题](use-cases.md) | 启动失败、旧扩展、花瓣识别、X 登录视频与批量数量等实际反馈 |
+| [English use cases](use-cases-en.md) | Reported issues and current fixes in English |
 | [下载与发布记录](https://github.com/iiiiivy123/inspiration-collector/releases) | Windows 安装包、版本说明与校验文件 |
 
 > 已有旧版：先从系统托盘**退出灵感采集**，再运行新安装包，最后重新加载 Chrome 扩展。只关闭浏览器不会退出本地后台。

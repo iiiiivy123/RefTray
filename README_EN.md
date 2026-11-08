@@ -1,103 +1,64 @@
-<p align="center">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/icon-clean-file-white.svg"><img src="docs/assets/icon-clean-file.svg" width="64" height="64" alt="RefTray"></picture>
-</p>
-<h1 align="center">RefTray</h1>
-<p align="center"><strong>Your references. Your folders.</strong></p>
-<p align="center">A local-first reference collector for Windows + Chrome.</p>
-<p align="center">
-  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/latest"><strong>Download for Windows</strong></a> · <a href="docs/README.md">Documentation</a> · <a href="docs/use-cases-en.md">Use cases</a> · <a href="README.md">简体中文</a>
-</p>
+<p align="center"><img src="docs/assets/icon-clean-file.svg" width="80" alt="RefTray"></p>
 
-**RefTray / 灵感采集** saves authorized images, Markdown notes, text and supported videos from selected websites into local folders. Selected author pages and boards support batch collection; compatible videos can also become reference frames.
+# RefTray · Inspiration Collector
 
-**Choose a folder. Keep the actual files.**
+Save web references to a folder on your Windows PC: images, GIFs, Markdown notes, videos and audio. Use the Chrome extension to collect a work or process an author page or board.
 
-Current version: **0.5.37**. Latest source: `main`. [Release notes](docs/release-0.5.37.md).
+[Download 0.5.47 preview](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.47) · [Download 0.5.37 stable](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.37) · [中文](README.md)
 
-## AI access through MCP
+The current preview is **0.5.47**. The stable version and application code on `main` are **0.5.37**; preview code is tagged `v0.5.47`. These guides describe the preview.
 
-The local stdio adapter provides service status, Pinterest/X share images, video resolution and downloads, and job results. Start RefTray, then configure the installed `runtime/python.exe` with `-B` and the full path to `server/mcp_stdio.py`. [Setup](docs/mcp.md).
+## Getting started
 
-Use the Chrome extension for login-required content, multiple images and replies. Local tools offer video-to-GIF and M4A extraction while preserving originals.
+1. Install the Windows x64 `.exe` from the release assets.
+2. Start Inspiration Collector. Its icon appears in the Windows tray.
+3. Copy the extension folder address from the tray menu. Open `chrome://extensions`, enable Developer mode, and load that folder as an unpacked extension.
+4. Open a work in Chrome, choose a library folder and collection mode, then start collecting.
 
-## What it collects
+Windows 10/11 x64 and Chrome are required. The installer includes the runtime and media components. The extension is loaded manually; the installer is currently unsigned.
 
-| Workflow | Local output |
-| --- | --- |
-| Images from supported posts | Image files for visual reference |
-| Notes or text only | Markdown, with optional images, already-loaded comments and OCR |
-| Supported videos | Video files and optional extracted frames; local videos can also be processed |
-| Selected profile / board batches | Organized folders, history, duplicate checks and recovery for certain unfinished tasks |
+## What changed in 0.5.47
 
-## Get started
+- Choose video + subtitles + Markdown, video only, transcript only, or audio extraction. Frame extraction is a separate option, with a default interval of one second.
+- Image and note modes expose GIF and video filters. Notes include the body images; plain-text mode saves text.
+- Set top-level comment and reply limits separately. Nested replies are off by default, with a default limit of two replies per top-level comment when enabled.
+- Keep duplicate handling, download size limits and frame intervals in settings.
+- Search and filter media diagnostics, or open a matching diagnostic from a failed task.
+- Use MCP to capture through the Chrome extension or queue all videos from a post.
+- Receive official release notifications. Download and run the installer to update; automatic installation is not implemented.
 
-**Windows 10/11 x64 + Chrome required.** Python and media components are bundled.
+## Problems reported during testing
 
-1. Download the Windows Setup `.exe` from **Assets** on [GitHub Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest), not the source ZIP.
-2. Install and launch **灵感采集 / Inspiration Collector**. It runs in the Windows system tray.
-3. Open `chrome://extensions`, enable **Developer mode**, then **Load unpacked**. Choose the installed `extension` folder; copy its path from the tray menu.
-4. Pin the extension, choose a local library folder and open a supported content page.
+**The extension still shows the old version after installation.** Reload it in `chrome://extensions`, then refresh the work page. If the version stays old, check which extension folder Chrome has loaded.
 
-[Full installation guide (Chinese) →](docs/usage.md)
+**The background service fails to start.** Version 0.5.44 had a startup failure when restoring an old task. The fix is included in 0.5.47. Keep the library and task database; retain `data/inspiration/logs/service-errors.log` if startup still fails.
 
-> **Updating?** First right-click the Windows tray icon and choose **退出灵感采集 (Exit)**. Run the new installer, then reload the Chrome extension. Closing Chrome or the popup does not stop the local background service. Install to the existing location; you normally do not need to uninstall or delete your library.
+**Huaban shows the image, or X plays the video, but saving fails.** Both issues have been reported. Version 0.5.47 changes the extraction flow; live download verification for Huaban fullscreen/batch and X logged-in video is still unfinished.
 
-No Chrome Web Store listing, mobile app or automatic updater is available yet. The installer is unsigned; verify its source and do not disable security protections.
+[More reported issues](docs/use-cases-en.md) · [Release notes](docs/release-0.5.47.md)
 
-## Supported sources
+## MCP for AI clients
 
-**Xiaohongshu / RedNote · Pinterest · Instagram · X · Huaban · Bilibili**, plus selected images from other webpages.
+The local stdio interface offers nine tools for status, public images, Chrome capture, saved-file lookup, video resolution, single-video download, video queues, stopping queues and job status.
 
-<details>
-<summary><strong>Coverage by website</strong></summary>
+For `reftray_capture_browser`, open the target work in Chrome and keep its RefTray popup open. The extension uses the logged-in page. The direct download tools make requests from the local backend instead. [Setup and tool parameters](docs/mcp.md)
 
-| Website | Current scope |
-| --- | --- |
-| Xiaohongshu / RedNote | Supported note images, Markdown, text and video modes; some creator-profile batches |
-| Pinterest | Individual Pins and specific boards; no batch Markdown mode for boards |
-| Instagram | Posts, Reels and some profile-list workflows |
-| X / Twitter | Posts and some author-post batches; reposts excluded |
-| Huaban | Individual items and selected image-batch modes |
-| Bilibili | Supported video pages and creator-upload lists; applicable video download and frame extraction |
-| Other websites | Mainly current-page images; no universal batching |
+## Platforms
 
-Capabilities depend on the page, loaded content, login state and media format. The tool does not bypass logins, paywalls, DRM or other access controls.
+Adapters cover Xiaohongshu, Pinterest, Instagram, X, Huaban, Bilibili, YouTube, ArtStation, Weibo and article pages. Collection modes vary by platform. Full live regression testing of this preview is not finished; the specific outstanding X and Huaban issues are listed above.
 
-</details>
+## Updating
 
-## Common questions
+Finish or stop active tasks, run the new installer in the existing program directory, start the app, reload the Chrome extension, and refresh work pages. Refresh the AI client's MCP connection after upgrading. The library and settings are retained.
 
-**Can I save a Xiaohongshu post as Markdown?**  
-Yes, on supported note pages. Comments include only already-loaded, identifiable content.
+Update notifications check official releases. Preview 0.5.47 is available through the download link above.
 
-**Can it download Pinterest boards?**  
-Open a specific board and choose batch image collection. It processes identifiable, accessible Pins; search results and hidden content are outside this workflow.
+## Project information
 
-**Does it upload my files?**  
-A local service writes the files to your chosen folders. Files are not uploaded to a project-operated cloud library; collection still makes normal requests to source websites and media CDNs.
+RefTray / 灵感采集 is the display name; the installer and tray app also use Inspiration Collector. Older InspiShelf references refer to this project.
 
-**Where are the files?**  
-In the library folder you choose, grouped by type, platform and item. Changing the library path does not migrate old files; history can help open their previous folders.
+Files are saved to your selected local folder. Changing the library location does not move existing files. The project provides no cloud synchronization.
 
-[More use cases and answers →](docs/use-cases-en.md)
+This is an independent third-party project. Save and use material with appropriate permission. The source is publicly viewable; a project-wide open-source license has not been selected. Third-party components retain their own licenses.
 
-## Documentation
-
-[Documentation index](docs/README.md) · [Setup & troubleshooting](docs/usage.md) · [Brand & logo](docs/brand-guide.md) · [Rights & privacy](docs/rights-and-privacy.md)
-
-<details>
-<summary><strong>Name and release notes</strong></summary>
-
-RefTray / 灵感采集 is the display name used in this documentation. Older references to **InspiShelf** refer to the same project. The current installer is `InspirationCollector-0.5.37-Windows-x64-Setup.exe`. The installer, tray app and extension use **Inspiration Collector / 灵感采集**.
-
-The extension, tray application and installer use the selected clean file logo: an outlined file and a detached solid square, without inner text lines. The Chinese README banner stays white in both light and dark modes. [Release notes](docs/release-0.5.37.md) list changes, checks and remaining work. Earlier icon concepts remain archived in the brand guide.
-
-</details>
-
----
-
-Independent third-party project, not affiliated with or endorsed by the listed platforms. Save content only when you have the necessary rights or another lawful basis. Public visibility does not imply permission to redistribute or commercially reuse content.
-
-The source is publicly readable but **no project-wide open-source license has been selected**. Third-party components retain their own licenses: [notices](docs/third-party-notices.md), [media components](docs/third-party-media.md).
-
-Maintained by [iiiiivy123](https://github.com/iiiiivy123), with development assistance from OpenAI Codex. [Report an issue](https://github.com/iiiiivy123/inspiration-collector/issues) with the version, reproduction steps and redacted screenshots. Never submit cookies, credentials, private data or copyrighted media files.
+[Documentation](docs/README.md) · [Rights and privacy](docs/rights-and-privacy.md) · [Third-party notices](docs/third-party-notices.md) · [Report an issue](https://github.com/iiiiivy123/inspiration-collector/issues)
