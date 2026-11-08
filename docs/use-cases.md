@@ -1,45 +1,61 @@
-# 使用场景与 FAQ / Use cases & FAQ
+# 实际使用中遇到的问题
 
-[回到中文主页](https://github.com/iiiiivy123/inspiration-collector/blob/main/README.md) · [English use cases](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/use-cases-en.md) · [版权与隐私](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/rights-and-privacy.md)
+这里整理试用时已经收到的反馈。版本说明以 **0.5.47 预发布版**为准。
 
-RefTray · 灵感采集（当前朋友试用版为 0.5.28）是 Windows + Chrome 的本地素材采集工具，主要服务于**有保存权限的参考素材整理**。以下操作和平台范围均以当前安装版及页面实际可用功能为准。
+## 安装后提示“服务启动失败”
 
-## 1. Pinterest 画板图片如何保存到本地？
+0.5.44 恢复旧 MCP 任务时出错，后台因此没能启动。修复已包含在 0.5.47，并用带旧任务的数据副本检查过启动。
 
-打开具体的 Pinterest 画板（不是搜索结果），启动 Chrome 扩展，选择可用的画板批量图片模式，设置处理数量与保存位置。程序处理已识别且可访问的 Pin；隐藏、未加载或受限内容可能无法保存。当前不支持 Pinterest 画板批量图文笔记。
+更新到 0.5.47 后重试。不要删除素材库或任务数据库。若仍无法启动，保留程序状态目录里的 `data/inspiration/logs/service-errors.log`，反馈报错时间和版本。
 
-*English: Open a specific Pinterest board and use the available board image-collection mode. Content must be accessible; hidden or restricted Pins are not guaranteed.*
+## 安装完成了，扩展怎么还是旧版？
 
-## 2. 如何把小红书图文笔记保存为 Markdown？
+安装器会更新程序和已登记的扩展文件夹。Chrome 要再加载一次新文件：打开 `chrome://extensions`，找到「灵感采集」，点重新加载，然后刷新作品网页。
 
-打开受支持的单篇笔记，选择“图文笔记”，按需勾选正文图片、已加载评论或本地 OCR；如果只要文字，选“纯文字 · Markdown”。评论和轮播内容以页面已加载、程序能识别的部分为准。
+如果版本号仍旧，检查扩展使用的文件夹是否是安装器更新的那个目录。[完整更新步骤](update.md)
 
-*English: Supported Xiaohongshu notes can be saved as Markdown with optional images and already-loaded comments, or as text-only `.md` files.*
+## 安装卡在“Preparing to Install”
 
-## 3. 如何保存 Instagram / X 的创作参考？
+这个阶段会检查并关闭旧后台和 RefTray 的 MCP 进程，处理文件占用。安装失败时保留安装日志；不要删除程序目录后反复重装。采集任务先完成或停止，再升级。
 
-打开单帖或支持的作者内容列表，按页面实际提供的采集模式操作。部分列表提供批量处理，但页面变化、登录状态、转载内容与媒体格式可能限制可采集范围。
+## 花瓣大图就在眼前，却提示没找到正文图片
 
-*English: Use a supported post or author-list workflow for Instagram or X; availability varies by content, site state and media format.*
+这是收到过的识别故障。已反馈样本包括普通详情页和点开后的全屏大图；问题发生在图片已经显示之后。
 
-## 4. 能从 B站视频或本地视频中抽取参考画面吗？
+0.5.47 更新了主图定位、图片地址保留和浏览器读取。**这些页面的完整下载验证还没做完，花瓣仍是待修项。** 不需要为了这条提示反复登录或点开同一张图。
 
-在受支持的 B站稿件页面选择视频保存或“保存并抽帧”。本地已有视频也可以使用独立抽帧页。抽帧按时间间隔采样，分段模式还会合并相似画面，适合整理参考画面。不支持破解付费、加密或访问控制。
+## X 网页能播放，下载却显示“主帖身份字段缺失”
 
-*English: Extract reference frames from supported Bilibili downloads or local video files; sampling and format restrictions apply.*
+下载程序没有拿到足以确认当前帖子的媒体数据，所以停在解析阶段。这个报错本身没有说明你的 Chrome 退出了登录。
 
-## 5. 怎样把跨平台参考图统一整理在一个文件夹？
+0.5.47 改为优先读取当前帖的页面媒体，再交给后台下载；**登录视频的真实下载还没验证通过**。反馈时附任务中的诊断编号和提示即可，不用发送登录信息。
 
-首次使用时设置素材库目录，程序会根据模式与平台写入子目录。历史记录保留实际保存路径；**改默认位置不会移动旧文件**。可在采集记录中找到旧作品的原目录。
+## X 批量选 5 篇图片，置顶是纯文字，最后只保存 4 篇
 
-*English: Choose a local library root. Captures are organized by type and platform; previous files stay where they were saved.*
+旧流程把这条纯文字帖也算进了数量。0.5.47 已调整 X 批量处理：没有符合所选类型的媒体时跳过，继续找后面的作品。图片批量应按符合类型的作品计数；下载失败会单独记录。该修改还需要原主页的线上复测。
 
-## 6. 为什么某篇帖子、某个平台无法下载？
+## X 的 GIF 要切到视频才能下载，最后又存进图片文件夹
 
-可能是页面结构调整、内容未加载、登录状态变化、服务器响应格式不兼容、访问限制或视频使用了不受支持的格式。程序不会绕过付费墙、验证码、DRM 或访问控制。请参考 [使用教程](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/usage.md)，提交反馈时附脱敏步骤，不附他人素材或凭据。
+这是采集分类和保存流程不一致。0.5.47 的目标是从「图片 / GIF」入口保存 X 动图，静态图片单独处理；动图归到图片目录。原来失败的 GIF 样本还需复测。
 
-## 7. 怎么知道当前页面能保存什么？
+## 小红书动图保存后，旁边还多出 JPG
 
-打开具体作品页或支持的作者列表、画板，再点 Chrome 扩展。弹窗会显示当前可用的内容类型和采集方式。首次批量建议先试 2–3 篇，确认保存结果后再增加数量。
+试用时收到过一份动图同时留下静态封面的反馈。这项还需要核对新采集结果。旧文件不会自动清理；先保留原文件，查看本次任务新增了哪些文件。
 
-平台支持表见 [项目首页](https://github.com/iiiiivy123/inspiration-collector/blob/main/README.md)。保存和使用素材时，请遵守来源网站规则与权利人的授权，详见 [版权与隐私](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/rights-and-privacy.md)。
+## 评论数量到底包不包含楼中楼？
+
+「最多一级评论数」只算直接评论。打开「包含楼中楼」后，每条一级评论的回复另算，默认最多 2 条；楼中楼默认关闭。小红书和 Instagram 提供这个开关。折叠回复目前仍需在网页展开。
+
+## 失败后不知道去哪找对应诊断
+
+在任务详情里打开对应失败项的诊断；0.5.47 会带着诊断编号跳转。也可以从管理页的诊断入口，按编号、站点或错误文字搜索，再按错误类型筛选。「技术详情」里保留完整报错。
+
+## 升级后 AI 连不上，或者提示 Transport closed
+
+升级会关闭旧的 RefTray MCP 进程。先启动新版后台，再刷新 AI 客户端的 MCP 连接，调用 `reftray_status` 确认版本。Chrome 扩展的连接和 AI 的 MCP 连接分别管理。[MCP 接入](mcp.md)
+
+## 为什么没有提醒我更新到 0.5.47？
+
+自动提醒检查正式版，0.5.47 是预发布版，需要从首页手动下载。目前已做新版提醒，还没做一键自动安装。
+
+[返回首页](../README.md) · [使用教程](usage.md) · [0.5.47 说明](release-0.5.47.md)

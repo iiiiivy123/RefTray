@@ -90,3 +90,5 @@
 !/tests/collector/test_x_comments.cjs
 !/tests/collector/test_local_tools.py
 !/tests/test_build_preflight.py
+
+!/docs/release-0.5.47.md

@@ -41,7 +41,7 @@
 
 当前版本为 Windows 10/11 + Chrome；安装包在 GitHub Releases。扩展目前需要手动加载，教程里有具体步骤。只保存拥有许可或其他合法依据的内容。
 
-GitHub：https://github.com/iiiiivy123/inspiration-collector  
+GitHub：https://github.com/iiiiivy123/inspiration-collector
 完整教程：https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/usage.md
 
 ## C. V2EX / 中文技术社区｜作品分享
@@ -94,8 +94,8 @@ Source is viewable; the project does not yet have a project-wide open-source lic
 
 ## F. Product Hunt｜英文产品发布草稿
 
-**Product name:** RefTray  
-**Tagline:** Keep creative references in your own local folders.  
+**Product name:** RefTray
+**Tagline:** Keep creative references in your own local folders.
 **Short description:**
 
 RefTray helps Windows and Chrome users save authorized reference images, Markdown notes and supported video files from selected websites. Some sources support batch collection, and video frame extraction turns supported footage into visual references. Files stay in your chosen local library folder.
@@ -108,19 +108,19 @@ The app currently requires manually loading the extension and does not bypass ac
 
 ## G. GitHub About / Social preview 的文字
 
-**Description（建议复制到 GitHub About）：**  
+**Description（建议复制到 GitHub About）：**
 Local-first Windows + Chrome collector for images, Markdown notes and supported videos, with selected batch workflows and frame extraction.
 
-**Topics（建议）：**  
+**Topics（建议）：**
 `chrome-extension`, `web-clipper`, `local-first`, `reference-manager`, `markdown`, `windows-app`, `pinterest`, `video-frame-extraction`
 
-**Social preview 封面主句：**  
-RefTray  
-把网页参考，存进自己的文件夹。  
+**Social preview 封面主句：**
+RefTray
+把网页参考，存进自己的文件夹。
 Windows + Chrome · Images / Markdown / Video Frames
 
 **制作封面时**：按这段文字设计并上传图片，再检查 GitHub 的 Social preview 显示效果。
 
 ## 发布前检查
 
-首次发布前至少确认实际功能演示可重复、安装路径无误、兼容矩阵没有夸大、第三方许可随安装包分发、截图或视频内容有使用权。当前 0.5.28 为朋友试用版，程序内显示“灵感采集 / Inspiration Collector”，介绍时保留这个名称，方便用户查找。
+首次发布前至少确认实际功能演示可重复、安装路径无误、兼容矩阵没有夸大、第三方许可随安装包分发、截图或视频内容有使用权。当前 0.5.47 为预发布版，稳定版为 0.5.37，程序内显示“灵感采集 / Inspiration Collector”，介绍时保留这个名称，方便用户查找。

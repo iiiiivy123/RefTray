@@ -2,9 +2,9 @@
 
 ## 1. 下载安装包
 
-打开 [最新下载页](https://github.com/iiiiivy123/inspiration-collector/releases/latest)，在 **Assets** 下载 `InspirationCollector-0.5.37-Windows-x64-Setup.exe`。页面上的 Source code ZIP 是源码，普通使用请选择 `.exe` 安装包。
+打开 [0.5.47 预发布下载页](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.47)，在 **Assets** 下载 `InspirationCollector-0.5.47-Windows-x64-Setup.exe`。需要稳定版可选 [0.5.37](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.37)。页面上的 Source code ZIP 是源码，普通使用请选择 `.exe` 安装包。
 
-安装包内置 Python、媒体组件和扩展文件。YouTube 等平台可能还需要额外的 JavaScript 运行组件，可在「帮助与工具」中查看检测结果。当前版本为0.5.37，更新内容和待办见 [版本说明](release-0.5.37.md)。
+安装包内置运行环境、媒体组件和扩展文件。新版功能与待修项见 [0.5.47 版本说明](release-0.5.47.md)。
 
 AI客户端接入见 [MCP接口](mcp.md)。本地视频抽帧、视频转GIF和音频提取位于管理页“工具与帮助”。
 
@@ -45,6 +45,7 @@ AI客户端接入见 [MCP接口](mcp.md)。本地视频抽帧、视频转GIF和�
 - **连接不到后台**：从开始菜单启动“灵感采集”，确认托盘图标出现后，重新打开扩展。
 - **版本不一致**：按 [更新说明](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/update.md) 重新加载扩展，再刷新作品页。
 - **端口被占用**：退出自己仍在运行的旧版后台；不要结束来源不明的其他程序。
-- **平台内容打不开或解析失败**：登录、地区、页面改版和媒体格式都可能影响结果。程序不绕过验证码、会员、DRM 或其他访问限制。
+- **提示服务启动失败**：0.5.44 的旧任务恢复故障已修复。升级后仍失败时，保留状态目录中的 `data/inspiration/logs/service-errors.log`。
+- **花瓣图片或 X 视频保存失败**：查看 [实际反馈与修复状态](use-cases.md)，保留该次任务记录。
 
 仍有问题时，反馈版本、操作步骤、错误编号和脱敏截图即可。请勿发送 Cookie、密码或完整私人日志。更多操作见 [使用教程](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/usage.md)。

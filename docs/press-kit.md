@@ -4,8 +4,8 @@
 
 ## 30 秒认识 RefTray
 
-**产品**：RefTray · 灵感采集  
-**定位**：Windows + Chrome 本地素材采集工具  
+**产品**：RefTray · 灵感采集
+**定位**：Windows + Chrome 本地素材采集工具
 **核心价值**：把有权保存的参考图、图文笔记和视频参考整理进自己的电脑文件夹，而不只是散落在网页收藏夹里。
 
 **简短介绍（直接可用）**
@@ -18,9 +18,9 @@ RefTray is a local-first reference collector for creators using Windows and Chro
 
 ## 用一句话介绍给不同的人
 
-**设计师 / 插画师**：平时分散在各个平台的参考图和图文，可以整理到电脑的本地素材库。  
-**剪辑师 / 内容创作者**：适合保留有授权的视频参考，并在支持的场景中从视频提取画面。  
-**笔记 / 研究用户**：在支持的页面把图文或纯文字保存为 Markdown，附带来源信息。  
+**设计师 / 插画师**：平时分散在各个平台的参考图和图文，可以整理到电脑的本地素材库。
+**剪辑师 / 内容创作者**：适合保留有授权的视频参考，并在支持的场景中从视频提取画面。
+**笔记 / 研究用户**：在支持的页面把图文或纯文字保存为 Markdown，附带来源信息。
 **技术社区**：Chrome 扩展配合 Windows 本地保存服务，公开源码可查看；目前项目自身还没有选定开源许可证。
 
 ## 核心事实（适合媒体引用）
@@ -29,7 +29,7 @@ RefTray is a local-first reference collector for creators using Windows and Chro
 | --- | --- |
 | 操作系统 | Windows 10/11，64 位 |
 | 浏览器 | Chrome，需要首次手动加载已解压的扩展 |
-| 目前发行版本 | 0.5.28 朋友试用版，应用界面名为「灵感采集 / Inspiration Collector」 |
+| 目前发行版本 | 0.5.47 预发布版；稳定版为 0.5.37，应用界面名为「灵感采集 / Inspiration Collector」 |
 | 保存位置 | 用户选择的本地资料夹 |
 | 内容类型 | 图片、Markdown 图文、纯文字、部分视频和视频抽帧 |
 | 批量能力 | 部分适配的作者主页、画板和视频列表；非全网站通用 |
@@ -56,6 +56,6 @@ RefTray 不是任何所列平台的官方产品。公开网页内容不一定授
 
 ## 联系与反馈
 
-项目与版本：[GitHub](https://github.com/iiiiivy123/inspiration-collector)  
-问题反馈：[Issues](https://github.com/iiiiivy123/inspiration-collector/issues)  
+项目与版本：[GitHub](https://github.com/iiiiivy123/inspiration-collector)
+问题反馈：[Issues](https://github.com/iiiiivy123/inspiration-collector/issues)
 维护者：[iiiiivy123](https://github.com/iiiiivy123)
