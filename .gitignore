@@ -101,3 +101,22 @@
 !/docs/TASK.md
 !/tests/collector/check_upgrade_listener.py
 !/tools/review_windows_upgrade.py
+
+# Reviewed synthetic regressions must accompany the implementation.
+!/tests/collector/test_architecture_boundaries.py
+!/tests/collector/test_capture_pipeline.cjs
+!/tests/collector/test_huaban_detail.cjs
+!/tests/collector/test_instagram_profile.cjs
+!/tests/collector/test_queue_defaults.py
+!/tests/collector/test_result_status.cjs
+!/tests/collector/test_video_queue.py
+!/tests/collector/test_x_session.cjs
+!/tests/collector/test_maintenance_preview.py
+
+!/tests/collector/test_startup_recovery.py
+
+!/tests/collector/test_x_text_quota.cjs
+!/tests/collector/test_x_page_handoff.cjs
+
+!/docs/release-0.5.47.md
+/installer/*.generated.iss

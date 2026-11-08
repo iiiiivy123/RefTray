@@ -48,3 +48,36 @@ dialog{padding:0;max-width:min(620px,calc(100vw - 48px));width:620px;border:1px 
 
 /* Same compact language control as the capture popup. */
 .languages{display:flex;align-items:center;gap:10px}.languages button{background:none;border:0;padding:6px 2px;color:#777;cursor:pointer}.languages button[aria-pressed="true"]{color:#222;border-bottom:1px solid #222;font-weight:600}#ui-language[hidden]{display:none!important}
+/* Status is semantic; keep controls aligned at every viewport width. */
+.connection-line{color:#a56800}.status-dot{background:#d18a00}
+.connection[data-state="connected"] .connection-line{color:#16803c}.connection[data-state="connected"] .status-dot{background:#16a34a}
+.connection[data-state="failed"] .connection-line{color:#b42318}.connection[data-state="failed"] .status-dot{background:#dc2626}
+#defaults-form .field>.rounded-select,#defaults-form .field>.field-unit{width:100%;max-width:260px;grid-column:2;grid-row:1}
+.duplicate-choice{display:inline-flex;justify-content:flex-start;gap:0;grid-column:2;grid-row:1;width:max-content;max-width:100%;border:1px solid #bbb;border-radius:4px;overflow:hidden}
+.duplicate-choice button{min-width:140px;padding:10px 16px;border-radius:0;background:#fff;color:#333}.duplicate-choice button+button{border-left:1px solid #bbb}.duplicate-choice button[aria-pressed="true"]{background:#202020;color:#fff}
+.diagnostic-card{padding:16px 0;border-bottom:1px solid #ddd}.diagnostic-card h3{font-size:14px}.diagnostic-card p{font-size:12px;overflow-wrap:anywhere;color:#666}.diagnostic-card pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.diagnostics-panel{margin-top:24px;scroll-margin-top:20px}
+
+/* Management views share one readable type scale and control alignment. */
+.main{max-width:1120px;padding:32px 40px 96px}
+.nav button,.connection-line,.connection .text-button,.version,.breadcrumb,.top-actions,.subnav button{font-size:14px}
+.settings-layout .panel-heading h2,.panel-heading :is(h2,h3),.tool-card h2{font-size:16px;font-weight:600}
+.field label,.toggle-copy>label,.field input,.select-trigger,.select-menu button,.save-actions button,.save-state,#defaults-state{font-size:14px}
+.field,.toggle-row{grid-template-columns:200px minmax(0,1fr);gap:24px;padding:16px 0}
+.settings-context:empty{display:none}
+.tools-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
+.tools-grid>.tool-card{padding:20px 0;display:flex;flex-direction:column;gap:16px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none}
+.tools-grid .tool-card>button{margin:0;width:max-content;min-height:34px;padding:4px 0;border:0;border-bottom:1px solid #999;border-radius:0;font-size:14px;background:none;text-align:left}
+.task-toolbar{gap:12px;margin:20px 0 16px}.task-toolbar button{font-size:14px;min-height:40px}
+.task-selection{font-size:14px;gap:8px}.task-selection input,.task-heading input{width:18px;height:18px;accent-color:#222;flex-shrink:0}
+#history-list,#task-list{border:0;border-radius:0;background:none}.task-row{padding:24px 0;background:none}.task-heading{display:flex;align-items:flex-start;gap:12px}.task-heading input{margin:4px 0 0}
+.task-heading .task-name{flex:1;min-width:0;font-size:16px;line-height:1.5;font-weight:600;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.task-status{font-size:14px;white-space:nowrap;padding:2px 0;background:none;color:#555}
+.task-status[data-state=failed]{background:none;color:#a32b20}.task-status[data-state=running]{background:none;color:#16713a}
+.task-row .task-count,.task-row .task-path{font-size:14px;color:#666;margin:8px 0}.task-row details{font-size:14px;margin:16px 0}.task-row summary{cursor:pointer}
+.task-buttons{display:flex;flex-wrap:wrap;gap:24px;margin-top:16px}.task-buttons button{font-size:14px;min-height:34px;padding:4px 0;border:0;border-bottom:1px solid #999;border-radius:0;background:none}
+.diagnostics-panel{padding:24px 0;border:0;border-top:1px solid var(--line);border-radius:0;background:none}.diagnostics-panel>summary{font-size:18px;font-weight:600}.diagnostics-panel>#resolver-diagnostics{font-size:14px;border:0;border-bottom:1px solid #999;border-radius:0;padding:4px 0;margin:16px 0 0}
+.diagnostic-toolbar{display:grid;grid-template-columns:minmax(240px,1fr) 200px;gap:12px;margin:16px 0}
+.diagnostic-toolbar input,.diagnostic-toolbar select{width:100%;min-width:0;height:40px;padding:8px 0;font-size:14px;background:none;border:0;border-bottom:1px solid #bbb;border-radius:0}
+.diagnostic-card{padding:20px 0}.diagnostic-card:last-child{border-bottom:0}.diagnostic-card h3{font-size:16px;font-weight:600;line-height:1.5}.diagnostic-card .diagnostic-meta{font-size:14px;margin:8px 0 12px}.diagnostic-card summary{font-size:14px;cursor:pointer}.diagnostic-card pre{font:13px/1.7 Consolas,monospace;background:#f4f4f4;padding:16px;margin-top:12px;max-height:360px;overflow:auto}
+.inline-actions,.record-meta,.record-path,.record-actions button,.record-title{font-size:14px}
+@media(max-width:900px){.main{padding:24px 24px 96px}.tools-grid{grid-template-columns:1fr}.diagnostic-toolbar{grid-template-columns:minmax(180px,1fr) 160px}}

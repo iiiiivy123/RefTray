@@ -23,6 +23,8 @@ class DiagnosticsClassificationTests(unittest.TestCase):
             ('ProxyError: connection refused', 'PROXY'),
             ('getaddrinfo failed', 'DNS'),
             ('unknown extractor error', 'EXTRACTOR'),
+            ('ValueError: 主帖身份字段缺失，无法确认当前作品', 'IDENTITY'),
+            ('主帖身份不匹配，拒绝转帖或其他作品', 'IDENTITY'),
         ):
             with self.subTest(message=message):
                 self.assertEqual(diagnostics.classify(message), code)

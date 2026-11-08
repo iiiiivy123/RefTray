@@ -260,7 +260,7 @@ async function loadedPageMedia(tabId, resolveVideo=true) {
     }
     if(resolveVideo&&!result?.media?.length&&healthCache&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)&&/\/status\/\d+/.test(new URL(tab.url).pathname))return await matureMedia(tab.url);
     return result || {media:[]};
-  } catch(error){if(resolvingGif && observed?.media?.some(m=>m.kind==='photo'))return {...observed,resolution_error:error.message};if(resolvingGif||resolveVideo&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname))throw error;return {media:[]};} // DOM extraction remains available if page state is absent.
+  } catch(error){if(resolvingGif && observed?.media?.some(m=>m.kind==='photo'))return {...observed,resolution_error:error.message};if(resolvingGif)throw error;if(/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname))throw new Error('[X_PAGE_READ] 读取当前 X 帖子失败：'+String(error.message||error).slice(0,800));return {media:[]};} // Other platform DOM fallbacks remain unchanged.
 }
 
 async function includeProtectedImages(payload, pageUrl) {
@@ -326,10 +326,10 @@ async function submit(payload, pageUrl, port) {
     await includeProtectedImages(missing,pageUrl);
     const enriched=new Map(missing.images.map(i=>[i.url,i]));payload.images=payload.images.map(i=>enriched.get(i.url)||i);
   }
-  else if(['generic','bilibili','instagram','artstation','pinterest','x'].includes(payload.platform)){
+  else if(['generic','bilibili','instagram','artstation','pinterest','huaban','x'].includes(payload.platform)){
     const page=new URL(pageUrl);
     const browserImages={...payload,images:payload.images.filter(item=>{
-      try{const u=new URL(item.url);if(payload.platform==='x')return u.origin==='https://pbs.twimg.com' && u.pathname.startsWith('/media/');return u.protocol==='https:'&&(u.origin===page.origin||payload.platform==='pinterest'&&/(^|\.)pinimg\.com$/.test(u.hostname)||payload.platform==='artstation'&&/(^|\.)artstation\.com$/.test(u.hostname)||payload.platform==='bilibili'&&/(^|\.)hdslb\.com$/.test(u.hostname)||payload.platform==='instagram'&&/(^|\.)(cdninstagram\.com|fbcdn\.net)$/.test(u.hostname));}catch(_){return false;}
+      try{const u=new URL(item.url);if(payload.platform==='x')return u.origin==='https://pbs.twimg.com' && u.pathname.startsWith('/media/');return u.protocol==='https:'&&(u.origin===page.origin||payload.platform==='huaban'&&/(^|\.)huaban\.com$/.test(u.hostname)||payload.platform==='pinterest'&&/(^|\.)pinimg\.com$/.test(u.hostname)||payload.platform==='artstation'&&/(^|\.)artstation\.com$/.test(u.hostname)||payload.platform==='bilibili'&&/(^|\.)hdslb\.com$/.test(u.hostname)||payload.platform==='instagram'&&/(^|\.)(cdninstagram\.com|fbcdn\.net)$/.test(u.hostname));}catch(_){return false;}
     })};
     await includeProtectedImages(browserImages,pageUrl);
     const enriched=new Map(browserImages.images.map(item=>[item.url,item]));
@@ -452,25 +452,30 @@ async function videoSource(tab,options) {
 
   if(/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)){
     if(options.source?.url)return {...options.source,canonical_url:tab.url.split('?')[0],page_title:tab.title};
-    const page=await loadedPageMedia(tab.id,false),motion=(page.media||[]).filter(m=>m.kind==='gif'||m.kind==='video');
+    const postId=new URL(tab.url).pathname.match(/\/status\/(\d+)/)?.[1];
+    let page, pageFailure='';
+    try {
+      page=await loadedPageMedia(tab.id,false);
+      if(!postId||String(page.postId||'')!==postId)throw new Error('[X_PAGE_ID] 页面返回的帖子编号与当前链接不一致');
+    } catch(error){pageFailure=String(error.message||error).slice(0,1000);page=null;}
+    const motion=(page?.media||[]).filter(m=>m.kind==='gif'||m.kind==='video');
     if(motion.length===1)return {...motion[0],canonical_url:tab.url.split('?')[0],page_title:tab.title};
     if(motion.length>1)throw new Error('当前帖有多个动态媒体，请选择其中一个或使用全部视频排队');
-  }
-  if(!options.source?.resolver_id&&options.source?.kind!=='gif'&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)){
-    try{
-      const {media}=await matureMedia(tab.url);
-      if(!options.source?.url&&media.length===1)return media[0];
-      const identity=url=>url?.match(/\/(?:ext_tw_video|amplify_video)\/(\d+)\//)?.[1];
-      const matched=media.find(m=>identity(m.url)&&identity(m.url)===identity(options.source?.url));
-      if(matched)return matched;
-    }catch(error){resolverWarning=String(error.message||'媒体解析失败').slice(0,500);}
+    const states={main_post_missing:'没有找到当前主帖',post_data_missing:'已找到主帖，但未取得帖子媒体数据',post_without_media:'已读取主帖数据，但没有可下载的视频地址',parser_failed:'主帖媒体数据解析出错',media_found:'当前帖只读到静态图片'};
+    pageFailure ||= '[X_PAGE_EMPTY] '+(states[page?.read_state]||'页面未返回可下载的视频地址');
+    try {
+      const resolved=await matureMedia(tab.url);
+      const media=(resolved.media||[]).filter(m=>m.kind==='video'||m.kind==='gif');
+      if(media.length!==1)throw new Error(media.length?'当前帖有多个动态媒体，请选择其中一个或使用全部视频排队':'后台未返回当前帖的视频地址');
+      return {...media[0],resolver_warning:pageFailure};
+    } catch(error){throw new Error(String(error.message||error)+'\n页面读取：'+pageFailure);}
   }
   if(options.source?.url)return {...options.source,resolver_warning:resolverWarning};
   if(/(^|\.)(youtube\.com|youtu\.be)$/.test(new URL(tab.url).hostname)){
     await reportProgress({message:'正在解析当前YouTube视频…'});
     const result=await matureMedia(tab.url);return result.media[0];
   }
-  if(/(^|\.)(x\.com|twitter\.com|xiaohongshu\.com)$/.test(new URL(tab.url).hostname)){
+  if(/(^|\.)xiaohongshu\.com$/.test(new URL(tab.url).hostname)){
     const motion=(await loadedMedia(tab.id)).filter(m=>m.kind==='gif'||m.kind==='video');
     if(motion.length===1)return {...motion[0],canonical_url:tab.url.split('?')[0],page_title:tab.title,resolver_warning:resolverWarning};
   }
@@ -517,11 +522,6 @@ async function videoSource(tab,options) {
     if (candidates.length === 1) Object.assign(source, candidates[0], {error: null, canonical_url: tab.url.split('#')[0], page_title: tab.title});
   }
   if (options.source && !source?.error?.includes('受保护')) Object.assign(source, options.source, {error:null});
-  if(source?.error&&!source.error.includes('受保护')&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)){
-    const resolved=await matureMedia(tab.url);
-    if(resolved.media.length!==1)throw new Error('当前主帖包含多个视频，请用图片/图文模式取消「跳过视频」保存全部');
-    return resolved.media[0];
-  }
   if (source?.error) throw new Error(source.error);
   if (!source?.url) throw new Error('无法读取视频地址');
   return {...source,resolver_warning:resolverWarning};
@@ -967,9 +967,9 @@ async function receiveBrowserCapture(){
   browserBridgeBusy=true;
   let item,health,ownsTask=false;
   const api=async(path,value)=>{
-    const response=await fetch('http://127.0.0.1:8766'+path,{method:'POST',
+    const response=await fetch('http://127.0.0.1:8766'+path,{method:value===undefined?'GET':'POST',
       headers:{'Content-Type':'application/json','X-Collector-Token':health.settings_token},
-      body:JSON.stringify(value||{}),signal:AbortSignal.timeout(10000)});
+      ...(value===undefined?{}:{body:JSON.stringify(value)}),signal:AbortSignal.timeout(10000)});
     const data=await response.json();
     if(!response.ok)throw new Error(data.detail||'Chrome 采集连接失败');
     return data;
@@ -989,10 +989,11 @@ async function receiveBrowserCapture(){
     if(tabs.length!==1)throw new Error(tabs.length?'相同网页打开了多个标签，请保留一个后重试':'请先在 Chrome 打开请求中的网页后重试');
     if(taskRunning)throw new Error('已有采集任务正在运行，请完成后重试');
     taskRunning=true;ownsTask=true;
-    const options={collection_mode:item.mode==='text'?'text':'images',include_images:true,
+    const savedDefaults=await api('/settings/defaults');
+    const options={max_video_mb:savedDefaults.max_video_mb,duplicate_policy:savedDefaults.duplicate_policy,collection_mode:item.mode==='text'?'text':'images',include_images:true,
       include_videos:item.mode==='video',include_comments:false,ocr_enabled:false,subtitle_mode:'none'};
     const result=await collect(item.mode==='video'?'download':'current',8766,options,{id:tabs[0].id,url:tabs[0].url,runId:item.id});
-    const status=result.partial||result.failed_images?'partial':'completed';
+    const status=TaskProgress.resultStatus(result);
     await reportProgress({status,percent:100,message:result.message||'Chrome 页面已保存',directory:result.directory});
     await api('/browser/result/'+item.id,{status,message:result.message||'Chrome 页面已保存',result});
   }catch(error){
@@ -1125,7 +1126,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   taskRunning = true;
   const previousContext=taskContext;
   collect(message.mode || "current", message.port || 8766, message.options, message.testTarget).then(async (result) => {
-    await reportProgress({percent: 100, status: result.status==='partial'||result.partial||result.failed_images&&result.new_images?'partial':result.failed_images||result.status==='failed'?'failed':'completed', message: result.message || `保存完成，新增 ${result.new_images} 张`, directory:taskContext.batch?.directory||result.directory, details:result.details || result.warnings?.join('\n')});
+    await reportProgress({percent: 100, status: TaskProgress.resultStatus(result), message: result.message || `保存完成，新增 ${result.new_images} 张`, directory:taskContext.batch?.directory||result.directory, details:result.details || result.warnings?.join('\n')});
     sendResponse({ok: true, result});
   }).catch(async (error) => {
     if(taskContext===previousContext){

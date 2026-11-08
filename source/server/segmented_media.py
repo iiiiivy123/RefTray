@@ -59,7 +59,7 @@ def selection(token, canonical=None, url=None):
             raise ValueError('视频预检已过期或后台已重启，请重新开始任务')
         result = copy.deepcopy(value[1])
     if canonical is not None:
-        from .media_resolver import canonical as normalize
+        from .source_identity import canonical as normalize
         if normalize(canonical)[0] != result['canonical'] or url != result['formats'][0]['url']:
             raise ValueError('下载与预检作品不一致，请重新预检')
     return result

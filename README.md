@@ -46,7 +46,7 @@
 
 [首次安装 →](docs/install.md) · [旧版更新 →](docs/update.md) · [完整教程与故障排查 →](docs/usage.md)
 
-当前版本为 **0.5.37**，最新代码统一在 `main`。[版本说明](docs/release-0.5.37.md) · [完整代码审查交接](docs/REVIEW_HANDOFF.md)。
+稳定版为 **0.5.37**；[0.5.47 预发布版](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.47)包含近期修复，仍有线上验收待完成。稳定版代码在 `main`。[版本说明](docs/release-0.5.37.md) · [完整代码审查交接](docs/REVIEW_HANDOFF.md)。
 
 > **更新旧版：** 先在系统托盘右键 → **退出灵感采集**，再安装新版，最后到 Chrome 扩展管理页点**重新加载**。仅关闭浏览器或弹窗不会退出后台。
 

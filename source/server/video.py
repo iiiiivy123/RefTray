@@ -147,7 +147,7 @@ class VideoDownloads:
             is_bili=any((urlsplit(value.url).hostname or '')==h or (urlsplit(value.url).hostname or '').endswith('.'+h) for h in ('bilivideo.com','bilivideo.cn'))
             youtube = value.media_kind == 'youtube-dash'
             if youtube:
-                from .media_resolver import canonical
+                from .source_identity import canonical
                 if canonical(value.canonical_url)[1] != 'youtube' or not value.audio_url:
                     raise ValueError('YouTube分轨必须绑定具体视频和完整音轨')
             if (value.audio_url and not youtube or is_bili or value.media_kind.startswith('bilibili')):

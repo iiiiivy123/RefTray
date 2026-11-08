@@ -14,7 +14,15 @@
       const v = stack.pop();
       if (!v || typeof v !== 'object' || seen.has(v)) continue;
       seen.add(v);
-      const parsed = globalThis.XEagleMedia.tweetRecord(v);
+      let parsed = globalThis.XEagleMedia.tweetRecord(v);
+      const legacy=v.legacy, user=v.core?.user_results?.result;
+      const account=user?.legacy?.screen_name||user?.core?.screen_name;
+      const textOnly=!legacy?.extended_entities?.media?.length&&!legacy?.entities?.media?.length&&!v.card&&!legacy?.card&&!legacy?.quoted_status_id_str&&!v.quoted_status_result;
+      if(!parsed && /^\d{10,20}$/.test(String(v.rest_id||v.id_str||'')) && typeof legacy?.full_text==='string' && legacy.full_text.trim() && account && textOnly){
+        const id=String(v.rest_id||v.id_str);
+        records.delete(id);records.set(id,{postId:id,media:[],text:legacy.full_text.slice(0,20000),account,seen:Date.now(),text_only:true});
+        while(records.size>120)records.delete(records.keys().next().value);
+      }
       if (parsed?.media.length) {
         const media = parsed.media.filter(m => {try {const u=new URL(m.url);return u.protocol==='https:' && /(^|\.)twimg\.com$/.test(u.hostname);}catch(_){return false;}});
         if(media.length){records.delete(parsed.tweetId);records.set(parsed.tweetId,{postId:parsed.tweetId,media,text:parsed.text.slice(0,20000),account:parsed.account,seen:Date.now()});}

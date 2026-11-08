@@ -1,4 +1,4 @@
-#ifndef AppVersion
+﻿#ifndef AppVersion
   #error AppVersion must be passed explicitly by the versioned build script
 #endif
 [Setup]
@@ -156,11 +156,17 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ExitCode: Integer;
 begin
+  WizardForm.StatusLabel.Caption := '正在等待旧后台安全退出…';
+  Log('RefTray prepare: stopping owned launcher');
   Result := StopOwnedLauncher(True);
   if Result <> '' then exit;
+  WizardForm.StatusLabel.Caption := '正在检查并关闭本程序的 MCP 占用…';
+  Log('RefTray prepare: checking owned MCP clients');
   Result := StopOwnedMcpClients();
   if Result <> '' then exit;
   if FileExists(ExpandConstant('{app}\runtime\python.exe')) then begin
+    WizardForm.StatusLabel.Caption := '正在核对旧程序文件，保留素材与设置…';
+    Log('RefTray prepare: checking managed program files');
     ExtractTemporaryFile('maintenance.py');
     ExtractTemporaryFile('incoming-managed-files.json');
     if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{tmp}\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{tmp}\incoming-managed-files.json') + '" --report "' + GetStateRoot() + '\data\inspiration\logs\installer-maintenance.json" --state "' + GetStateRoot() + '" --plan-only --export-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
@@ -168,6 +174,7 @@ begin
     else if ExitCode <> 0 then
       Result := '旧程序清单或素材保护检查失败，尚未替换程序。详情见状态目录 data/inspiration/logs/installer-maintenance.json。';
   end;
+  Log('RefTray prepare: finished; result=' + Result);
 end;
 
 function InitializeUninstall(): Boolean;

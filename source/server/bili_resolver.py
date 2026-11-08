@@ -14,7 +14,7 @@ def single_source(data,url,output_format='original'):
         raise ValueError('B站解析结果不是指定稿件/分P的完整单视频，未读取合集或其他作品')
     web=data.get('webpage_url')
     if web:
-        from .media_resolver import canonical
+        from .source_identity import canonical
         if canonical(web)[0]!=url:raise ValueError('B站解析返回的稿件地址或分P与请求不一致')
     streams=data.get('requested_formats') or [data]
     if not 1<=len(streams)<=2:raise ValueError('B站返回了未知轨道组合')

@@ -269,15 +269,35 @@
       payload.comments_requested = options.include_comments === true;
       payload.ocr_enabled = options.ocr_enabled !== false;
       if (payload.comments_requested && cfg.comments && root) {
-        const unique = new Set();
-        for (const node of root.querySelectorAll(cfg.comments)) {
-          const body = text(node.querySelector(kind==='xhs' ? '.content .note-text,.content,.comment-content,.note-text' : cfg.commentBody));
-          if (!body || unique.has(body) || payload.comments.length >= 100) continue;
-          unique.add(body);
-          payload.comments.push({text: body.slice(0, 10000), author: text(node.querySelector('[class*="author"],[class*="name"],a')) || null});
+        const nodes=[...root.querySelectorAll(cfg.comments)];
+        const parents=nodes.filter(n=>!n.parentElement?.closest(cfg.comments));
+        const limit=Math.max(1,Math.min(100,Number(options.comment_limit)||10));
+        const replyLimit=Math.max(1,Math.min(10,Number(options.replies_per_comment)||2));
+        let parentCount=0,replyCount=0;
+        const read=(node,parentId=null)=>{
+          const own=node.cloneNode(true);for(const child of own.querySelectorAll(cfg.comments))child.remove();
+          const body=text(own.querySelector(kind==='xhs'?'.content .note-text,.content,.comment-content,.note-text':cfg.commentBody));
+          if(!body)return null;
+          // Prefer platform IDs. Anonymous comments retain the existing author/text dedupe.
+          const id=node.getAttribute('data-comment-id')||node.id||null;
+          return {id,parent_id:parentId,text:body.slice(0,10000),author:text(own.querySelector('[class*="author"],[class*="name"],a'))||null};
+        };
+        for(const node of parents){
+          if(parentCount>=limit)break;
+          const parent=read(node);if(!parent)continue;
+          payload.comments.push(parent);parentCount++;
+          if(options.include_replies&&['xhs','instagram'].includes(kind)){
+            let count=0;
+            for(const child of node.querySelectorAll(cfg.comments)){
+              if(count>=replyLimit)break;
+              const reply=read(child,parent.id||('loaded-parent-'+parentCount));if(!reply)continue;
+              payload.comments.push(reply);count++;replyCount++;
+            }
+          }
         }
+        payload.comments_status=`已读取 ${parentCount} 条一级评论、${replyCount} 条回复（仅已加载）`;
       }
-      payload.comments_status = !payload.comments_requested ? '未开启' : payload.comments.length ? `已读取 ${payload.comments.length} 条（仅已加载）` : !cfg.comments ? '当前平台未支持评论' : '未读取到评论（可能未加载、没有评论或页面结构不匹配）';
+      payload.comments_status = !payload.comments_requested ? '未开启' : payload.comments.length ? payload.comments_status||`已读取 ${payload.comments.length} 条（仅已加载）` : !cfg.comments ? '当前平台未支持评论' : '未读取到评论（可能未加载、没有评论或页面结构不匹配）';
       if (payload.comments_requested) warnings.push(cfg.comments ? '评论只包含当前已加载且能识别的部分，不代表全部评论。' : '当前站点尚未适配评论提取，没有把其他帖子当成评论。');
       payload.include_images = options.include_images !== false;
       if (!payload.include_images && !payload.ocr_enabled) payload.images = [];

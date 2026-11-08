@@ -1,5 +1,14 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 const base='source/extension/';
+test('flat loaded tweet media keeps exact identity and separate photo/GIF/video types',()=>{
+ const api=require('../../source/extension/cat-media.js');
+ for(const [type,kind] of [['photo','photo'],['animated_gif','gif'],['video','video']]){
+  const full=tweet('1234567890123',type),flat={id_str:full.rest_id,...full.legacy};
+  assert.equal(api.tweetRecord(flat).tweetId,full.rest_id);
+  assert.equal(api.tweetRecord(flat).media[0].kind,kind);
+  delete flat.id_str;assert.equal(api.tweetRecord(flat),null);
+ }
+});
 const tweet=(id,type='photo')=>({rest_id:id,legacy:{full_text:'ordinary sample',extended_entities:{media:[{type,media_url_https:'https://pbs.twimg.com/media/sample.jpg',video_info:{variants:[{content_type:'video/mp4',url:'https://video.twimg.com/ext_tw_video/'+id+'/pu/vid/720x720/sample.mp4',bitrate:200}]}}]}},core:{user_results:{result:{legacy:{screen_name:'sample'}}}}});
 function session(data,url='https://x.com/i/api/graphql/hash/TweetDetail'){
  const response=new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});Object.defineProperty(response,'url',{value:url});
@@ -56,4 +65,15 @@ test('X photo payload survives supplemental GIF and skip-GIF filtering',async()=
   const result=await c.readPagePayload(1,{skip_gifs:skip},{url:payload.canonical_url});
   assert.equal(result.images.length,1);assert.equal(result._media.length,skip?0:1);
  }
+});
+
+
+test('confirmed plain-text X posts survive the session cache without changing photo/GIF records',async()=>{
+ const plain=tweet('1234567890199');delete plain.legacy.extended_entities;
+ const s=session({items:[plain,tweet('1234567890123'),tweet('1234567890124','animated_gif')]});
+ await s.context.fetch('/');await new Promise(r=>setTimeout(r,30));
+ assert.equal(s.context.RefTrayXSession.get('1234567890199').text_only,true);
+ assert.equal(s.context.RefTrayXSession.get('1234567890199').media.length,0);
+ assert.equal(s.context.RefTrayXSession.get('1234567890123').media[0].kind,'photo');
+ assert.equal(s.context.RefTrayXSession.get('1234567890124').media[0].kind,'gif');
 });

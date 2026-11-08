@@ -12,7 +12,7 @@ def safe(value):
 def source_key(url):
     u = urlsplit(url)
     if u.hostname in ('youtube.com','www.youtube.com','m.youtube.com','youtu.be'):
-        from .media_resolver import canonical
+        from .source_identity import canonical
         return canonical(url)[0]
     if u.hostname in ('bilibili.com','www.bilibili.com') and re.fullmatch(r'/video/BV[\da-zA-Z]{10}/?',u.path):
         part=parse_qs(u.query).get('p',['1'])[0]

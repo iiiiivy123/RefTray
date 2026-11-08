@@ -1,5 +1,11 @@
 /* Batch counters and current-media percentages are separate contracts. */
 (() => {
+ function resultStatus(result={}){
+  if(['failed','partial','stopped','paused'].includes(result.status))return result.status;
+  if(result.partial)return 'partial';
+  if(result.failed_images)return result.new_images||result.duplicate_images||result.videos?'partial':'failed';
+  return 'completed';
+ }
  function counters(job){const rows=Object.values(job.records||{}).filter(r=>!['pending','planned'].includes(r.status)),sum=k=>rows.reduce((n,r)=>n+(Number(r[k])||0),0);return {processed:rows.length,eligibleProcessed:rows.filter(r=>!r.quota_exempt).length,saved:rows.filter(r=>['saved','partial'].includes(r.status)).length,failed:rows.filter(r=>['failed','partial'].includes(r.status)).length,skipped:rows.filter(r=>r.status==='skipped').length,limit:job.limit,total:job.queue_complete?Math.min(job.limit,job.queue.filter(k=>!job.records?.[k]?.quota_exempt).length):job.limit,videoOnly:Boolean(job.options?.video_only),handledVideos:sum('video_count'),savedVideos:sum('videos'),existingVideos:sum('existingVideos')};}
  function overall(batch){return batch.videoOnly?(batch.limit?Math.min(100,batch.handledVideos/batch.limit*100):null):batch.total?Math.min(100,(batch.eligibleProcessed??batch.processed)/batch.total*100):null;}
  function reduce(previous={},value={},job){const batch=job?counters(job):previous.batch;const percent=Object.hasOwn(value,'percent')?(typeof value.percent==='number'&&Number.isFinite(value.percent)?value.percent:null):(previous.current?.percent??previous.percent??null);return {...previous,...value,stage:value.stage??previous.stage??null,batch,current:{message:value.message||previous.current?.message||'',percent,stage:value.stage??previous.stage??null},percent:batch?overall(batch):percent};}
@@ -21,5 +27,5 @@
   const phase=stage==='connecting'||stage==='checking'?0:stage==='verifying'?2:phases.indexOf(stage);
   return {aggregate,counts,current,phase};
  }
- globalThis.TaskProgress={counters,reduce,ring,labels};
+ globalThis.TaskProgress={resultStatus,counters,reduce,ring,labels};
 })();

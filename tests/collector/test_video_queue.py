@@ -8,6 +8,7 @@ from unittest.mock import patch
 from server.video_queue import VideoQueue
 
 class Journal:
+    def defaults(self): return {}
     def __init__(self): self.records = {}
     def save_task(self, value): self.records[value['id']] = copy.deepcopy(value)
 

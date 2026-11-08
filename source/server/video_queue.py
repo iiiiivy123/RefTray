@@ -5,8 +5,9 @@ import threading
 import time
 from uuid import uuid4
 
-from .media_resolver import canonical, resolve
-from .models import VideoDownloadRequest
+from .media_resolver import resolve
+from .source_identity import canonical
+from .models import CaptureDefaults, VideoDownloadRequest
 
 
 class VideoQueue:
@@ -26,6 +27,8 @@ class VideoQueue:
         with self.lock:
             if self.active or self.videos.busy():
                 raise ValueError('已有视频任务，请完成或停止后再开始')
+            root = self.settings().inbox
+            defaults = CaptureDefaults(**self.catalog.defaults()).model_dump()
             identity = uuid4().hex
             record = {'id': identity, 'source': source, 'platform': platform,
                       'name': 'MCP · 原帖全部视频', 'status': 'running', 'completed': False,
@@ -33,8 +36,7 @@ class VideoQueue:
             self.catalog.save_task(record)
             self.active = identity
             self.stop_event.clear()
-            root = self.settings().inbox
-            threading.Thread(target=self._run, args=(record, root), daemon=True).start()
+            threading.Thread(target=self._run, args=(record, root, defaults), daemon=True).start()
             return {'job_id': identity, 'kind': 'task', 'status': 'running'}
 
     def stop(self, identity=None):
@@ -46,7 +48,7 @@ class VideoQueue:
                 self.videos.control(self.child, 'stopped')
         return {'status': 'stopping'}
 
-    def _run(self, record, root):
+    def _run(self, record, root, defaults):
         try:
             media = resolve(record['source'], captions=False)['media']
             if not media:
@@ -60,7 +62,8 @@ class VideoQueue:
                 record['message'] = f'正在下载第 {index}/{len(media)} 个视频'
                 self.catalog.save_task(copy.deepcopy(record))
                 try:
-                    value = VideoDownloadRequest(**{**source, 'canonical_url': record['source'],
+                    value = VideoDownloadRequest(**{**source, 'max_video_mb': defaults['max_video_mb'],
+                        'duplicate_policy': defaults['duplicate_policy'], 'canonical_url': record['source'],
                         'platform': record['platform'], 'save_directory': str(root),
                         'capture_scope': 'single', 'capture_kind': 'video',
                         'directory_schema': 'function-platform-v2', 'subtitle_mode': 'none'})

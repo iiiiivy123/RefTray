@@ -85,6 +85,9 @@ async function processBatchPost(tab, port, group, payload) {
     payload.has_video=media.some(m=>m.kind==='video');
     if(!media.length&&!payload.images?.length&&(!textMode||!payload.body_text?.trim()))return {status:'skipped',quota_exempt:true,url:payload.canonical_url,reason:'已按设置跳过动图，不占目标篇数'};
   }
+  if(payload.platform==='x' && !textMode && !taskContext.options.video_only && payload.body_text?.trim() && !payload.images?.length && !media.length && !payload.has_video && !payload._preflightIssue){
+    return {status:'skipped',quota_exempt:true,url:payload.canonical_url,reason:'纯文字帖，已跳过，不占图片目标篇数'};
+  }
   if(!taskContext.options.md_only&&(media.some(m=>m.live_missing)||payload.has_live_photo&&!media.some(m=>m.live_photo))){failed=true;reasons.push('部分实况动图动态源尚未确认，静态封面不代表完整动图');}
   let videoMeta={};
   if(taskContext.options.video_only){
@@ -315,6 +318,9 @@ async function runSocialBatch(tab, port, options, platform) {
           const [{result}]=await chrome.scripting.executeScript({target:{tabId:tab.id},world:'MAIN',args:[postId(url)],func:id=>globalThis.RefTrayXSession?.get(id)||null});
           const handle=new URL(profile.author_url).pathname.slice(1).toLowerCase();
           if(result?.postId===postId(url) && result.account?.toLowerCase()===handle)timelineRecord=result;
+        }
+        if(platform==='x' && timelineRecord?.text_only && taskContext.options.collection_mode!=='text' && !taskContext.options.video_only){
+          await recordPost(url,{status:'skipped',quota_exempt:true,url,reason:'纯文字帖，已跳过，不占图片目标篇数'});continue;
         }
         let payload, issue='未识别到当前帖正文或媒体，可能未加载或不可访问';
         if(timelineRecord && !taskContext.options.include_comments && !taskContext.options.md_only){

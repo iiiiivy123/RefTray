@@ -348,7 +348,7 @@ class Storage:
             '## 正文', '', *body,
             '## 已加载评论', '', f"已保存 {len(data.get('comments', []))} 条；本次状态：{plain(data.get('comments_status', 'unknown'))}。仅包含已加载内容，不代表全部评论。", '']
         for item in data.get('comments', []):
-            lines.extend([f"- {plain(item.get('author') or '未识别作者')}：{plain(item['text'])}", ''])
+            lines.extend([f"{'  ' if item.get('parent_id') else ''}- {plain(item.get('author') or '未识别作者')}：{plain(item['text'])}", ''])
             if item.get('url'): lines.extend(['  来源：' + plain(item['url']), ''])
             for url in item.get('images', []):
                 image = next((i for i in data.get('images', []) if i.get('url') == url and i.get('file')), None)

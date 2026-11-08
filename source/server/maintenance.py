@@ -108,7 +108,7 @@ def cleanup_upgrade(program, incoming_manifest, state=None, plan_only=False, pre
         elif name not in incoming['files']:
             plan.append(('delete', target, name))
     for action, target, destination in plan:
-        if action == 'backup':
+        if action == 'backup' and not plan_only:
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(target, destination)
         elif not plan_only:

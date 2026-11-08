@@ -13,7 +13,7 @@ def source_id(value):
     u = urlsplit(value)
     host = (u.hostname or '').lower()
     if host in ('youtube.com','www.youtube.com','m.youtube.com','youtu.be'):
-        from .media_resolver import canonical
+        from .source_identity import canonical
         return canonical(value)[0]
     if host in ('bilibili.com','www.bilibili.com') and re.fullmatch(r'/video/BV[\da-zA-Z]{10}/?',u.path):
         from .destinations import source_key

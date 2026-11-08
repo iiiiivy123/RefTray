@@ -21,7 +21,7 @@
  card.replaceChildren();const label=make('span');label.textContent='保存位置';card.append(label,choose);body.append(defaultButton);
  // Preserve path handlers and status elements without taking space in the primary form.
  const stash=make('div','path-secondary');stash.hidden=true;stash.innerHTML='<small id="destination-label"></small>';body.append(stash);
- const open=make('button','open-path','text-button');open.type='button';open.textContent='打开文件夹';body.append(open);
+ const open=make('button','open-path','text-button');open.type='button';open.textContent='打开文件夹';open.hidden=true;stash.append(open);
  const brand=q('.brand');brand.innerHTML='<img src="reftray-a.svg" width="28" height="28" alt=""><div class="brand-wordmark"><strong>RefTray</strong><span>灵感采集</span></div>';
  const version=make('small','version');version.hidden=true;brand.append(version);
  const picker=q('#ui-language');picker.hidden=true;const languages=make('div',null,'languages');languages.innerHTML='<button type="button" id="lang-zh" aria-pressed="true">中</button><span>/</span><button type="button" id="lang-en" aria-pressed="false">EN</button>';picker.after(languages);
@@ -38,6 +38,10 @@
  const raw=q('#diagnostic-text'),diagnostics=make('details','raw-diagnostics');const rawTitle=make('summary');rawTitle.textContent='原始日志';raw.before(diagnostics);diagnostics.append(rawTitle,raw);
  const taskSummary=make('pre','task-result-summary');diagnostics.before(taskSummary);
  const copyLog=make('button','copy-task-log','text-button');copyLog.type='button';copyLog.textContent='复制脱敏日志';diagnostics.append(copyLog);
+ const openDiagnostic=make('button','open-task-diagnostic','text-button');openDiagnostic.type='button';openDiagnostic.textContent='查看本次诊断';openDiagnostic.hidden=true;diagnostics.before(openDiagnostic);
+ const diagnosticId=()=>raw.textContent.match(/\b\d{8}T\d{6}Z-[a-f0-9]{8}\b/)?.[0];
+ new MutationObserver(()=>{openDiagnostic.hidden=!diagnosticId();}).observe(raw,{childList:true,characterData:true,subtree:true});
+ openDiagnostic.onclick=()=>{const id=diagnosticId();if(id)chrome.tabs.create({url:chrome.runtime.getURL('manage.html')+'?diagnostic='+encodeURIComponent(id)+'#tools'});};
  copyLog.onclick=async()=>{const text=raw.textContent.replace(/([?&](?:token|xsec_token|signature|auth)[^=]*=)[^\s&#]+/gi,'$1[已隐藏]').replace(/(?:Cookie|Authorization):[^\r\n]*/gi,'[已隐藏]');try{await navigator.clipboard.writeText(text);copyLog.textContent='已复制';}catch(_){copyLog.textContent='复制失败，可手动选择文本';}};
  q('#scroll-content').tabIndex=0;document.documentElement.classList.add('popup-redesign');
  function resultSummary(progress) {

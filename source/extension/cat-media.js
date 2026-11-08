@@ -110,7 +110,7 @@
   function tweetRecord(value) {
     if (!value || typeof value !== "object") return null;
     const id = String(value.rest_id || value.id_str || "");
-    const legacy = value.legacy;
+    const legacy = value.legacy || (value.extended_entities || value.entities || value.mediaDetails || value.media_details ? value : null);
     if (!/^\d{10,20}$/.test(id) || !legacy || typeof legacy !== "object") return null;
     const media = tweetMedia(value, legacy);
     const relatedIds = relatedTweetIds(value, legacy);

@@ -45,7 +45,8 @@ def create_app(runtime=None):
     for record in catalog.tasks() if catalog is not None else ():
         if record.get('mode') in ('video-queue', 'browser-capture') and record.get('status') == 'running':
             catalog.save_task({**record, 'status': 'interrupted', 'completed': False,
-                               'message': '后台已重启，已保存结果保留，请核对后重新提交'})
+                               'message': '后台已重启，已保存结果保留，请核对后重新提交'},
+                              expected_revision=record.get('revision', 0))
     from .video_queue import VideoQueue
     video_queue = VideoQueue(videos, catalog, lambda: settings)
     import_previews = {}
@@ -364,7 +365,8 @@ def create_app(runtime=None):
     def start_video_queue(value: ResolveMedia, request: Request):
         authorize_settings(request)
         try:
-            return video_queue.start(value.url)
+            with lock:
+                return video_queue.start(value.url)
         except ValueError as error:
             raise HTTPException(409, str(error)) from error
 

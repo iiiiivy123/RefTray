@@ -9,7 +9,7 @@ from urllib.request import Request, build_opener, ProxyHandler
 
 if __package__:
     from .public_post import identity, resolve_post
-    from .media_resolver import canonical as video_post
+    from .source_identity import canonical as video_post
 else:  # Installed MCP clients start this file by path.
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from server.public_post import identity, resolve_post

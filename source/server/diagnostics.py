@@ -22,11 +22,13 @@ LABELS = {
     'CONNECT': '解析器无法建立网络连接',
     'PAYLOAD': '解析组件返回数据无效',
     'EXTRACTOR': '解析组件未能识别作品数据',
+    'IDENTITY': '解析结果缺少或不匹配当前帖子编号，未开始下载',
 }
 
 
 def classify(message):
     patterns = [
+        ('IDENTITY', r'主帖身份字段缺失|主帖身份不匹配|X_PAGE_ID'),
         ('PROXY', r'ProxyError|proxy (?:error|connection)|tunnel connection|SOCKS'),
         ('DNS', r'getaddrinfo|name or service not known|temporary failure in name resolution|could not resolve (?:host|hostname)|unable to resolve host|nodename nor servname'),
         ('TLS', r'CERTIFICATE_VERIFY_FAILED|SSLError|SSL:|TLS handshake|certificate verify'),
@@ -91,7 +93,7 @@ def failure(code, message, **context):
 def recent():
     root = folder()
     rows = []
-    for path in sorted(root.glob('*.json'), key=lambda p: p.stat().st_mtime, reverse=True)[:20]:
+    for path in sorted(root.glob('*.json'), key=lambda p: p.stat().st_mtime, reverse=True)[:100]:
         try:
             rows.append(json.loads(path.read_text(encoding='utf-8')))
         except (OSError, ValueError):
