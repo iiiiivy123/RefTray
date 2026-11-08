@@ -3,6 +3,8 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.47"><img src="docs/assets/download-preview.svg" alt="下载 0.5.47 预发布版" height="40"></a>
+  &nbsp;
   <a href="https://github.com/iiiiivy123/inspiration-collector/releases/latest"><img src="docs/assets/download.svg" alt="下载 Windows 安装包" height="40"></a>
   &nbsp;
   <a href="docs/README.md"><img src="docs/assets/docs.svg" alt="项目文档" height="40"></a>
@@ -39,14 +41,14 @@
 
 **需要 Windows 10/11 64 位 + Chrome。** 安装包内置 Python 与媒体组件，不用自己配置开发环境。
 
-1. **下载安装。** 前往 [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest)，在 **Assets** 下载 Windows 安装包，不要下载源码 ZIP。
+1. **下载安装。** 试用新版请下载 [0.5.47 预发布版](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.47)；稳定版前往 [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest)，在 **Assets** 下载 Windows 安装包，不要下载源码 ZIP。
 2. **启动本地程序。** 打开「灵感采集」，程序会在 Windows 右下角系统托盘运行。
 3. **加载 Chrome 扩展。** 打开 `chrome://extensions` → 开启「开发者模式」→「加载已解压的扩展程序」。从托盘菜单复制 `extension` 文件夹的实际地址，选择该文件夹。
 4. **保存第一份素材。** 固定工具栏扩展，选择本地素材库，打开支持的作品页并选择采集内容。
 
 [首次安装 →](docs/install.md) · [旧版更新 →](docs/update.md) · [完整教程与故障排查 →](docs/usage.md)
 
-当前版本为 **0.5.37**，最新代码统一在 `main`。[版本说明](docs/release-0.5.37.md) · [完整代码审查交接](docs/REVIEW_HANDOFF.md)。
+最新预发布版为 **[0.5.47](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.47)**，稳定版为 **0.5.37**。预发布版的更新与待验证项见发布说明；稳定版代码在 `main`。[版本说明](docs/release-0.5.37.md) · [完整代码审查交接](docs/REVIEW_HANDOFF.md)。
 
 > **更新旧版：** 先在系统托盘右键 → **退出灵感采集**，再安装新版，最后到 Chrome 扩展管理页点**重新加载**。仅关闭浏览器或弹窗不会退出后台。
 
