@@ -39,9 +39,9 @@ Windows 10/11 x64 and Chrome are required. The installer includes the runtime an
 
 ## MCP for AI clients
 
-The local stdio interface offers nine tools for status, public images, Chrome capture, saved-file lookup, video resolution, single-video download, video queues, stopping queues and job status.
+The **0.5.48 candidate on this development branch** adds background execution, shared capture options, batch capture, task control and diagnostics, bringing MCP to 16 tools. Live Chrome verification with the popup closed remains pending; see [current status](docs/CURRENT.md).
 
-For `reftray_capture_browser`, open the target work in Chrome and keep its RefTray popup open. The extension uses the logged-in page. The direct download tools make requests from the local backend instead. [Setup and tool parameters](docs/mcp.md)
+The published **0.5.47** still offers nine tools and requires the RefTray popup to stay open for Chrome capture. Direct download tools use the local backend. [0.5.48 setup and tool parameters](docs/mcp.md)
 
 ## Platforms
 

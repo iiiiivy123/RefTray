@@ -27,8 +27,7 @@ def configure_shutdown(application, stop):
                 return JSONResponse({'ready': False, 'resumed': True})
             if mode not in ('', 'wait', 'stop'):
                 return JSONResponse({'detail': 'Invalid shutdown mode'}, status_code=422)
-            busy = (state['requests'] or runtime.active_urls or runtime.videos.busy()
-                    or any(item.get('state') == 'pending' for item in runtime.folder_requests.values()))
+            busy = state['requests'] or runtime.busy()
             if busy and not mode:
                 return JSONResponse({'detail': '正在采集或处理请求，请选择等待或本篇结束后停止'}, status_code=409)
             state.update(draining=True, lease=time.monotonic() + 30)
@@ -45,7 +44,7 @@ def configure_shutdown(application, stop):
             return JSONResponse({'ready': True})
         if state['draining'] and not state['exit_scheduled'] and time.monotonic() > state['lease']:
             state['draining'] = False
-        controls = request.url.path.startswith(('/collect/control/', '/video/control/'))
+        controls = request.url.path.startswith(('/collect/control/', '/video/control/', '/browser/progress/', '/browser/result/', '/browser/control/'))
         if state['draining'] and request.method != 'GET' and not controls and request.url.path != '/tasks':
             return JSONResponse({'detail': '后台正在收尾，请等待更新或取消退出'}, status_code=503)
         if request.url.path == '/health':

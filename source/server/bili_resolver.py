@@ -1,6 +1,37 @@
 """Adapt yt-dlp's licensed BiliBili extractor to the collector's guarded single-work transport."""
 import re
+from copy import deepcopy
 from urllib.parse import parse_qs,urlsplit
+
+
+def supported_cdn_url(value):
+    try:
+        u = urlsplit(value or '')
+        return (u.scheme == 'https' and not u.username and not u.password and u.port in (None, 443)
+                and any(u.hostname == d or (u.hostname or '').endswith('.'+d)
+                        for d in ('bilivideo.com', 'bilivideo.cn')))
+    except ValueError:
+        return False
+
+
+def prefer_supported_cdn(play_info):
+    """Use only alternatives supplied for this exact track by Bilibili."""
+    result = deepcopy(play_info)
+    dash = result.get('dash') or {}
+    tracks = [*(dash.get('video') or []), *(dash.get('audio') or []),
+              *((dash.get('dolby') or {}).get('audio') or []), *(result.get('durl') or [])]
+    flac = (dash.get('flac') or {}).get('audio')
+    if flac:
+        tracks.append(flac)
+    for track in tracks:
+        candidates = [track.get('baseUrl'), track.get('base_url'), track.get('url'),
+                      *(track.get('backupUrl') or track.get('backup_url') or [])]
+        selected = next((url for url in candidates if supported_cdn_url(url)), None)
+        if selected:
+            for key in ('baseUrl', 'base_url', 'url'):
+                if key in track:
+                    track[key] = selected
+    return result
 
 
 def single_source(data,url,output_format='original'):
@@ -19,11 +50,10 @@ def single_source(data,url,output_format='original'):
     streams=data.get('requested_formats') or [data]
     if not 1<=len(streams)<=2:raise ValueError('B站返回了未知轨道组合')
     for track in streams:
-        u=urlsplit(track.get('url',''))
-        if (u.scheme!='https' or u.username or u.password or u.port not in (None,443)
-                or not any(u.hostname==d or (u.hostname or '').endswith('.'+d) for d in ('bilivideo.com','bilivideo.cn'))
-                or track.get('has_drm') or track.get('protocol','https') not in ('https','http')):
-            raise ValueError('B站媒体协议、CDN域名或保护标记不符合下载要求')
+        if track.get('has_drm'):
+            raise ValueError('当前B站音视频轨道受保护')
+        if not supported_cdn_url(track.get('url')) or track.get('protocol','https') not in ('https','http'):
+            raise ValueError('当前B站音视频轨道没有可用的常规HTTPS下载地址')
         validate_url(track['url'])
     audio=next((s for s in streams if s.get('acodec') not in (None,'none')),None)
     videos=[s for s in streams if s.get('vcodec') not in (None,'none')]

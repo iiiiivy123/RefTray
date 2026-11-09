@@ -286,7 +286,10 @@ class Catalog:
             conditions.append("(id=? OR id " + ('IN' if view == 'ignored' else 'NOT IN') + " (SELECT value FROM json_each(?)))")
             params.extend((active_id if view != 'ignored' else '', json.dumps(list(ignored_ids))))
             if view == 'running':
-                conditions.append('id=?'); params.append(active_id)
+                if active_id:
+                    conditions.append('id=?'); params.append(active_id)
+                else:
+                    conditions.append("status IN ('running','waiting_browser','stopping')")
             elif view == 'unfinished':
                 conditions.append("id!=? AND ((saved>0 AND (failed>0 OR status='partial')) OR status IN ('stopped','interrupted','paused') OR (NOT COALESCE(completed,0) AND status!='failed'))")
                 params.append(active_id)

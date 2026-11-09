@@ -278,7 +278,7 @@ async function runSocialBatch(tab, port, options, platform) {
     if(huaban)return /^(www\.)?huaban\.com$/.test(u.hostname)?u.pathname.match(/^\/pins\/(\d+)\/?$/)?.[1]:null;
     if(artstation)return /(^|\.)artstation\.com$/.test(u.hostname)?u.pathname.match(/^\/artwork\/([a-zA-Z0-9]+)\/?$/)?.[1]:null;
     if(youtube)return /(^|\.)youtube\.com$/.test(u.hostname)&&u.pathname==='/watch'?u.searchParams.get('v'):null;
-    if(bilibili)return /^(www\.)?bilibili\.com$/.test(u.hostname)?u.pathname.match(/^\/(?:video\/BV[\da-zA-Z]{10}|opus\/\d+|read\/cv\d+)\/?$/)?.[0]:null;
+    if(bilibili)return CollectorBiliParts.key(value)||(/^(www\.)?bilibili\.com$/.test(u.hostname)?u.pathname.match(/^\/(?:opus\/\d+|read\/cv\d+)\/?$/)?.[0]:null);
     if(instagram)return /(^|\.)instagram\.com$/.test(u.hostname) ? u.pathname.match(/^\/(?:[\w.]+\/)?(?:p|reels?)\/([\w-]{5,30})\/?$/)?.[1] : null;
     return /(^|\.)(x\.com|twitter\.com)$/.test(u.hostname) ? u.pathname.match(/^\/[\w]+\/status\/(\d+)\/?$/)?.[1] : null;
   };
@@ -286,12 +286,19 @@ async function runSocialBatch(tab, port, options, platform) {
     await batchProblem(tab.id);
     const current=await chrome.tabs.get(tab.id);
     if(/\/(accounts\/login|challenge|checkpoint|i\/flow|login)(\/|$)/i.test(new URL(current.url).pathname))throw new Error('NEEDS_ATTENTION: 请先完成登录或验证，再回作者主页续采。');
-    const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id},world:youtube?'MAIN':'ISOLATED',files:[huaban?'huaban-list.js':artstation?'artstation-list.js':youtube?'youtube.js':bilibili?'bilibili.js':instagram?'instagram-profile.js':'x-profile.js']});
+    const parts=bilibili&&Boolean(CollectorBiliParts.key(current.url));
+    const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id},world:youtube||parts?'MAIN':'ISOLATED',files:[huaban?'huaban-list.js':artstation?'artstation-list.js':youtube?'youtube.js':parts?'bilibili-parts.js':bilibili?'bilibili.js':instagram?'instagram-profile.js':'x-profile.js']});
     if (!result || result.error) throw new Error(result?.error || '无法读取作者主页');
     return result;
   };
   const profile = await snapshot();
+  const finiteParts=profile.view==='parts';
+  if(finiteParts&&Number(options.skip_posts||0)>=profile.urls.length)throw Error('选集共 '+profile.urls.length+' 集，跳过数量已超出范围');
   await beginBatch({...tab,url:profile.author_url+(instagram&&profile.view==='reels'?'/reels':'')},platform+'-author',options);
+  if(finiteParts){
+    taskContext.batch.limit=Math.min(taskContext.batch.limit,profile.urls.length-Number(taskContext.batch.options.skip_posts||0));
+    taskContext.batch.queue_complete=true;
+  }
   const group = {author_url:profile.author_url,author_name:profile.author_name,...Object.fromEntries(Object.entries(profile).filter(([k])=>k.startsWith('list_')))};
   const queue = new Set(taskContext.batch.queue);
   let idle = 0, workTab, keep = false;
@@ -353,14 +360,18 @@ async function runSocialBatch(tab, port, options, platform) {
           }
         }
         try {
-          await recordPost(url,payload ? await processBatchPost({...workTab,url},port,group,payload) : {status:'failed',url,reason:issue});
+          if(payload&&finiteParts){
+            const part=profile.parts.find(p=>postId(p.url)===postId(url));
+            payload.page_title='P'+String(part.page).padStart(3,'0')+' '+part.title;
+          }
+          await recordPost(url,payload ? await processBatchPost({...workTab,url},port,group,payload) : {status:'failed',...(finiteParts?{video_count:1}:{}),url,reason:issue});
         } catch(error) {
           if(error.message==='USER_STOPPED'||error.message.includes('NEEDS_ATTENTION')||/fetch|保存服务|超时/i.test(error.message))throw error;
-          await recordPost(url,{status:'failed',url,reason:error.message});
+          await recordPost(url,{status:'failed',...(finiteParts?{video_count:1}:{}),url,reason:error.message});
         }
         await controlledWait(Object.keys(taskContext.batch.records).length%10===0?20000:2500);
       }
-      if(batchFull())break;
+      if(batchFull()||finiteParts)break;
       await reportProgress({message:videoBatch()?`扫描 ${label} 作者主页 · 视频额度 ${batchCount()}/${taskContext.batch.limit} · 已检查 ${Object.keys(taskContext.batch.records).length} 篇`:`扫描 ${label} 作者主页 · 已处理 ${Object.keys(taskContext.batch.records).length}/${taskContext.batch.limit} 篇`});
       if(bilibili&&idle>=1){
         await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>{

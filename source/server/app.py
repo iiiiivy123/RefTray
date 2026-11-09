@@ -43,7 +43,7 @@ def create_app(runtime=None):
     catalog = storage.catalog
     videos = runtime.videos if runtime is not None else VideoDownloads(catalog)
     for record in catalog.tasks() if catalog is not None else ():
-        if record.get('mode') in ('video-queue', 'browser-capture') and record.get('status') == 'running':
+        if record.get('mode') in ('video-queue', 'browser-capture') and record.get('status') in ('running', 'waiting_browser', 'paused', 'stopping'):
             catalog.save_task({**record, 'status': 'interrupted', 'completed': False,
                                'message': '后台已重启，已保存结果保留，请核对后重新提交'},
                               expected_revision=record.get('revision', 0))
@@ -53,6 +53,7 @@ def create_app(runtime=None):
     folder_requests = {}
     local_tools_busy = lambda: False
     local_tools_stop = lambda: None
+    media_jobs_busy = lambda: False
     from .components import CapabilityCache
     capability_cache = CapabilityCache()
     RELEASE = json.loads((Path(__file__).resolve().parents[1] / 'extension/manifest.json').read_text(encoding='utf-8'))['version']
@@ -81,7 +82,7 @@ def create_app(runtime=None):
     def health_data() -> dict[str, object]:
         # Protocol stays compatible; release identifies the deployed capabilities.
         cached = capability_cache.snapshot()
-        return {**health_protocol(), "download_protection": True, "disk_protection": False, "streaming_capture": True, "release": RELEASE, "last_paired_extension": last_extension, "md_only": True, "bilibili_mux": cached["values"].get("mp4_remux"), "components": cached["values"], "capabilities_state": cached["state"], "library_configured": settings.library_configured, "native_folder_picker": True, "busy": bool(active_urls) or video_queue.busy() or videos.busy() or local_tools_busy() or any(item.get("state") == "pending" for item in folder_requests.values())}
+        return {**health_protocol(), "download_protection": True, "disk_protection": False, "streaming_capture": True, "release": RELEASE, "last_paired_extension": last_extension, "md_only": True, "bilibili_mux": cached["values"].get("mp4_remux"), "components": cached["values"], "capabilities_state": cached["state"], "library_configured": settings.library_configured, "native_folder_picker": True, "busy": busy()}
 
 
     def health_protocol() -> dict[str, object]:
@@ -202,6 +203,7 @@ def create_app(runtime=None):
     @app.get('/tasks')
     def task_history(request: Request, page: int | None = None, page_size: int = 20, view: str | None = None, ignored: str = '[]', active: str = ''):
         authorize_settings(request)
+        app.state.browser_bridge.expire()
         if page is None:
             return {'items': catalog.tasks()}
         if page < 1 or not 1 <= page_size <= 100:
@@ -219,6 +221,7 @@ def create_app(runtime=None):
     @app.get('/tasks/{task_id}')
     def task_detail(task_id: str, request: Request):
         authorize_settings(request)
+        app.state.browser_bridge.expire()
         item = catalog.get_task(task_id)
         if item is None:
             raise HTTPException(404, '任务记录不存在')
@@ -385,6 +388,12 @@ def create_app(runtime=None):
         try:return resolve(value.url, value.subtitle_language, value.captions, value.quality,value.output_format)
         except (ValueError, OSError) as exc:raise HTTPException(422, str(exc)) from exc
 
+    from .media_jobs import attach as attach_media_jobs
+    def discover_media(value):
+        from .media_resolver import resolve
+        return resolve(value.url, value.subtitle_language, value.captions, value.quality, value.output_format)
+    media_jobs_busy = attach_media_jobs(app, authorize_settings, ResolveMedia, discover_media)
+
 
     class ResolvedProbe(BaseModel):
         resolver_id: str = Field(min_length=1, max_length=100)
@@ -528,6 +537,7 @@ def create_app(runtime=None):
             raise HTTPException(400, str(exc)) from exc
 
     def request_stop_all():
+        app.state.browser_bridge.stop_all()
         with lock:
             for job in jobs.values():
                 if job['status'] == 'running':
@@ -536,11 +546,28 @@ def create_app(runtime=None):
         videos.request_stop_all()
         local_tools_stop()
 
+    def busy():
+        return (bool(active_urls) or video_queue.busy() or videos.busy() or local_tools_busy()
+                or media_jobs_busy() or app.state.browser_bridge.busy()
+                or any(item.get('state') == 'pending' for item in folder_requests.values()))
+
     from types import SimpleNamespace
     app.state.runtime = SimpleNamespace(settings=settings, storage=storage, videos=videos, jobs=jobs, active_urls=active_urls,
-                                        folder_requests=folder_requests, capability_cache=capability_cache, request_stop_all=request_stop_all)
+                                        folder_requests=folder_requests, capability_cache=capability_cache, request_stop_all=request_stop_all, busy=busy)
     from .browser_bridge import attach as attach_browser
-    attach_browser(app, authorize_settings, origins, catalog)
+    def stop_browser_child(child):
+        if not child:
+            return
+        with lock:
+            job = jobs.get(child.get('jobId')) if child.get('kind') == 'collect' else None
+            if job and job['status'] == 'running':
+                job.update(status='stopping', message='正在停止', cancel_acknowledged=False)
+        if child.get('kind') == 'video':
+            try:
+                videos.control(child['jobId'], 'stopped')
+            except (ValueError, KeyError):
+                pass
+    attach_browser(app, authorize_settings, origins, catalog, RELEASE, stop_browser_child)
     from .local_tools import attach
     local_tools_busy, local_tools_stop = attach(app, lambda: settings, authorize_settings)
     return app

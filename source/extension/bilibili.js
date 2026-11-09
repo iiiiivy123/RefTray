@@ -2,6 +2,7 @@
 (() => {
   const bv = value => {try {const u=new URL(value);return /^(www\.)?bilibili\.com$/.test(u.hostname)?u.pathname.match(/^\/video\/(BV[\da-zA-Z]{10})\/?$/)?.[1]:null;}catch(_){return null;}};
   const mediaUrl = value => {try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&(!u.port||u.port==='443')&&/(^|\.)bilivideo\.(com|cn)$/.test(u.hostname)?u.href:null;}catch(_){return null;}};
+  const trackUrls = x => [x.baseUrl,x.base_url,x.url,...(Array.isArray(x.backupUrl)?x.backupUrl:[]),...(Array.isArray(x.backup_url)?x.backup_url:[])].map(mediaUrl).filter(Boolean);
   function post(url,state,play,quality='best',outputFormat='original',playerIdentity=null) {
     const id=bv(url),video=state?.videoData;
     if(!id||video?.bvid!==id||!/^\d+$/.test(String(video?.owner?.mid||'')))throw Error('未确认当前B站稿件和UP主，未保存广告或推荐内容');
@@ -23,7 +24,7 @@
     else if(mismatch)error='[BILI_ID_MISMATCH] 播放信息身份与当前稿件或分P不匹配，未读取其他视频';
     else if(!bound)error='[BILI_ID_UNBOUND] 无法确认播放信息绑定当前分P；请等待播放器加载并播放后重试，不凭文件路径猜测来源';
     else if(data.dash){
-      const trackUrl=x=>[x.baseUrl,x.base_url,...(Array.isArray(x.backupUrl||x.backup_url)?x.backupUrl||x.backup_url:[])].map(mediaUrl).find(Boolean);
+      const trackUrl=x=>trackUrls(x)[0];
       const valid=(items,type)=>(items||[]).filter(x=>x&&trackUrl(x)&&!x.drm&&(!(x.mimeType||x.mime_type)||String(x.mimeType||x.mime_type).toLowerCase().startsWith(type+'/')));
       const allVideos=valid(data.dash.video,'video');
       const codec=x=>x.codecs||({7:'avc1',12:'hev1',13:'av01'})[x.codecid]||'';
@@ -40,8 +41,8 @@
         error=`[BILI_TRACK_FILTER] 当前分P ${cid} 已绑定。网页视频 ${(data.dash.video||[]).length} 条、音轨 ${(data.dash.audio||[]).length} 条；地址通过视频 ${allVideos.length} 条、符合画质视频 ${videos.length} 条、AAC ${audios.length} 条。${outputFormat==='audio'?'音频输出仅要求有效音轨。':'完整视频要求视频和音轨均有效。'} 视频诊断：${reason(data.dash.video,'video')}。音轨诊断：${reason(data.dash.audio,'audio')}。`;
       }
     }else if(data.durl?.length===1){
-      const url=mediaUrl(data.durl[0].url);
-      if(url && !/\.flv(?:[?#]|$)/i.test(url))source={url,media_kind:'bilibili-file',quality:String(data.quality||'当前'),duration:Number(data.timelength)/1000||null,...pickPage(payload)};
+      const url=trackUrls(data.durl[0]).find(value=>!/\.flv(?:[?#]|$)/i.test(value));
+      if(url)source={url,media_kind:'bilibili-file',quality:String(data.quality||'当前'),duration:Number(data.timelength)/1000||null,...pickPage(payload)};
       else error='[BILI_FILE_UNSUPPORTED] 当前地址协议、CDN域名或格式不支持，未把FLV分段当作完整文件';
     }else error='[BILI_FORMAT_UNSUPPORTED] 当前是多段或未知格式，未保存不完整内容';
     return {payload,source,error};

@@ -102,15 +102,16 @@ class LocalToolTests(unittest.TestCase):
             with self.opener.open(Request(self.base+path, data=json.dumps(body).encode(), headers=headers), timeout=5) as response:
                 return json.load(response)
         job = request('/browser/capture', {'url':'https://example.org/article?xsec_token=private', 'mode':'text'})
+        client = {'client_id':'http-test', 'release':self.api('/health')['release']}
         with self.assertRaises(HTTPError) as rejected:
-            request('/browser/claim', {})
+            request('/browser/claim', client)
         self.assertEqual(rejected.exception.code, 403)
-        item = request('/browser/claim', {}, origin)['item']
+        item = request('/browser/claim', client, origin)['item']
         self.assertEqual(item['id'], job['job_id'])
-        self.assertIsNone(request('/browser/claim', {}, origin)['item'])
+        self.assertIsNone(request('/browser/claim', client, origin)['item'])
         with self.assertRaises(HTTPError):
-            request('/browser/result/'+item['id'], {'status':'completed','message':'saved'}, 'https://example.org')
-        request('/browser/result/'+item['id'], {'status':'completed','message':'saved','result':{'files':['a.md']}}, origin)
+            request('/browser/result/'+item['id'], {**client,'status':'completed','message':'saved'}, 'https://example.org')
+        request('/browser/result/'+item['id'], {**client,'status':'completed','message':'saved','result':{'files':['a.md']}}, origin)
         saved = self.api('/tasks/'+item['id'])['item']
         self.assertEqual(saved['status'], 'completed')
         self.assertNotIn('private', json.dumps(saved))

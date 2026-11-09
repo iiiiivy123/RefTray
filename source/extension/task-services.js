@@ -37,6 +37,7 @@ async function approveDownloads(entries){
   let known=0;for(const [url,item]of unique){if(item.bytes==null)unknown++;else known+=item.bytes;approvedSizes.set(url,item.bytes);if(item.bytes>(taskContext.options.max_video_mb||512)*1048576)throw new Error('有视频超过单个文件上限，请修改设置或跳过视频。');}
   // Consent is scoped to this task; later sources still get size probes and hard byte limits.
   if(downloadConsent || [...unique.values()].every(e=>e.local) && !unknown)return;
+  if(taskContext.bridgeId){downloadConsent=true;return;}
   const local=[...unique.values()].reduce((n,e)=>n+(e.local?(e.bytes||0):0),0);
   const qualities=[...new Set([...unique.values()].map(e=>e.source.quality||'当前源（未标注画质）'))].join('、');
   const format=n=>n>=1073741824?(n/1073741824).toFixed(2)+' GB':(n/1048576).toFixed(1)+' MB';

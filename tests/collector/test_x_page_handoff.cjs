@@ -45,4 +45,14 @@ test('X multiple page videos require selection instead of taking a guest singlet
  const c=vm.createContext({URL,loadedPageMedia:async()=>({postId:'1234567890123',media:[{kind:'video',url:'https://video.twimg.com/one.mp4'},{kind:'video',url:'https://video.twimg.com/two.mp4'}]}),matureMedia:async()=>{calls++;return {media:[{kind:'video',url:'https://video.twimg.com/wrong.mp4'}]};}});
  vm.runInContext(fn('videoSource','browserYouTubeCaptions'),c);
  await assert.rejects(c.videoSource({id:1,url},{}),/多个动态媒体/);assert.equal(calls,0);
+ assert.equal((await c.videoSource({id:1,url},{},true)).length,2);assert.equal(calls,0);
+});
+
+test('MCP queues every identity-checked public fallback video while manual selection stays explicit',async()=>{
+ const media=[{kind:'video',url:'one'},{kind:'gif',url:'two'}];let calls=0;
+ const c=vm.createContext({URL,loadedPageMedia:async()=>{throw Error('page unavailable');},matureMedia:async()=>{calls++;return {media};}});
+ vm.runInContext(fn('videoSource','browserYouTubeCaptions'),c);
+ const result=await c.videoSource({id:1,url},{},true);
+ assert.equal(result.length,2);assert.equal(result[1].url,'two');assert.match(result[0].resolver_warning,/page unavailable/);assert.equal(calls,1);
+ await assert.rejects(c.videoSource({id:1,url},{}),/多个动态媒体/);
 });

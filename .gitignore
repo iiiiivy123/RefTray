@@ -120,3 +120,10 @@
 
 !/docs/release-0.5.47.md
 /installer/*.generated.iss
+!/tests/collector/test_browser_bridge.py
+!/tests/collector/test_browser_runner.cjs
+!/tests/collector/test_media_jobs.py
+!/docs/release-0.5.48.md
+!/tests/collector/test_bilibili_parts.cjs
+!/tests/collector/test_bili_sources.cjs
+!/tests/collector/test_media_candidates.cjs

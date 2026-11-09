@@ -1,5 +1,5 @@
 const BUILD = '0.5.0';
-if (typeof importScripts === 'function') importScripts('health-client.js','task-progress.js','task-store.js','capture-options.js','batch.js','task-services.js');
+if (typeof importScripts === 'function') importScripts('health-client.js','task-progress.js','task-store.js','capture-options.js','bilibili-parts.js','batch.js','task-services.js');
 let healthCache,taskContext={options:{},imageQuotaUsed:0};
 
 let videoSession;
@@ -10,8 +10,20 @@ let resolvedMedia=new Map();
 const imagesRemaining=()=>taskContext.options.max_images>0?Math.max(0,taskContext.options.max_images-taskContext.imageQuotaUsed):Infinity;
 function reserveImages(count){taskContext.imageQuotaUsed+=count;if(typeof taskContext.batch!=='undefined'&&taskContext.batch)taskContext.batch.image_used=taskContext.imageQuotaUsed;}
 async function matureMedia(url){
-  if(!resolvedMedia.has(url))resolvedMedia.set(url,service('/media/resolve',{url,output_format:taskContext.options.output_format==='audio'?'audio':'original',quality:taskContext.options.video_quality||'best',subtitle_language:taskContext.options.subtitle_language||'auto',captions:taskContext.options.output_format!=='audio'&&taskContext.options.subtitle_mode!=='none'}).catch(error=>{resolvedMedia.delete(url);throw error;}));
+  if(!resolvedMedia.has(url))resolvedMedia.set(url,resolveMediaInWorker({url,output_format:taskContext.options.output_format==='audio'?'audio':'original',quality:taskContext.options.video_quality||'best',subtitle_language:taskContext.options.subtitle_language||'auto',captions:taskContext.options.output_format!=='audio'&&taskContext.options.subtitle_mode!=='none'}).catch(error=>{resolvedMedia.delete(url);throw error;}));
   return resolvedMedia.get(url);
+}
+async function resolveMediaInWorker(options){
+  if(!taskContext.bridgeId)return service('/media/resolve',options);
+  const job=await service('/media/resolve/start',options);
+  for(let i=0;i<180;i++){
+    await controlPoint();
+    const state=await service('/media/resolve/status/'+job.job_id);
+    if(state.status==='completed')return state.result;
+    if(state.status==='failed')throw new Error(state.message);
+    await wait(1000);
+  }
+  throw new Error('读取视频超时，请重试');
 }
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -433,7 +445,7 @@ async function downloadApi(port, token, path, body) {
   return value;
 }
 
-async function videoSource(tab,options) {
+async function videoSource(tab,options,allMedia=false) {
   let resolverWarning='';
   if(/(^|\.)artstation\.com$/.test(new URL(tab.url).hostname)){
     let selected=options.source;
@@ -459,6 +471,7 @@ async function videoSource(tab,options) {
       if(!postId||String(page.postId||'')!==postId)throw new Error('[X_PAGE_ID] 页面返回的帖子编号与当前链接不一致');
     } catch(error){pageFailure=String(error.message||error).slice(0,1000);page=null;}
     const motion=(page?.media||[]).filter(m=>m.kind==='gif'||m.kind==='video');
+    if(allMedia&&motion.length)return motion.map(m=>({...m,canonical_url:tab.url.split('?')[0],page_title:tab.title}));
     if(motion.length===1)return {...motion[0],canonical_url:tab.url.split('?')[0],page_title:tab.title};
     if(motion.length>1)throw new Error('当前帖有多个动态媒体，请选择其中一个或使用全部视频排队');
     const states={main_post_missing:'没有找到当前主帖',post_data_missing:'已找到主帖，但未取得帖子媒体数据',post_without_media:'已读取主帖数据，但没有可下载的视频地址',parser_failed:'主帖媒体数据解析出错',media_found:'当前帖只读到静态图片'};
@@ -466,6 +479,7 @@ async function videoSource(tab,options) {
     try {
       const resolved=await matureMedia(tab.url);
       const media=(resolved.media||[]).filter(m=>m.kind==='video'||m.kind==='gif');
+      if(allMedia&&media.length)return media.map(m=>({...m,resolver_warning:pageFailure}));
       if(media.length!==1)throw new Error(media.length?'当前帖有多个动态媒体，请选择其中一个或使用全部视频排队':'后台未返回当前帖的视频地址');
       return {...media[0],resolver_warning:pageFailure};
     } catch(error){throw new Error(String(error.message||error)+'\n页面读取：'+pageFailure);}
@@ -869,10 +883,10 @@ async function collect(mode, port, options = {}, testTarget) {
   if (active) await chrome.storage.local.remove("liblibActiveJob");
   const tab = testTarget ? await chrome.tabs.get(testTarget.id) : (await chrome.tabs.query({active: true, currentWindow: true}))[0];
   if(testTarget && tab.url !== testTarget.url) throw new Error('测试目标页面已改变，请重新选择标签页。');
-  taskContext = {imageQuotaUsed:0,options:CaptureOptions.snapshot(options),control:'running',backendJobId:null,id:crypto.randomUUID(),url:tab?.url?.replace(/([?&])(?:xsec_token|xsec_source)=[^&#]*/g,'$1'), mode, title:tab?.title};
+  taskContext = {bridgeId:testTarget?.bridgeId,imageQuotaUsed:0,options:CaptureOptions.snapshot(options),control:'running',backendJobId:null,id:crypto.randomUUID(),url:tab?.url?.replace(/([?&])(?:xsec_token|xsec_source)=[^&#]*/g,'$1'), mode, title:tab?.title};
   if (!tab?.id || (!/^https?:/i.test(tab.url || "") && !(mode === 'video' && tab.url === chrome.runtime.getURL('video.html')))) throw new Error("请打开普通网页后再采集");
-  await chrome.storage.local.set({liblibActiveJob: {mode, startedAt: Date.now(), build: BUILD, testRunId:testTarget?.runId}});
-  await chrome.storage.local.set({liblibControl: "running"});
+  await chrome.storage.local.set({liblibActiveJob: {mode, startedAt: Date.now(), build: BUILD, bridgeId:testTarget?.bridgeId, testRunId:testTarget?.runId}});
+  if(!testTarget?.bridgeId)await chrome.storage.local.set({liblibControl: "running"});
   await reportProgress({message: mode === 'author' ? '准备读取作者主页' : '准备保存当前页'});
   try {
     const health = await reftrayHealth(`http://127.0.0.1:${port}/health`).then(r => r.json());
@@ -898,7 +912,9 @@ async function collect(mode, port, options = {}, testTarget) {
     if(mode==='author' && /(^|\.)instagram\.com$/.test(new URL(tab.url).hostname)) return await runSocialBatch(tab,port,options,'instagram');
     if(mode==='author' && /(^|\.)bilibili\.com$/.test(new URL(tab.url).hostname))return await runSocialBatch(tab,port,options,'bilibili');
     if(mode==='author' && /(^|\.)youtube\.com$/.test(new URL(tab.url).hostname))return await runSocialBatch(tab,port,options,'youtube');
-    if (mode === 'download' || mode === 'download-frames') return await downloadVideo(tab, port, options, health, mode === 'download-frames');
+    if (mode === 'download' || mode === 'download-frames') return taskContext.bridgeId
+      ? await BrowserRunner.downloadVideos(tab,port,options,health,mode==='download-frames')
+      : await downloadVideo(tab, port, options, health, mode === 'download-frames');
     if (mode === 'video' && options.savedAsset) {
       const saved = await downloadApi(port, health.settings_token, `/video/info/${encodeURIComponent(options.savedAsset)}`);
       return await collectVideo(tab, port, options, saved.page);
@@ -915,8 +931,8 @@ async function collect(mode, port, options = {}, testTarget) {
 }
 
 let scanInProgress=false;
-async function scanLoadedPage(tabId,url){
-  if(taskRunning||scanInProgress)throw new Error('已有任务或扫描正在运行');
+async function scanLoadedPage(tabId,url,owned=false){
+  if(taskRunning&&!owned||scanInProgress)throw new Error('已有任务或扫描正在运行');
   if(!chrome.storage.session)throw new Error('当前浏览器不支持保存扫描结果');
   scanInProgress=true;
   const options={collection_mode:'text',include_images:true,include_videos:true,include_comments:false,ocr_enabled:false};
@@ -926,6 +942,7 @@ async function scanLoadedPage(tabId,url){
   try{
     healthCache=await reftrayHealth('http://127.0.0.1:8766/health').then(response=>response.json());
     for(let step=0;step<12;step++){
+      if(owned)await controlPoint();
       const tab=await chrome.tabs.get(tabId);
       if(tab.url!==url)throw new Error('页面已切换，已停止扫描');
       const payload=await readPagePayload(tabId,options,tab);
@@ -961,55 +978,8 @@ async function scanLoadedPage(tabId,url){
   }
 }
 
-let browserBridgeBusy=false;
-async function receiveBrowserCapture(){
-  if(taskRunning || scanInProgress || browserBridgeBusy)return;
-  browserBridgeBusy=true;
-  let item,health,ownsTask=false;
-  const api=async(path,value)=>{
-    const response=await fetch('http://127.0.0.1:8766'+path,{method:value===undefined?'GET':'POST',
-      headers:{'Content-Type':'application/json','X-Collector-Token':health.settings_token},
-      ...(value===undefined?{}:{body:JSON.stringify(value)}),signal:AbortSignal.timeout(10000)});
-    const data=await response.json();
-    if(!response.ok)throw new Error(data.detail||'Chrome 采集连接失败');
-    return data;
-  };
-  try{
-    health=await reftrayHealth('http://127.0.0.1:8766/health').then(r=>r.json());
-    if(health.release!==chrome.runtime.getManifest().version)return;
-    ({item}=await api('/browser/claim',{}));
-    if(!item)return;
-    const identity=value=>{
-      const u=new URL(value);u.hash='';
-      for(const key of [...u.searchParams.keys()])if(/^(xsec_token|xsec_source|utm_.+|igsh|igshid|fbclid)$/i.test(key))u.searchParams.delete(key);
-      u.searchParams.sort();return u.href.replace(/\/(?=\?|$)/,'');
-    };
-    const target=identity(item.url);
-    const tabs=(await chrome.tabs.query({})).filter(tab=>/^https?:/.test(tab.url||'')&&identity(tab.url)===target);
-    if(tabs.length!==1)throw new Error(tabs.length?'相同网页打开了多个标签，请保留一个后重试':'请先在 Chrome 打开请求中的网页后重试');
-    if(taskRunning)throw new Error('已有采集任务正在运行，请完成后重试');
-    taskRunning=true;ownsTask=true;
-    const savedDefaults=await api('/settings/defaults');
-    const options={max_video_mb:savedDefaults.max_video_mb,duplicate_policy:savedDefaults.duplicate_policy,collection_mode:item.mode==='text'?'text':'images',include_images:true,
-      include_videos:item.mode==='video',include_comments:false,ocr_enabled:false,subtitle_mode:'none'};
-    const result=await collect(item.mode==='video'?'download':'current',8766,options,{id:tabs[0].id,url:tabs[0].url,runId:item.id});
-    const status=TaskProgress.resultStatus(result);
-    await reportProgress({status,percent:100,message:result.message||'Chrome 页面已保存',directory:result.directory});
-    await api('/browser/result/'+item.id,{status,message:result.message||'Chrome 页面已保存',result});
-  }catch(error){
-    if(item){
-      const message=String(error.message).replace(/https?:\/\/[^\s"<>]+/g,'[链接]').slice(0,1000);
-      if(ownsTask)await reportProgress({status:'failed',message}).catch(()=>{});
-      await api('/browser/result/'+item.id,{status:'failed',message}).catch(()=>{});
-    }
-  }finally{
-    if(ownsTask)taskRunning=false;
-    browserBridgeBusy=false;
-  }
-}
-
-async function previewCollection(tabId,url){
-  if(taskRunning)throw new Error('当前任务正在运行，请完成后重新识别');
+async function previewCollection(tabId,url,owned=false){
+  if(taskRunning&&!owned)throw new Error('当前任务正在运行，请完成后重新识别');
   const tab=await chrome.tabs.get(tabId);
   if(tab.url!==url)throw new Error('页面已切换，请重新识别');
   const health=await reftrayHealth('http://127.0.0.1:8766/health').then(r=>r.json());
@@ -1037,7 +1007,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if(message.type==='POLL_BROWSER_REQUESTS'){
     if(_sender.id!==chrome.runtime.id || _sender.url?.split('#')[0]!==chrome.runtime.getURL('popup.html'))return false;
-    receiveBrowserCapture();sendResponse({ok:true});return false;
+    BrowserRunner.receive();sendResponse({ok:true});return false;
   }
   if(message.type==='PREVIEW_COLLECTOR'){
     if(_sender.id!==chrome.runtime.id){sendResponse({ok:false,error:'无效的扩展请求'});return false;}
@@ -1099,12 +1069,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     })().catch(error=>sendResponse({ok:false,error:error.message}));return true;
   }
   if (message.type === "CONTROL_COLLECTOR") {
-    (taskContext.control=message.action,chrome.storage.local.set({liblibControl: message.action})).then(() => sendResponse({ok: true}));
+    BrowserRunner.control(message.action).then(() => sendResponse({ok: true})).catch(error=>sendResponse({ok:false,error:error.message}));
     return true;
   }
   if (message.type === "RESET_COLLECTOR") {
     if (taskRunning) {
-      chrome.storage.local.set({liblibControl: 'stopped'}).then(() => sendResponse({ok: true, stopping: true}));
+      BrowserRunner.control('stopped').then(() => sendResponse({ok: true, stopping: true})).catch(error=>sendResponse({ok:false,error:error.message}));
       return true;
     }
     chrome.storage.local.set({liblibControl: "stopped"}).then(() => chrome.storage.local.remove(["liblibActiveJob", "liblibProgress"])).then(() => sendResponse({ok: true}));
@@ -1139,3 +1109,5 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }).finally(() => {taskRunning = false;});
   return true;
 });
+
+if(typeof importScripts==='function')importScripts('browser-runner.js');

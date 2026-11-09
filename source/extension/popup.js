@@ -34,7 +34,8 @@ function render(){
  q('#batch-range').hidden=!bulk;q('#duration-filter').hidden=!bulk||!video;
  q('#include-images-option').hidden=!text||plain;
  q('#collect-video').hidden=!video||isAudio()||bulk||site.site==='B站';
- q('#limit-label').textContent=t(video?'视频数量上限':'本次最多处理');
+ q('#limit-label').textContent=t(site.parts?'选集数量上限':video?'视频数量上限':'本次最多处理');
+ q('#skip-posts').closest('label').querySelector('span').textContent=t(site.parts?'跳过前几集':'跳过前几篇');
  q('#mode-help').textContent=bulk?site.site+' · '+t(site.hint||''):t(text?'正文与图片文字整理为 Markdown':video?'只处理视频，不保存图片帖':'保存当前作品图片');
  q('#task-options').disabled=!ready||active;
  for(const input of q('#task-options').querySelectorAll('input,select'))input.disabled=Boolean(resumeOptions);
@@ -205,6 +206,10 @@ document.addEventListener('uilanguage',render);
 chrome.storage.onChanged.addListener((changes,area)=>{if(area!=='local')return;const d=changes.collectorPopupDraft?.newValue;if(d?.tabId===currentTab?.id&&d.expires>Date.now()){picking=Boolean(d.picking);q('#task-destination').value=d.options.destination||'';render();if(d.error)error(new Error(d.error));}if(['liblibActiveJob','liblibProgress','collectorApproval','liblibControl','collectorCheckpoint'].some(k=>k in changes))update().catch(error);});
 guarded(async()=>{
  [currentTab]=await chrome.tabs.query({active:true,currentWindow:true});site=CollectorSite.context(currentTab?.url||'');
+ if(site.parts){
+   const [{result}={}]=await chrome.scripting.executeScript({target:{tabId:currentTab.id},world:'MAIN',files:['bilibili-parts.js']}).catch(()=>[]);
+   if(result?.error||!result?.urls?.length)site={...site,bulk:null};
+ }
  if(site.site==='ArtStation'&&site.bulk){
    const [{result}]=await chrome.scripting.executeScript({target:{tabId:currentTab.id},files:['artstation-list.js']});
    if(result?.error||!result?.urls?.length)site={...site,bulk:null,reason:result?.error||'请进入明确的作品图片列表'};
@@ -288,9 +293,3 @@ q('#retry-failed').onclick=guarded(async()=>{
  checkpoint=copy;resumeOptions=CaptureOptions.resolve({resume:copy});showOptions(resumeOptions);q('#scope').value='bulk';render();await start();
  }else await start();
 });
-
-// The connection is active only while the user keeps this panel open.
-const browserRequestTimer=setInterval(()=>{
- if(!active)chrome.runtime.sendMessage({type:'POLL_BROWSER_REQUESTS'}).catch(()=>{});
-},3000);
-window.addEventListener('pagehide',()=>clearInterval(browserRequestTimer));

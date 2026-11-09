@@ -27,7 +27,8 @@
       const video=/^\/video\/BV[\da-zA-Z]{10}\/?$/.test(p);
       const article=/^\/(opus\/\d+|read\/cv\d+)\/?$/.test(p);
       single=video||article;
-      bulk=u.hostname==='space.bilibili.com'&&/^\/\d+\/(?:upload\/video|video|lists\/\d+)\/?$/.test(p)?'author':null;
+      bulk=video||u.hostname==='space.bilibili.com'&&/^\/\d+\/(?:upload\/video|video|lists\/\d+)\/?$/.test(p)?'author':null;
+      if(video)result.parts=true;
       if(video||bulk){result.mode='video';result.hint='按当前列表和排序采集前N篇，不跨栏目或递归其他合集';}
       if(article){result.mode='text';result.hint='保存此篇图文正文与所选附件';}
       if(u.hostname==='space.bilibili.com'&&/^\/\d+\/upload\/(opus|article)/.test(p)||/^(www\.)?bilibili\.com$/.test(u.hostname)&&/^\/read\/readlist\/rl\d+\/?$/.test(p)){

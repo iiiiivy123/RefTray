@@ -31,6 +31,10 @@
     return variants
       .filter((variant) => {
         const contentType = variant && (variant.content_type || variant.contentType || variant.mime_type);
+        let url;
+        try { url = new URL(variant?.url); } catch (_) { return false; }
+        if (url.protocol !== 'https:' || url.username || url.password || url.port && url.port !== '443' ||
+            !/(^|\.)video\.twimg\.com$/.test(url.hostname)) return false;
         const dimensions=String(variant.url||'').match(/\/(\d+)x(\d+)\//);
         const height=variant.height|| (dimensions?Number(dimensions[2]):0);
         return contentType === "video/mp4" && variant.url && (cap===Infinity||height&&height<=cap);

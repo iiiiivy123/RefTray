@@ -34,7 +34,7 @@ const Hub = (() => {
       return body;
     }
   }
-  function options(d) {return {...d,...(d.md_only?{collection_mode:'text',include_images:false,ocr_enabled:false,video_action:'skip'}:{}),layout:d.layout==='organized_flat'?'organized_flat':'organized',include_videos:!d.md_only&&d.video_action!=='skip',extract_frames:!d.md_only&&d.video_action==='frames',directory_schema:'function-platform-v2'};}
+  function options(d) {return CaptureOptions.normalize(d);}
   async function defaults(){
     let d=await api('/settings/defaults');
     if(!d._configured){
