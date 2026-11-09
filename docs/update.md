@@ -1,6 +1,6 @@
 # 更新 RefTray
 
-最新预发布版：[0.5.47](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.47)。稳定版：[0.5.37](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.37)。
+最新预发布版：[0.5.48](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.48)。稳定版：[0.5.37](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.37)。
 
 1. 完成或停止正在采集的任务。
 2. 下载新版本的 Windows 安装包，安装到原来的程序目录。安装器会处理旧后台和本程序的 MCP 进程占用。

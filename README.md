@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.47"><img src="docs/assets/download-preview.svg" alt="下载 0.5.47 预发布版" height="40"></a>
+  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.48"><img src="docs/assets/download-preview.svg" alt="下载 0.5.48 预发布版" height="40"></a>
   &nbsp;
   <a href="https://github.com/iiiiivy123/inspiration-collector/releases/latest"><img src="docs/assets/download.svg" alt="下载 Windows 安装包" height="40"></a>
   &nbsp;
@@ -41,38 +41,38 @@
 
 **需要 Windows 10/11 64 位 + Chrome。** 安装包内置 Python 与媒体组件，不用自己配置开发环境。
 
-1. **下载安装。** 试用新版请下载 [0.5.47 预发布版](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.47)；稳定版前往 [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest)，在 **Assets** 下载 Windows 安装包，不要下载源码 ZIP。
+1. **下载安装。** 试用新版请下载 [0.5.48 预发布版](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.48)；稳定版前往 [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest)，在 **Assets** 下载 Windows 安装包，不要下载源码 ZIP。
 2. **启动本地程序。** 打开「灵感采集」，程序会在 Windows 右下角系统托盘运行。
 3. **加载 Chrome 扩展。** 打开 `chrome://extensions` → 开启「开发者模式」→「加载已解压的扩展程序」。从托盘菜单复制 `extension` 文件夹的实际地址，选择该文件夹。
 4. **保存第一份素材。** 固定工具栏扩展，选择本地素材库，打开支持的作品页并选择采集内容。
 
 [首次安装 →](docs/install.md) · [旧版更新 →](docs/update.md) · [完整教程与故障排查 →](docs/usage.md)
 
-最新预发布版为 **[0.5.47](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.47)**，稳定版为 **0.5.37**。以下功能和教程按 0.5.47 编写；稳定版代码在 `main`，预发布代码见 `v0.5.47` 标签。[0.5.47 说明](docs/release-0.5.47.md) · [完整代码审查交接](docs/REVIEW_HANDOFF.md)。
+最新预发布版为 **[0.5.48](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.48)**，稳定版为 **0.5.37**。以下功能和教程按 0.5.48 编写；稳定版代码在 `main`，预发布代码见 `v0.5.48` 标签。[0.5.48 说明](docs/release-0.5.48.md) · [完整代码审查交接](docs/REVIEW_HANDOFF.md)。
 
 更新后到 Chrome 扩展管理页重新加载「灵感采集」，再刷新作品页面。[完整更新步骤](docs/update.md)
 
 首次使用需要手动加载扩展。目前提供 Windows + Chrome 版本，安装包暂未签名。
 
-## 0.5.47 新版内容
+## 0.5.48 新版内容
 
 - 视频可选「视频 + 字幕 + MD」「仅视频」「仅文字稿」或「仅提取音频」，另可开启自动抽帧。
 - 图片 / GIF 与图文的过滤选项直接显示在弹窗；去重方式、下载上限和抽帧间隔放在设置页。
 - 评论分别设置一级评论数量和每条评论的回复数量。楼中楼默认关闭。
-- MCP 新增 Chrome 页面采集和整帖视频顺序下载；可按原链接查本地保存结果。
+- MCP 在 Chrome 扩展后台接单，弹窗可关闭；支持完整采集选项、批量、进度、暂停、继续和失败重试。
+- B 站视频页支持分 P 选集批量，可保存视频或只提取音频；修复同轨备用地址被遗漏导致的下载失败。
+- 修复预扫描参数残留、解析缓存混用、取消后仍占用，以及任务进度串到上一项的问题。
 - 任务失败可跳到对应媒体诊断，支持搜索和错误类型筛选。
 - 修复旧任务恢复导致的启动失败，调整 X 媒体读取、花瓣主图识别与 X 批量计数。
 - 打开采集弹窗时检查正式新版并提醒；安装仍需运行下载的安装包。
 
-这是预发布版。**X 登录视频、花瓣全屏图与批量仍待真实下载验收**。[完整版本说明](docs/release-0.5.47.md)
+这是预发布版。请重点试关弹窗后的 MCP 采集、暂停与继续、B 站分 P 批量；X 登录视频、花瓣全屏图与批量继续实测。[完整版本说明](docs/release-0.5.48.md)
 
 ## 让 AI 调用 RefTray
 
-AI 可以查找已保存文件、采集公开图片、下载单个视频或顺序下载整帖视频。
+**0.5.48 提供 16 个 MCP 工具。** AI 可以自动打开作品页，按要求保存图文、评论、图片或视频，并返回进度和保存位置；也能批量采集和控制任务。使用 Chrome 采集时保持浏览器及 RefTray 后台运行，扩展弹窗可以关闭。普通下载工具由本地后台直接访问网页。
 
-需要使用 Chrome 当前登录页面时，调用 `reftray_capture_browser`：先在 Chrome 打开作品，再保持 RefTray 采集弹窗打开，由扩展执行采集。普通下载工具则由本地后台直接访问网页。
-
-[MCP 接入步骤与全部 9 个工具](docs/mcp.md)
+[0.5.48 MCP 接入步骤与工具说明](docs/mcp.md)
 
 ## 能在哪些网站使用？
 
@@ -127,7 +127,7 @@ AI 可以查找已保存文件、采集公开图片、下载单个视频或顺�
 <details>
 <summary><strong>名称、版本与文件位置说明</strong></summary>
 
-**RefTray · 灵感采集** 是对外展示名称；较早文档中的 **InspiShelf** 也指这个项目。最新预发布版为 **0.5.47**，稳定版为 **0.5.37**。安装器、快捷方式、托盘和扩展继续使用「灵感采集 / Inspiration Collector」。下载和已知问题见 [版本说明](docs/release-0.5.47.md)。
+**RefTray · 灵感采集** 是对外展示名称；较早文档中的 **InspiShelf** 也指这个项目。最新预发布版为 **0.5.48**，稳定版为 **0.5.37**。安装器、快捷方式、托盘和扩展继续使用「灵感采集 / Inspiration Collector」。下载和已知问题见 [版本说明](docs/release-0.5.48.md)。
 
 首页采用已选定的简洁文件图标：空心文件轮廓与右上实心方块，不加内部横线。横幅固定使用白底，不随深色模式切换；0.5.28 构建已将同一 A 款标识应用到扩展与 Windows 程序图标。
 
@@ -163,3 +163,23 @@ python tools/build_windows.py
 第一条只解析和校验锁定的离线依赖，不生成安装包；第二条也自动执行同一检查，通过后才创建打包目录。构建子进程隔离本机 pip 默认配置，不修改全局配置。规则见 `docs/SPEC.md` B02。
 
 实现依据：[pip 配置隔离](https://pip.pypa.io/en/stable/topics/configuration/)、[pip 离线解析与 dry-run](https://pip.pypa.io/en/stable/cli/pip_install/)。
+
+## 开发检查
+
+以下命令用于 `v0.5.48` 预发布源码：先检出该标签或对应开发分支，再在仓库根目录运行。Python 需要项目依赖；当前本机使用安装包自带的解释器，导入路径明确指向这份源码。其他机器把第一行改为实际解释器路径。
+
+```powershell
+$reftrayTestPython = 'F:/RefTray/app/runtime/python.exe'
+& $reftrayTestPython -c "import sys,unittest; sys.path.insert(0,'source'); r=unittest.TextTestRunner().run(unittest.defaultTestLoader.discover('tests/collector',pattern='test_architecture_boundaries.py')); sys.exit(not r.wasSuccessful())"
+```
+
+每轮收尾执行架构检查。修改共享采集、任务或参数模块时，再运行完整回归：
+
+```powershell
+& $reftrayTestPython -c "import sys,unittest; sys.path.insert(0,'source'); r=unittest.TextTestRunner().run(unittest.defaultTestLoader.discover('tests/collector',pattern='test_*.py')); sys.exit(not r.wasSuccessful())"
+& $reftrayTestPython -c "import sys,unittest; sys.path.insert(0,'source'); r=unittest.TextTestRunner().run(unittest.defaultTestLoader.discover('tests',pattern='test_*.py')); sys.exit(not r.wasSuccessful())"
+node --test tests/collector/*.cjs
+git diff --check
+```
+
+架构检查覆盖服务端本地模块引用、循环依赖、解析与下载的依赖方向，以及扩展脚本加载文件。参数、停止、断线和平台内容由行为测试验证；真实 Chrome 验收记录在 [CURRENT](docs/CURRENT.md)。

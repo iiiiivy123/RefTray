@@ -1,6 +1,6 @@
 # Reported issues
 
-These are issues reported during testing. Status refers to preview **0.5.47**.
+These are issues reported during testing. The current preview is **0.5.48**; individual fixes retain their original version numbers below.
 
 | Report | Current status and next step |
 | --- | --- |
@@ -15,6 +15,6 @@ These are issues reported during testing. Status refers to preview **0.5.47**.
 | Comment counts are unclear | Top-level comments and replies have separate limits. Replies are off by default; when enabled, the default is two per top-level comment. Expand folded replies on the page first. |
 | Failed tasks are hard to match to diagnostics | Version 0.5.47 links tasks with diagnostic IDs to their matching media diagnostics, with search and category filters. |
 | MCP reports Transport closed after upgrading | Start the new backend, refresh the AI client's MCP connection, and check `reftray_status`. |
-| No update notification for 0.5.47 | Notifications check official releases. Download this preview manually. One-click installation is not implemented. |
+| No update notification for a preview release | Notifications check official releases. Download preview 0.5.48 manually. One-click installation is not implemented. |
 
 [English home](../README_EN.md) · [中文反馈记录](use-cases.md) · [MCP setup](mcp.md)

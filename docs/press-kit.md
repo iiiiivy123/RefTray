@@ -29,7 +29,7 @@ RefTray is a local-first reference collector for creators using Windows and Chro
 | --- | --- |
 | 操作系统 | Windows 10/11，64 位 |
 | 浏览器 | Chrome，需要首次手动加载已解压的扩展 |
-| 目前发行版本 | 0.5.47 预发布版；稳定版为 0.5.37，应用界面名为「灵感采集 / Inspiration Collector」 |
+| 目前发行版本 | 0.5.48 预发布版；稳定版为 0.5.37，应用界面名为「灵感采集 / Inspiration Collector」 |
 | 保存位置 | 用户选择的本地资料夹 |
 | 内容类型 | 图片、Markdown 图文、纯文字、部分视频和视频抽帧 |
 | 批量能力 | 部分适配的作者主页、画板和视频列表；非全网站通用 |

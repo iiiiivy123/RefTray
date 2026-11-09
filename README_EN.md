@@ -4,9 +4,9 @@
 
 Save web references to a folder on your Windows PC: images, GIFs, Markdown notes, videos and audio. Use the Chrome extension to collect a work or process an author page or board.
 
-[Download 0.5.47 preview](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.47) · [Download 0.5.37 stable](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.37) · [中文](README.md)
+[Download 0.5.48 preview](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.48) · [Download 0.5.37 stable](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.37) · [中文](README.md)
 
-The current preview is **0.5.47**. The stable version and application code on `main` are **0.5.37**; preview code is tagged `v0.5.47`. These guides describe the preview.
+The current preview is **0.5.48**. The stable version and application code on `main` are **0.5.37**; preview code is tagged `v0.5.48`. These guides describe the preview.
 
 ## Getting started
 
@@ -17,14 +17,16 @@ The current preview is **0.5.47**. The stable version and application code on `m
 
 Windows 10/11 x64 and Chrome are required. The installer includes the runtime and media components. The extension is loaded manually; the installer is currently unsigned.
 
-## What changed in 0.5.47
+## What changed in 0.5.48
 
 - Choose video + subtitles + Markdown, video only, transcript only, or audio extraction. Frame extraction is a separate option, with a default interval of one second.
 - Image and note modes expose GIF and video filters. Notes include the body images; plain-text mode saves text.
 - Set top-level comment and reply limits separately. Nested replies are off by default, with a default limit of two replies per top-level comment when enabled.
 - Keep duplicate handling, download size limits and frame intervals in settings.
 - Search and filter media diagnostics, or open a matching diagnostic from a failed task.
-- Use MCP to capture through the Chrome extension or queue all videos from a post.
+- Use MCP with the extension popup closed, shared capture options, batch capture, progress and task controls.
+- Batch-save Bilibili video parts or extract their audio. Media resolution now considers valid backup addresses from the same track.
+- Fix stale preview options, mixed resolution caches, cancellation and progress attached to an earlier task.
 - Receive official release notifications. Download and run the installer to update; automatic installation is not implemented.
 
 ## Problems reported during testing
@@ -35,13 +37,11 @@ Windows 10/11 x64 and Chrome are required. The installer includes the runtime an
 
 **Huaban shows the image, or X plays the video, but saving fails.** Both issues have been reported. Version 0.5.47 changes the extraction flow; live download verification for Huaban fullscreen/batch and X logged-in video is still unfinished.
 
-[More reported issues](docs/use-cases-en.md) · [Release notes](docs/release-0.5.47.md)
+[More reported issues](docs/use-cases-en.md) · [Release notes](docs/release-0.5.48.md)
 
 ## MCP for AI clients
 
-The local stdio interface offers nine tools for status, public images, Chrome capture, saved-file lookup, video resolution, single-video download, video queues, stopping queues and job status.
-
-For `reftray_capture_browser`, open the target work in Chrome and keep its RefTray popup open. The extension uses the logged-in page. The direct download tools make requests from the local backend instead. [Setup and tool parameters](docs/mcp.md)
+**0.5.48 provides 16 MCP tools** for background execution, shared capture options, batch capture, task control and diagnostics. Keep Chrome and the RefTray service running; the extension popup can be closed. Please test popup-closed capture, pause/resume and Bilibili part batches in your Chrome session. Direct download tools use the local backend. [Setup and tool parameters](docs/mcp.md)
 
 ## Platforms
 
@@ -51,7 +51,7 @@ Adapters cover Xiaohongshu, Pinterest, Instagram, X, Huaban, Bilibili, YouTube, 
 
 Finish or stop active tasks, run the new installer in the existing program directory, start the app, reload the Chrome extension, and refresh work pages. Refresh the AI client's MCP connection after upgrading. The library and settings are retained.
 
-Update notifications check official releases. Preview 0.5.47 is available through the download link above.
+Update notifications check official releases. Preview 0.5.48 is available through the download link above.
 
 ## Project information
 
