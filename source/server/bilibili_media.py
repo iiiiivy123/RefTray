@@ -8,6 +8,7 @@ import time
 import tempfile
 from contextlib import ExitStack
 from urllib.parse import urlsplit
+from .media_urls import host_matches, PLATFORM_CDNS
 
 def executables():
     root = Path(__file__).resolve().parents[1]/'media-tools'
@@ -34,7 +35,7 @@ def available():
 def source_headers(url):
     host = (urlsplit(url).hostname or '').lower()
     headers = {'User-Agent': 'Mozilla/5.0'}
-    if any(host == h or host.endswith('.'+h) for h in ('bilivideo.com', 'bilivideo.cn')):
+    if host_matches(host, PLATFORM_CDNS['bilibili']):
         headers['Referer'] = 'https://www.bilibili.com/'
     return headers
 

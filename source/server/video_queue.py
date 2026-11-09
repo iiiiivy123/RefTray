@@ -49,8 +49,11 @@ class VideoQueue:
         return {'status': 'stopping'}
 
     def _run(self, record, root, defaults):
+        def checkpoint():
+            if self.stop_event.is_set():
+                raise ValueError('USER_STOPPED')
         try:
-            media = resolve(record['source'], captions=False)['media']
+            media = resolve(record['source'], captions=False, checkpoint=checkpoint)['media']
             if not media:
                 raise ValueError('原帖没有可下载的视频')
             record['media_count'] = len(media)

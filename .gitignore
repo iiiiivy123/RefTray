@@ -127,3 +127,4 @@
 !/tests/collector/test_bilibili_parts.cjs
 !/tests/collector/test_bili_sources.cjs
 !/tests/collector/test_media_candidates.cjs
+!/docs/architecture-review-2026-11-09.md

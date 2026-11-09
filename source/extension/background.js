@@ -1,5 +1,5 @@
 const BUILD = '0.5.0';
-if (typeof importScripts === 'function') importScripts('health-client.js','task-progress.js','task-store.js','capture-options.js','bilibili-parts.js','batch.js','task-services.js');
+if (typeof importScripts === 'function') importScripts('health-client.js','task-progress.js','task-store.js','capture-options.js','bilibili-parts.js','video-sequence.js','batch.js','task-services.js');
 let healthCache,taskContext={options:{},imageQuotaUsed:0};
 
 let videoSession;
@@ -9,21 +9,35 @@ let resolvedMedia=new Map();
 
 const imagesRemaining=()=>taskContext.options.max_images>0?Math.max(0,taskContext.options.max_images-taskContext.imageQuotaUsed):Infinity;
 function reserveImages(count){taskContext.imageQuotaUsed+=count;if(typeof taskContext.batch!=='undefined'&&taskContext.batch)taskContext.batch.image_used=taskContext.imageQuotaUsed;}
-async function matureMedia(url){
-  if(!resolvedMedia.has(url))resolvedMedia.set(url,resolveMediaInWorker({url,output_format:taskContext.options.output_format==='audio'?'audio':'original',quality:taskContext.options.video_quality||'best',subtitle_language:taskContext.options.subtitle_language||'auto',captions:taskContext.options.output_format!=='audio'&&taskContext.options.subtitle_mode!=='none'}).catch(error=>{resolvedMedia.delete(url);throw error;}));
-  return resolvedMedia.get(url);
+async function matureMedia(url,options=taskContext.options){
+  const request={url,output_format:options.output_format==='audio'?'audio':'original',quality:options.video_quality||'best',subtitle_language:options.subtitle_language||'auto',captions:options.output_format!=='audio'&&options.subtitle_mode!=='none'};
+  const key=JSON.stringify(request),cache=resolvedMedia;
+  if(!cache.has(key))cache.set(key,resolveMediaInWorker(request).catch(error=>{cache.delete(key);throw error;}));
+  return cache.get(key);
 }
 async function resolveMediaInWorker(options){
-  if(!taskContext.bridgeId)return service('/media/resolve',options);
   const job=await service('/media/resolve/start',options);
-  for(let i=0;i<180;i++){
-    await controlPoint();
-    const state=await service('/media/resolve/status/'+job.job_id);
-    if(state.status==='completed')return state.result;
-    if(state.status==='failed')throw new Error(state.message);
-    await wait(1000);
+  let finished=false;
+  try{
+    await chrome.storage.local.set({collectorBackendPending:{jobId:job.job_id,taskId:taskContext.id,kind:'resolve'}});
+    for(let i=0;i<180;i++){
+      await controlPoint();
+      const state=await service('/media/resolve/status/'+job.job_id);
+      finished=['completed','failed','stopped'].includes(state.status);
+      if(state.status==='completed')return state.result;
+      if(state.status==='failed')throw new Error(state.message);
+      if(state.status==='stopped')throw new Error('USER_STOPPED');
+      await wait(1000);
+    }
+    throw new Error('读取视频超时，请重试');
+  }finally{
+    if(!finished){
+      const state=await service('/media/resolve/stop/'+job.job_id,{}).catch(()=>null);
+      finished=['completed','failed','stopped'].includes(state?.status);
+    }
+    // Retain the marker while the backend is still stopping, including disconnection.
+    if(finished)await chrome.storage.local.remove('collectorBackendPending');
   }
-  throw new Error('读取视频超时，请重试');
 }
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -112,11 +126,11 @@ async function readPagePayload(tabId, options, current) {
     return {...result,collection_mode:options.collection_mode||'images',include_images:!options.md_only,md_only:Boolean(options.md_only),ocr_enabled:Boolean(options.ocr_enabled),comments:[],comments_requested:Boolean(options.include_comments),comments_status:'当前平台未支持评论'};
   }
   if(/(^|\.)(youtube\.com|youtu\.be)$/.test(new URL(current.url).hostname)){
-    const {media}=await matureMedia(current.url),source=media[0];
+    const {media}=await matureMedia(current.url,options),source=media[0];
     return {...source,platform:'youtube',images:[],body_text:'',has_video:true,_media:media,collection_mode:'images'};
   }
   if(/(^|\.)bilibili\.com$/.test(new URL(current.url).hostname)) {
-    await setMediaQuality(tabId);
+    await setMediaQuality(tabId,options);
     const [{result}]=await chrome.scripting.executeScript({target:{tabId},world:'MAIN',files:['document-source.js','bilibili.js']});
     if(!result?.payload)throw new Error(result?.error||'未确认B站当前稿件');
     return {...result.payload,collection_mode:options.collection_mode||'images',include_images:options.include_images!==false,ocr_enabled:Boolean(options.ocr_enabled),images:options.collection_mode==='text'&&options.include_images===false&&!options.ocr_enabled?[]:result.payload.images,comments:[],comments_requested:Boolean(options.include_comments),comments_status:'当前平台未支持评论',_media:result.source?[{...result.source,kind:'video'}]:[]};
@@ -126,15 +140,15 @@ async function readPagePayload(tabId, options, current) {
   let xPageData;
   if (payload?.error) {
     const isX = /(^|\.)(x\.com|twitter\.com)$/.test(new URL(current.url).hostname);
-    if (isX && !options.video_only && !taskContext.options.video_only) {
+    if (isX && !options.video_only) {
       const id = new URL(current.url).pathname.match(/\/status\/(\d+)/)?.[1];
-      xPageData = await loadedPageMedia(tabId, false);
+      xPageData = await loadedPageMedia(tabId, false, options);
       const hasRequestedMedia = xPageData.has_gif || xPageData.media?.some(item =>
         item.kind === 'photo' || item.kind === 'gif' || (item.kind === 'video' && options.include_videos));
       if (!id || xPageData.postId !== id || !hasRequestedMedia || options.md_only) throw new Error(payload.error);
       Object.assign(payload,{error:null,platform:'x',canonical_url:current.url.split('?')[0],page_title:current.title,images:[],body_text:'',has_video:Boolean(xPageData.has_gif),collection_mode:options.collection_mode || 'images'});
     } else {
-      const media=await loadedMedia(tabId);
+      const media=await loadedMedia(tabId,options);
       if(!media.some(m=>m.kind==='video'||m.kind==='gif'))throw new Error(payload.error);
       Object.assign(payload,{error:null,canonical_url:current.url.split('?')[0],page_title:current.title,platform:isX?'x':'generic',images:[],body_text:'',has_video:true,_media:media});
     }
@@ -167,12 +181,12 @@ async function readPagePayload(tabId, options, current) {
     }
     payload.extraction_warnings.push(payload.comments_status);
   }
-  const pageData = payload.platform === 'instagram' ? await loadedPageMedia(tabId) : null;
+  const pageData = payload.platform === 'instagram' ? await loadedPageMedia(tabId,true,options) : null;
   if(pageData?.postId && pageData.postId!==new URL(payload.canonical_url).pathname.match(/^\/(?:[\w.]+\/)?(?:p|reels?)\/([\w-]+)/)?.[1])throw new Error('帖子在读取过程中发生变化，未保存错帖');
   if(pageData?.author_handle)payload.author_handle=pageData.author_handle;
   if(pageData?.media?.some(item=>item.kind==='video'||item.kind==='gif'))payload.has_video=true;
   if (!options.md_only) {
-    const mediaPage = xPageData || pageData || await loadedPageMedia(tabId,false).catch(error=>{if(payload.platform==='x' && payload.images?.length)return {media:[],resolution_error:error.message};throw error;});
+    const mediaPage = xPageData || pageData || await loadedPageMedia(tabId,false,options).catch(error=>{if(error.message!=='USER_STOPPED' && payload.platform==='x' && payload.images?.length)return {media:[],resolution_error:error.message};throw error;});
     if(payload.platform==='x' && mediaPage.postId && mediaPage.postId!==new URL(payload.canonical_url).pathname.match(/\/status\/(\d+)/)?.[1]) throw new Error('页面已切换，请回到目标帖子后重试');
     if(mediaPage.resolution_error)payload._preflightIssue=mediaPage.resolution_error;
     if(payload.platform==='x'){payload.author_handle ||= mediaPage.author_handle;payload.body_text ||= mediaPage.session_text||'';}
@@ -244,18 +258,17 @@ async function readXReplies(tabId, id, limit) {
   }
 }
 
-async function loadedMedia(tabId) {
-  return (await loadedPageMedia(tabId)).media || [];
+async function loadedMedia(tabId,options=taskContext.options) {
+  return (await loadedPageMedia(tabId,true,options)).media || [];
 }
-async function setMediaQuality(tabId){
-  await chrome.scripting.executeScript({target:{tabId},world:'MAIN',args:[taskContext.options.video_quality||'best',taskContext.options.output_format||'original'],func:(value,format)=>{globalThis.__collectorVideoQuality=['best','1080','720','480'].includes(value)?value:'best';globalThis.__collectorOutputFormat=format==='audio'?'audio':'original';}});
+async function setMediaQuality(tabId,options=taskContext.options){
+  await chrome.scripting.executeScript({target:{tabId},world:'MAIN',args:[options.video_quality||'best',options.output_format||'original'],func:(value,format)=>{globalThis.__collectorVideoQuality=['best','1080','720','480'].includes(value)?value:'best';globalThis.__collectorOutputFormat=format==='audio'?'audio':'original';}});
 }
-async function loadedPageMedia(tabId, resolveVideo=true) {
+async function loadedPageMedia(tabId, resolveVideo=true, options=taskContext.options) {
   let resolvingGif=false, observed;
-  await setMediaQuality(tabId);
+  await setMediaQuality(tabId,options);
   const tab=await chrome.tabs.get(tabId);
   if(/(^|\.)bilibili\.com$/.test(new URL(tab.url).hostname)) {
-    await setMediaQuality(tabId);
     const [{result}]=await chrome.scripting.executeScript({target:{tabId},world:'MAIN',files:['document-source.js','bilibili.js']});
     if(!result?.payload)throw new Error(result?.error||'无法确认B站稿件');
     return {media:result.source?[{...result.source,kind:'video'}]:[]};
@@ -264,15 +277,15 @@ async function loadedPageMedia(tabId, resolveVideo=true) {
     await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['cat-instagram.js', 'cat-xhs.js', 'cat-media.js']});
     const [{result}] = await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['page-media.js']});
     observed=result;
-    if(result?.has_gif&&!taskContext.options.skip_gifs&&!result.media?.some(m=>m.kind==='gif')){
+    if(result?.has_gif&&!options.skip_gifs&&!result.media?.some(m=>m.kind==='gif')){
       resolvingGif=true;
-      const resolved=await matureMedia(tab.url),media=(resolved.media||[]).filter(m=>m.kind==='gif');
+      const resolved=await matureMedia(tab.url,options),media=(resolved.media||[]).filter(m=>m.kind==='gif');
       if(!media.length)throw new Error('页面标记为 GIF，但尚未解析到属于当前帖子的动图源；请刷新原帖后重试');
       return {...result,media:[...(result.media||[]).filter(m=>m.kind==='photo'),...media]};
     }
-    if(resolveVideo&&!result?.media?.length&&healthCache&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)&&/\/status\/\d+/.test(new URL(tab.url).pathname))return await matureMedia(tab.url);
+    if(resolveVideo&&!result?.media?.length&&healthCache&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)&&/\/status\/\d+/.test(new URL(tab.url).pathname))return await matureMedia(tab.url,options);
     return result || {media:[]};
-  } catch(error){if(resolvingGif && observed?.media?.some(m=>m.kind==='photo'))return {...observed,resolution_error:error.message};if(resolvingGif)throw error;if(/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname))throw new Error('[X_PAGE_READ] 读取当前 X 帖子失败：'+String(error.message||error).slice(0,800));return {media:[]};} // Other platform DOM fallbacks remain unchanged.
+  } catch(error){if(error.message==='USER_STOPPED')throw error;if(resolvingGif && observed?.media?.some(m=>m.kind==='photo'))return {...observed,resolution_error:error.message};if(resolvingGif)throw error;if(/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname))throw new Error('[X_PAGE_READ] 读取当前 X 帖子失败：'+String(error.message||error).slice(0,800));return {media:[]};} // Other platform DOM fallbacks remain unchanged.
 }
 
 async function includeProtectedImages(payload, pageUrl) {
@@ -469,7 +482,7 @@ async function videoSource(tab,options,allMedia=false) {
     try {
       page=await loadedPageMedia(tab.id,false);
       if(!postId||String(page.postId||'')!==postId)throw new Error('[X_PAGE_ID] 页面返回的帖子编号与当前链接不一致');
-    } catch(error){pageFailure=String(error.message||error).slice(0,1000);page=null;}
+    } catch(error){if(error.message==='USER_STOPPED')throw error;pageFailure=String(error.message||error).slice(0,1000);page=null;}
     const motion=(page?.media||[]).filter(m=>m.kind==='gif'||m.kind==='video');
     if(allMedia&&motion.length)return motion.map(m=>({...m,canonical_url:tab.url.split('?')[0],page_title:tab.title}));
     if(motion.length===1)return {...motion[0],canonical_url:tab.url.split('?')[0],page_title:tab.title};
@@ -482,7 +495,7 @@ async function videoSource(tab,options,allMedia=false) {
       if(allMedia&&media.length)return media.map(m=>({...m,resolver_warning:pageFailure}));
       if(media.length!==1)throw new Error(media.length?'当前帖有多个动态媒体，请选择其中一个或使用全部视频排队':'后台未返回当前帖的视频地址');
       return {...media[0],resolver_warning:pageFailure};
-    } catch(error){throw new Error(String(error.message||error)+'\n页面读取：'+pageFailure);}
+    } catch(error){if(error.message==='USER_STOPPED')throw error;throw new Error(String(error.message||error)+'\n页面读取：'+pageFailure);}
   }
   if(options.source?.url)return {...options.source,resolver_warning:resolverWarning};
   if(/(^|\.)(youtube\.com|youtu\.be)$/.test(new URL(tab.url).hostname)){
@@ -863,20 +876,24 @@ async function collectBoard(tab, port) {
   return {works: saved, new_images: newImages, message: `画板「${board.board_name}」已处理 ${saved} 个 Pin，新增 ${newImages} 张。图片平铺在画板采集目录；仅代表本轮识别到的 Pin，不保证隐藏或未加载内容。`};
 }
 
+async function ensureBackendIdle(port=8766){
+  const pending=(await chrome.storage.local.get(['collectorBackendPending'])).collectorBackendPending;
+  if(pending){
+    const h=await reftrayHealth('http://127.0.0.1:'+port+'/health').then(r=>r.json());healthCache=h;
+    const status=await service((pending.kind==='resolve'?'/media/resolve/status/':pending.kind==='video'?'/video/status/':'/collect/status/')+pending.jobId).catch(error=>{if(/不存在|已失效|重启|404/.test(error.message))return {status:'missing'};throw error;});
+    if(['running','stopping'].includes(status.status))throw new Error('上一篇后台仍在收尾，请等待完成后再开始');
+    await chrome.storage.local.remove('collectorBackendPending');
+  }
+}
+
 async function collect(mode, port, options = {}, testTarget) {
   options={...options,capture_scope:options.capture_scope||(['author','board'].includes(mode)?'batch':'single'),capture_kind:options.capture_kind||(['video','download','download-frames'].includes(mode)?'video':options.collection_mode||'images')};
   if(options.video_only){
     if(!['author','board'].includes(mode))throw new Error('独立视频批量需要作者或画板入口');
     options={...options,collection_mode:'images',include_images:false,include_comments:false,include_videos:true};
   }
+  await ensureBackendIdle(port);
   resolvedMedia=new Map();
-  const pending=(await chrome.storage.local.get(['collectorBackendPending'])).collectorBackendPending;
-  if(pending){
-    const h=await reftrayHealth('http://127.0.0.1:'+port+'/health').then(r=>r.json());healthCache=h;
-    const status=await service((pending.kind==='video'?'/video/status/':'/collect/status/')+pending.jobId).catch(error=>{if(/不存在|重启|404/.test(error.message))return {status:'missing'};throw error;});
-    if(['running','stopping'].includes(status.status))throw new Error('上一篇后台仍在收尾，请等待完成后再开始');
-    await chrome.storage.local.remove('collectorBackendPending');
-  }
   const stored = await chrome.storage.local.get(["liblibActiveJob"]);
   const active = stored.liblibActiveJob;
   if (active?.startedAt && Date.now() - active.startedAt < 15 * 60 * 1000) throw new Error("当前已有采集任务，请稍候");
@@ -913,7 +930,7 @@ async function collect(mode, port, options = {}, testTarget) {
     if(mode==='author' && /(^|\.)bilibili\.com$/.test(new URL(tab.url).hostname))return await runSocialBatch(tab,port,options,'bilibili');
     if(mode==='author' && /(^|\.)youtube\.com$/.test(new URL(tab.url).hostname))return await runSocialBatch(tab,port,options,'youtube');
     if (mode === 'download' || mode === 'download-frames') return taskContext.bridgeId
-      ? await BrowserRunner.downloadVideos(tab,port,options,health,mode==='download-frames')
+      ? await downloadVideoSequence(tab,port,options,health,mode==='download-frames')
       : await downloadVideo(tab, port, options, health, mode === 'download-frames');
     if (mode === 'video' && options.savedAsset) {
       const saved = await downloadApi(port, health.settings_token, `/video/info/${encodeURIComponent(options.savedAsset)}`);
@@ -931,11 +948,25 @@ async function collect(mode, port, options = {}, testTarget) {
 }
 
 let scanInProgress=false;
-async function scanLoadedPage(tabId,url,owned=false){
+async function inspectPage(owned,read){
   if(taskRunning&&!owned||scanInProgress)throw new Error('已有任务或扫描正在运行');
-  if(!chrome.storage.session)throw new Error('当前浏览器不支持保存扫描结果');
   scanInProgress=true;
-  const options={collection_mode:'text',include_images:true,include_videos:true,include_comments:false,ocr_enabled:false};
+  const previous=taskContext;
+  const options={collection_mode:'text',include_images:true,include_videos:true,include_comments:false,ocr_enabled:false,output_format:'original',video_quality:'best',subtitle_mode:'none'};
+  taskContext={options,imageQuotaUsed:0,...(owned?{bridgeId:previous.bridgeId}:{})};
+  let controlsOwned=false;
+  try{
+    await ensureBackendIdle();
+    if(!owned){await chrome.storage.local.remove('liblibControl');controlsOwned=true;}
+    return await read(options);
+  }finally{
+    try{if(controlsOwned)await chrome.storage.local.remove('liblibControl');}
+    finally{taskContext=previous;scanInProgress=false;}
+  }
+}
+async function scanLoadedPage(tabId,url,owned=false){
+  return inspectPage(owned,async options=>{
+  if(!chrome.storage.session)throw new Error('当前浏览器不支持保存扫描结果');
   let initial=null,last=null,stagnant=0,reason='已达到本次 12 屏上限，可再次扫描。';
   const images=new Map(),media=new Map();
   let best={},hasVideo=false;
@@ -974,17 +1005,17 @@ async function scanLoadedPage(tabId,url,owned=false){
     if(initial!==null)await chrome.scripting.executeScript({target:{tabId},args:[url,last,initial],func:(url,last,initial)=>{
       if(location.href===url&&Math.abs(scrollY-last)<5)window.scrollTo({top:initial,behavior:'instant'});
     }}).catch(()=>{});
-    scanInProgress=false;
   }
+  });
 }
 
 async function previewCollection(tabId,url,owned=false){
-  if(taskRunning&&!owned)throw new Error('当前任务正在运行，请完成后重新识别');
+  return inspectPage(owned,async options=>{
   const tab=await chrome.tabs.get(tabId);
   if(tab.url!==url)throw new Error('页面已切换，请重新识别');
   const health=await reftrayHealth('http://127.0.0.1:8766/health').then(r=>r.json());
   healthCache=health;
-  const payload=await pagePayload(tabId,{collection_mode:'text',include_images:true,include_videos:true,include_comments:false,ocr_enabled:false});
+  const payload=await pagePayload(tabId,options);
   if((await chrome.tabs.get(tabId)).url!==url)throw new Error('页面已切换，请重新识别');
   const media=payload._media||[];
   const gifs=new Set(media.filter(m=>m.kind==='gif').map(m=>m.url));
@@ -998,6 +1029,7 @@ async function previewCollection(tabId,url,owned=false){
   return {url,state:'ready',images:photos.size,gifs:gifs.size,warning:payload._preflightIssue||'',
     videos:videos.size||(!payload.has_video?0:undefined),
     kind:photos.size||gifs.size?'images':payload.has_video?'video':'plain'};
+  });
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

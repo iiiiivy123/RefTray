@@ -53,7 +53,6 @@ def create_app(runtime=None):
     folder_requests = {}
     local_tools_busy = lambda: False
     local_tools_stop = lambda: None
-    media_jobs_busy = lambda: False
     from .components import CapabilityCache
     capability_cache = CapabilityCache()
     RELEASE = json.loads((Path(__file__).resolve().parents[1] / 'extension/manifest.json').read_text(encoding='utf-8'))['version']
@@ -384,15 +383,14 @@ def create_app(runtime=None):
     @app.post('/media/resolve')
     def resolve_media(value: ResolveMedia, request: Request):
         authorize_settings(request)
-        from .media_resolver import resolve
-        try:return resolve(value.url, value.subtitle_language, value.captions, value.quality,value.output_format)
+        try:return media_jobs.resolve(value)
         except (ValueError, OSError) as exc:raise HTTPException(422, str(exc)) from exc
 
     from .media_jobs import attach as attach_media_jobs
-    def discover_media(value):
+    def discover_media(value, *, checkpoint=lambda: None):
         from .media_resolver import resolve
-        return resolve(value.url, value.subtitle_language, value.captions, value.quality, value.output_format)
-    media_jobs_busy = attach_media_jobs(app, authorize_settings, ResolveMedia, discover_media)
+        return resolve(value.url, value.subtitle_language, value.captions, value.quality, value.output_format, checkpoint=checkpoint)
+    media_jobs = attach_media_jobs(app, authorize_settings, ResolveMedia, discover_media)
 
 
     class ResolvedProbe(BaseModel):
@@ -545,10 +543,11 @@ def create_app(runtime=None):
         video_queue.stop()
         videos.request_stop_all()
         local_tools_stop()
+        media_jobs.stop_all()
 
     def busy():
         return (bool(active_urls) or video_queue.busy() or videos.busy() or local_tools_busy()
-                or media_jobs_busy() or app.state.browser_bridge.busy()
+                or media_jobs.busy() or app.state.browser_bridge.busy()
                 or any(item.get('state') == 'pending' for item in folder_requests.values()))
 
     from types import SimpleNamespace
@@ -557,6 +556,13 @@ def create_app(runtime=None):
     from .browser_bridge import attach as attach_browser
     def stop_browser_child(child):
         if not child:
+            return
+        if child.get('kind') == 'resolve':
+            try:
+                media_jobs.stop(child['jobId'])
+            except HTTPException as error:
+                if error.status_code != 404:
+                    raise
             return
         with lock:
             job = jobs.get(child.get('jobId')) if child.get('kind') == 'collect' else None

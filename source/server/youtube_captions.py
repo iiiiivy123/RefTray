@@ -87,7 +87,8 @@ def parse_json3(data):
     return cues
 
 
-def fetch(data, language='auto'):
+def fetch(data, language='auto', *, checkpoint=lambda: None):
+    checkpoint()
     tracks = candidates(data)
     if not tracks:
         present = bool(data.get('subtitles') or data.get('automatic_captions'))
@@ -99,6 +100,7 @@ def fetch(data, language='auto'):
     seen = set()
     deadline = time.monotonic() + 30
     for chosen in tracks:
+        checkpoint()
         if chosen[1] in seen:
             continue
         seen.add(chosen[1])
@@ -106,6 +108,7 @@ def fetch(data, language='auto'):
         if remaining <= 0:
             break
         cues, origin, warning = fetch_track(chosen, timeout=min(15, remaining))
+        checkpoint()
         if cues:
             return cues, origin, '；'.join(failures)
         failures.append(warning)

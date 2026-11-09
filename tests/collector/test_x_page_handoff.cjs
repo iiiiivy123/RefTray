@@ -2,6 +2,24 @@ const test=require('node:test'),assert=require('node:assert/strict'),vm=require(
 const base='source/extension/',bg=fs.readFileSync(base+'background.js','utf8');
 const fn=(name,next)=>bg.slice(bg.indexOf('async function '+name+'('),bg.indexOf('async function '+next+'('));
 const url='https://x.com/example/status/1234567890123';
+
+test('stopping X discovery stays stopped instead of becoming a parse failure or starting a fallback',async()=>{
+ for(const stopInPage of [true,false]){
+  let guestCalls=0;
+  const c=vm.createContext({URL,
+   loadedPageMedia:async()=>{if(stopInPage)throw Error('USER_STOPPED');return {postId:'1234567890123',media:[]};},
+   matureMedia:async()=>{guestCalls++;throw Error('USER_STOPPED');}});
+  vm.runInContext(fn('videoSource','browserYouTubeCaptions'),c);
+  await assert.rejects(c.videoSource({id:1,url},{}),e=>e.message==='USER_STOPPED');
+  assert.equal(guestCalls,stopInPage?0:1);
+ }
+ const c=vm.createContext({URL,taskContext:{options:{}},setMediaQuality:async()=>{},
+  chrome:{tabs:{get:async()=>({url})},scripting:{executeScript:async()=>({})}},
+  healthCache:{},matureMedia:async()=>{throw Error('USER_STOPPED');}});
+ vm.runInContext(fn('loadedPageMedia','includeProtectedImages'),c);
+ c.chrome.scripting.executeScript=async()=>[{result:{has_gif:true,media:[{kind:'photo',url:'photo'}]}}];
+ await assert.rejects(c.loadedPageMedia(1),e=>e.message==='USER_STOPPED');
+});
 test('X page script failures are not converted to an empty media list',async()=>{
  const c=vm.createContext({URL,chrome:{tabs:{get:async()=>({url})},scripting:{executeScript:async()=>{throw Error('script context invalidated');}}}});
  vm.runInContext('let taskContext={options:{}};async function setMediaQuality(){};'+fn('loadedPageMedia','includeProtectedImages'),c);

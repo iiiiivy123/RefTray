@@ -57,12 +57,12 @@ class BiliResolverTests(unittest.TestCase):
         for suffix in ['?p=0','?p=abc','?p=1&p=2']:
             with self.assertRaises(ValueError):canonical('https://www.bilibili.com/video/'+BV+'/'+suffix)
     def test_exact_work_ytdlp_formats_use_existing_bili_transport(self):
-        with patch('server.video.validate_url',side_effect=lambda u:u):
+        with patch('server.media_urls.validate_public_url',side_effect=lambda u:u):
             result=pick(fixture(),URL,'bilibili')['media'][0]
         self.assertEqual(result['media_kind'],'bilibili-dash');self.assertIn('audio.m4s',result['audio_url']);self.assertEqual(result['canonical_url'],URL)
     def test_audio_only_selection_needs_no_video(self):
         f=fixture();f.update(f['requested_formats'][1]);f.pop('requested_formats')
-        with patch('server.video.validate_url',side_effect=lambda u:u):r=pick(f,URL,'bilibili','audio')['media'][0]
+        with patch('server.media_urls.validate_public_url',side_effect=lambda u:u):r=pick(f,URL,'bilibili','audio')['media'][0]
         self.assertEqual(r['media_kind'],'bilibili-audio');self.assertNotIn('audio_url',r)
     def test_other_bv_part_playlist_or_untrusted_domain_are_rejected(self):
         for change in [{'id':'BV0000000000_p1'},{'id':BV+'_p2'},{'_type':'playlist','entries':[fixture()]}]:

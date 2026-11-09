@@ -14,6 +14,12 @@ def request(origin=ORIGIN, token='yes'):
     return Request({'type':'http','headers':[(b'origin',origin.encode()),(b'x-collector-token',token.encode())]})
 
 class BrowserBridgeTests(unittest.TestCase):
+    def test_resolution_child_is_owned_and_stopped_on_parent_cancel(self):
+        key=self.submit();self.claim()
+        self.routes['/browser/progress/{identity}'](key,Update(**self.client.model_dump(),backend_job={'kind':'resolve','jobId':'resolver'}),request())
+        self.routes['/browser/control/{identity}'](key,Control(action='stop'),request())
+        self.assertEqual(self.stopped,[{'kind':'resolve','jobId':'resolver'}])
+
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.catalog=Catalog(Path(self.tmp.name));self.app=FastAPI();self.stopped=[]

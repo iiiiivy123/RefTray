@@ -2,16 +2,11 @@
 import re
 from copy import deepcopy
 from urllib.parse import parse_qs,urlsplit
+from .media_urls import supports_cdn
 
 
 def supported_cdn_url(value):
-    try:
-        u = urlsplit(value or '')
-        return (u.scheme == 'https' and not u.username and not u.password and u.port in (None, 443)
-                and any(u.hostname == d or (u.hostname or '').endswith('.'+d)
-                        for d in ('bilivideo.com', 'bilivideo.cn')))
-    except ValueError:
-        return False
+    return supports_cdn(value, 'bilibili')
 
 
 def prefer_supported_cdn(play_info):
@@ -35,7 +30,7 @@ def prefer_supported_cdn(play_info):
 
 
 def single_source(data,url,output_format='original'):
-    from .video import validate_url
+    from .media_urls import validate_file_url
     parsed=urlsplit(url)
     bv=re.fullmatch(r'/video/(BV[0-9A-Za-z]{10})/?',parsed.path)[1]
     part=int(parse_qs(parsed.query).get('p',['1'])[0])
@@ -54,7 +49,7 @@ def single_source(data,url,output_format='original'):
             raise ValueError('当前B站音视频轨道受保护')
         if not supported_cdn_url(track.get('url')) or track.get('protocol','https') not in ('https','http'):
             raise ValueError('当前B站音视频轨道没有可用的常规HTTPS下载地址')
-        validate_url(track['url'])
+        validate_file_url(track['url'])
     audio=next((s for s in streams if s.get('acodec') not in (None,'none')),None)
     videos=[s for s in streams if s.get('vcodec') not in (None,'none')]
     common={'canonical_url':url,'page_title':data.get('title'),'author_name':data.get('uploader'),

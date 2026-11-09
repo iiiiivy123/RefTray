@@ -23,10 +23,10 @@ const BrowserRunner=(()=>{
   try{
    const state=await chrome.storage.local.get(['liblibProgress','collectorBackendPending']);
    const current=taskContext.bridgeId===active.id;
-   const progress=current?state.liblibProgress||{}:{stage:'opening',message:'正在打开目标网页'};
+   const progress=current&&taskContext.id&&state.liblibProgress?.context?.id===taskContext.id?state.liblibProgress:{stage:'opening',message:'正在读取目标网页'};
    const result=await api('/browser/progress/'+active.id,{...client,
     child_id:current?(taskContext.batch?.id||taskContext.id):null,
-    backend_job:current?state.collectorBackendPending||null:null,progress});
+    backend_job:current&&state.collectorBackendPending?.taskId===taskContext.id?state.collectorBackendPending||null:null,progress});
    if(active!==currentRun||currentRun.finishing||controlVersion!==(active.controlVersion||0))return;
    await chrome.storage.local.set({liblibControl:result.action,collectorBrowserConnection:{state:'connected',updated:Date.now()}});
    active.lastSeen=Date.now();
@@ -81,6 +81,7 @@ const BrowserRunner=(()=>{
    await controlPoint();
    if(active.lost)throw new Error('Chrome 与后台连接中断，已停止本次执行');
    let result;
+   if(request.operation!=='capture')taskContext={bridgeId:item.id,options:{}};
    if(request.operation==='preview'){
     result=await previewCollection(tab.id,tab.url,true);
    }else if(request.operation==='scan'){
@@ -138,43 +139,12 @@ const BrowserRunner=(()=>{
   taskContext.control=action;
   await chrome.storage.local.set({liblibControl:action});
  }
- async function downloadVideos(tab,port,options,health,frames){
-  let media=[];const u=new URL(tab.url);
-  if(/(^|\.)(x\.com|twitter\.com)$/.test(u.hostname)){
-   media=await videoSource(tab,options,true);
-  }else if(/(^|\.)artstation\.com$/.test(u.hostname)){
-   media=(await readPagePayload(tab.id,{},tab))._media||[];
-  }
-  if(!media.length)media=[await videoSource(tab,options)];
-  if(options.media_index){
-   if(options.media_index>media.length)throw new Error('视频序号超出范围，本帖共 '+media.length+' 个');
-   media=[media[options.media_index-1]];
-  }
-  const results=[];let done=0;
-  for(const source of media){
-   await controlPoint();
-   try{
-    const result=await downloadVideo(tab,port,{...options,source},health,frames);
-    results.push({...result,index:++done});
-   }catch(error){
-    if(error.message==='USER_STOPPED')throw error;
-    results.push({status:'failed',index:++done,message:error.message});
-   }
-   taskContext.stopResult={results:[...results],directory:results.find(r=>r.directory)?.directory};
-   await reportProgress({stage:'saving',percent:done/media.length*100,message:`已处理视频 ${done}/${media.length}`});
-  }
-  const failed=results.filter(r=>r.status==='failed'||r.partial).length;
-  return {status:results.every(r=>r.status==='failed')?'failed':failed?'partial':'completed',
-   directory:results.find(r=>r.directory)?.directory,results,
-   new_videos:results.reduce((n,r)=>n+(r.new_videos||0),0),new_images:results.reduce((n,r)=>n+(r.new_images||0),0),
-   message:`已处理 ${done} 个视频${failed?'，'+failed+' 个未完整保存':''}`};
- }
  if(chrome.alarms){
   chrome.alarms.onAlarm.addListener(a=>{if(a.name===alarm)void receive();});
   chrome.runtime.onStartup.addListener(()=>void start());
   chrome.runtime.onInstalled.addListener(()=>void start());
   void start();
  }
- return {receive,identity,target,control,downloadVideos};
+ return {receive,identity,target,control};
 })();
 if(typeof module!=='undefined')module.exports=BrowserRunner;

@@ -163,3 +163,23 @@ python tools/build_windows.py
 第一条只解析和校验锁定的离线依赖，不生成安装包；第二条也自动执行同一检查，通过后才创建打包目录。构建子进程隔离本机 pip 默认配置，不修改全局配置。规则见 `docs/SPEC.md` B02。
 
 实现依据：[pip 配置隔离](https://pip.pypa.io/en/stable/topics/configuration/)、[pip 离线解析与 dry-run](https://pip.pypa.io/en/stable/cli/pip_install/)。
+
+## 开发检查
+
+在仓库根目录运行。Python 需要项目依赖；当前本机使用安装包自带的解释器，导入路径明确指向这份源码。其他机器把第一行改为实际解释器路径。
+
+```powershell
+$reftrayTestPython = 'F:/RefTray/app/runtime/python.exe'
+& $reftrayTestPython -c "import sys,unittest; sys.path.insert(0,'source'); r=unittest.TextTestRunner().run(unittest.defaultTestLoader.discover('tests/collector',pattern='test_architecture_boundaries.py')); sys.exit(not r.wasSuccessful())"
+```
+
+每轮收尾执行架构检查。修改共享采集、任务或参数模块时，再运行完整回归：
+
+```powershell
+& $reftrayTestPython -c "import sys,unittest; sys.path.insert(0,'source'); r=unittest.TextTestRunner().run(unittest.defaultTestLoader.discover('tests/collector',pattern='test_*.py')); sys.exit(not r.wasSuccessful())"
+& $reftrayTestPython -c "import sys,unittest; sys.path.insert(0,'source'); r=unittest.TextTestRunner().run(unittest.defaultTestLoader.discover('tests',pattern='test_*.py')); sys.exit(not r.wasSuccessful())"
+node --test tests/collector/*.cjs
+git diff --check
+```
+
+架构检查覆盖服务端本地模块引用、循环依赖、解析与下载的依赖方向，以及扩展脚本加载文件。参数、停止、断线和平台内容由行为测试验证；真实 Chrome 验收记录在 [CURRENT](docs/CURRENT.md)。

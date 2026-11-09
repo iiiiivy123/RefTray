@@ -16,6 +16,17 @@ class Videos:
     def status(self, identity): return {'status':'completed','result':{}}
 
 class QueueDefaultsTests(unittest.TestCase):
+    def test_stop_interrupts_discovery_before_starting_any_download(self):
+        catalog=Catalog();videos=Videos();queue=VideoQueue(videos,catalog,lambda:SimpleNamespace(inbox=Path('scratch')))
+        def resolve(url, *, captions, checkpoint):
+            queue.stop(); checkpoint()
+        queue.active='test'
+        record={'id':'test','source':'https://x.com/test/status/123','platform':'x','records':{}}
+        with patch('server.video_queue.resolve',side_effect=resolve):
+            queue._run(record,Path('scratch'),{})
+        self.assertEqual(videos.values,[]);self.assertFalse(queue.busy())
+        self.assertEqual(catalog.saved[-1]['status'],'stopped')
+
     def test_queued_children_use_one_settings_snapshot(self):
         catalog=Catalog();videos=Videos();queue=VideoQueue(videos,catalog,lambda:SimpleNamespace(inbox=Path('scratch')))
         pending=[]

@@ -10,6 +10,7 @@ import threading
 import time
 from pathlib import Path
 from urllib.parse import urlsplit
+from .media_urls import supports_cdn
 
 _recipes = {}
 _lock = threading.Lock()
@@ -17,10 +18,7 @@ PROTOCOLS = ('https', 'http', 'm3u8', 'm3u8_native', 'http_dash_segments')
 
 
 def guard_url(url, platform):
-    u = urlsplit(url)
-    domains = ('googlevideo.com',) if platform == 'youtube' else ('twimg.com',)
-    if (u.scheme != 'https' or u.username or u.password or u.port not in (None, 443)
-            or not any(u.hostname == d or (u.hostname or '').endswith('.' + d) for d in domains)):
+    if platform not in ('youtube', 'x') or not supports_cdn(url, platform):
         raise ValueError('分段来源与作品平台不匹配')
     from .image_download import validate_url
     validate_url(url)

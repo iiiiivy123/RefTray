@@ -10,16 +10,26 @@ test('MCP shares normalization while retaining explicit comments, replies, subti
  assert.equal(options.video_action,'frames');
 });
 test('Worker claims and completes a task with no popup, opens target and forwards options',async()=>{
- const store={},calls=[],events={};let taskId='mcp-id';
+ const store={},calls=[],events={};let taskId='mcp-id',heartbeat;
  const item={id:taskId,request:{url:'https://x.com/example/status/123',scope:'single',mode:'text',operation:'capture',options:{include_comments:true,comment_limit:5,video_action:'skip'}}};
  const context=vm.createContext({URL,crypto:{randomUUID:()=> 'client'},AbortSignal,console,
- setInterval:()=>1,clearInterval:()=>{},Date,CaptureOptions:Options,taskContext:{options:{}},taskRunning:false,scanInProgress:false,
+ setInterval:fn=>{heartbeat=fn;return 1;},clearInterval:()=>{},Date,CaptureOptions:Options,taskContext:{options:{}},taskRunning:false,scanInProgress:false,
  chrome:{runtime:{getManifest:()=>({version:'test'})},storage:{local:{get:async keys=>typeof keys==='string'?{[keys]:store[keys]}:Object.fromEntries(keys.map(k=>[k,store[k]])),set:async value=>Object.assign(store,value),remove:async keys=>{for(const k of Array.isArray(keys)?keys:[keys])delete store[k];}}},
  tabs:{query:async()=>[],create:async value=>{calls.push(['tab',value]);return {id:7,url:value.url};},get:async()=>({id:7,url:item.request.url,status:'complete'})}},
  reftrayHealth:async()=>({json:async()=>({settings_token:'token'})}),waitForTab:async()=>{},controlPoint:async()=>{},
  fetch:async(url,opts)=>{calls.push([url,JSON.parse(opts.body||'{}')]);return {ok:true,json:async()=>url.endsWith('/claim')?{item}:url.includes('/progress/')?{action:'running'}:{ok:true}};},
  TaskProgress:{resultStatus:()=> 'completed'},reportProgress:async()=>{},TaskStore:{save:async()=>{}},
- collect:async(mode,port,options,target)=>{calls.push(['collect',{mode,port,options,target}]);return {directory:'F:/result',new_images:2};}
+ collect:async(mode,port,options,target)=>{
+  calls.push(['collect',{mode,port,options,target}]);context.taskContext={bridgeId:taskId,id:'new-child',options};
+  store.liblibProgress={context:{id:'old-child'},message:'old task'};
+  store.collectorBackendPending={taskId:'old-child',kind:'video',jobId:'old-job'};
+  await heartbeat();
+  const progress=calls.filter(c=>c[0].includes('/progress/')).at(-1)[1];
+  assert.equal(progress.backend_job,null);assert.notEqual(progress.progress.message,'old task');
+  store.collectorBackendPending={taskId:'new-child',kind:'resolve',jobId:'new-job'};
+  await heartbeat();assert.equal(calls.filter(c=>c[0].includes('/progress/')).at(-1)[1].backend_job.jobId,'new-job');
+  return {directory:'F:/result',new_images:2};
+ }
  });
  vm.runInContext(fs.readFileSync('source/extension/browser-runner.js','utf8'),context);
  await vm.runInContext('BrowserRunner.receive()',context);
@@ -27,6 +37,7 @@ test('Worker claims and completes a task with no popup, opens target and forward
  const collect=calls.find(c=>c[0]==='collect')[1];assert.equal(collect.options.include_comments,true);assert.equal(collect.options.comment_limit,5);assert.equal(collect.target.bridgeId,taskId);
  const result=calls.find(c=>c[0].includes('/browser/result/'))[1];assert.equal(result.status,'completed');assert.equal(result.result.directory,'F:/result');
  assert.equal(store.collectorBrowserResult,undefined);
+ assert.ok(calls.some(c=>c[0].includes('/browser/result/')&&c[1].result?.new_images===2));
  assert.equal(vm.runInContext('taskRunning',context),false);
 });
 test('Worker handles canonical redirects, validates post identity and downloads all selected media in order',async()=>{
@@ -38,15 +49,16 @@ test('Worker handles canonical redirects, validates post identity and downloads 
  const background=fs.readFileSync('source/extension/background.js','utf8');
  vm.runInContext(background.slice(background.indexOf('async function videoSource('),background.indexOf('async function browserYouTubeCaptions(')),ctx);
  vm.runInContext(fs.readFileSync('source/extension/browser-runner.js','utf8'),ctx);
+ vm.runInContext(fs.readFileSync('source/extension/video-sequence.js','utf8'),ctx);
  const runner=ctx.module.exports;
  assert.equal(runner.identity('https://youtu.be/abcdefghijk'),runner.identity('https://www.youtube.com/watch?v=abcdefghijk'));
  assert.equal(runner.identity('https://twitter.com/a/status/123/video/1'),runner.identity('https://x.com/b/status/123'));
  assert.notEqual(runner.identity('https://x.com/a/status/123'),runner.identity('https://x.com/a/status/124'));
- const result=await runner.downloadVideos({id:1,url:'https://x.com/a/status/123'},8766,{}, {},false);
+ const result=await ctx.downloadVideoSequence({id:1,url:'https://x.com/a/status/123'},8766,{}, {},false);
  assert.deepEqual(seen,['one','two']);assert.equal(result.new_videos,2);assert.equal(result.status,'completed');
- seen.length=0;await runner.downloadVideos({id:1,url:'https://x.com/a/status/123'},8766,{media_index:2},{},false);
+ seen.length=0;await ctx.downloadVideoSequence({id:1,url:'https://x.com/a/status/123'},8766,{media_index:2},{},false);
  assert.deepEqual(seen,['two']);
- await assert.rejects(()=>runner.downloadVideos({id:1,url:'https://x.com/a/status/124'},8766,{}, {},false),/unexpected public fallback/);
+ await assert.rejects(()=>ctx.downloadVideoSequence({id:1,url:'https://x.com/a/status/124'},8766,{}, {},false),/unexpected public fallback/);
 });
 test('Worker preserves an undelivered result and sends it before accepting another task',async()=>{
  const store={},calls=[];let deliveryFails=true,claimed=false,collectCount=0;

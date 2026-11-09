@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from .source_identity import canonical
 
@@ -29,13 +30,40 @@ def pick(data, url, platform, output_format='original'):
     if not sources:raise ValueError('当前作品没有可用视频')
     return {'media':sources}
 
-def resolve(value, subtitle_language='auto', captions=True, quality='best',output_format='original'):
+def run_worker(command, env, checkpoint, timeout=100):
+    """Drain worker pipes while polling cancellation; always reap the child."""
+    checkpoint()
+    process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, env=env,
+                               creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+    deadline = time.monotonic() + timeout
+    try:
+        while True:
+            checkpoint()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, timeout)
+            try:
+                out, err = process.communicate(timeout=min(.2, remaining))
+                checkpoint()
+                return subprocess.CompletedProcess(command, process.returncode, out, err)
+            except subprocess.TimeoutExpired:
+                if time.monotonic() >= deadline:
+                    raise
+    except BaseException:
+        if process.poll() is None:
+            process.kill()
+        process.communicate()
+        raise
+
+
+def resolve(value, subtitle_language='auto', captions=True, quality='best',output_format='original', *, checkpoint=lambda: None):
+    checkpoint()
     url,platform=canonical(value)
     if quality not in ('best','1080','720','480'):raise ValueError('不支持的清晰度')
     from .components import ytdlp_path
     package = ytdlp_path()
     from .diagnostics import failure, classify
-    import time
     if not (package/'yt_dlp/__main__.py').is_file():
         raise failure('COMPONENT', 'yt-dlp module path is not configured or missing', canonical=url, component=False)
     node=os.environ.get('COLLECTOR_NODE') or shutil.which('node')
@@ -43,7 +71,7 @@ def resolve(value, subtitle_language='auto', captions=True, quality='best',outpu
     env={**os.environ,'PYTHONPATH':str(package),'PYTHONUTF8':'1'}
     started=time.monotonic()
     try:
-        result=subprocess.run(command,capture_output=True,timeout=100,env=env,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+        result=run_worker(command, env, checkpoint)
     except subprocess.TimeoutExpired as exc:
         detail=(exc.stderr or b'').decode('utf-8','replace') if isinstance(exc.stderr,bytes) else str(exc.stderr or '')
         raise failure('TIMEOUT',detail or 'worker timeout',canonical=url,elapsed=time.monotonic()-started,component=True) from exc
@@ -56,10 +84,12 @@ def resolve(value, subtitle_language='auto', captions=True, quality='best',outpu
         data=json.loads(result.stdout)
     except (ValueError,UnicodeError) as exc:
         raise failure('PAYLOAD','worker returned invalid JSON',canonical=url,exit_code=result.returncode,elapsed=time.monotonic()-started,component=True) from exc
+    checkpoint()
     result = pick(data,url,platform,output_format)
     if platform == 'youtube' and captions:
         from .youtube_captions import fetch
-        cues, origin, warning = fetch(data, subtitle_language)
+        cues, origin, warning = fetch(data, subtitle_language, checkpoint=checkpoint)
         for source in result['media']:
             source.update(subtitle_cues=cues, subtitle_source=origin, subtitle_warning=warning)
+    checkpoint()
     return result

@@ -10,8 +10,8 @@ from . import bilibili_media
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request
-from .image_download import public_opener, validate_url as validate_public_url
+from urllib.request import Request
+from .image_download import public_opener
 from urllib.response import addinfourl
 from .catalog import fingerprint
 
@@ -19,28 +19,9 @@ from .storage import safe
 from .destinations import resolve_destination, text_assets, note_media_layout
 from .catalog import Catalog
 from .retention import prune_finished, STATUS_LIMIT, STATUS_TTL
+from .media_urls import validate_file_url as validate_url, SafeRedirect, host_matches, PLATFORM_CDNS
 
 MAX_BYTES = 1048576 * 1048576
-HOSTS = ('artstation.com', 'xhscdn.com', 'xhscdn.net', 'xiaohongshu.com', 'pinimg.com', 'hbimg.com', 'huaban.com', 'video.twimg.com', 'cdninstagram.com', 'fbcdn.net', 'weibocdn.com', 'sinaimg.cn', 'bilivideo.com', 'bilivideo.cn', 'googlevideo.com')
-
-
-def validate_url(value):
-    parsed = urlsplit(value)
-    host = (parsed.hostname or '').lower()
-    if parsed.scheme not in ('http', 'https') or parsed.username or parsed.password or parsed.port not in (None, 80, 443):
-        raise ValueError('仅支持普通 HTTP(S) 视频地址')
-    if not any(host == suffix or host.endswith('.' + suffix) for suffix in HOSTS):
-        raise ValueError('该视频域名暂未接入下载；目前支持已接入平台的视频 CDN')
-    validate_public_url(value)
-    if parsed.path.lower().endswith(('.m3u8', '.mpd')):
-        raise ValueError('这是分段流媒体，不是普通视频文件；本版不处理播放列表')
-    return value
-
-
-class SafeRedirect(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        validate_url(newurl)
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def video_type(data):
@@ -144,7 +125,7 @@ class VideoDownloads:
             resolved = value.media_kind == 'resolved'
             if resolved and (not value.resolver_id or value.audio_url):
                 raise ValueError('成熟下载器缺少有效预检记录')
-            is_bili=any((urlsplit(value.url).hostname or '')==h or (urlsplit(value.url).hostname or '').endswith('.'+h) for h in ('bilivideo.com','bilivideo.cn'))
+            is_bili=host_matches(urlsplit(value.url).hostname, PLATFORM_CDNS['bilibili'])
             youtube = value.media_kind == 'youtube-dash'
             if youtube:
                 from .source_identity import canonical
@@ -197,7 +178,7 @@ class VideoDownloads:
                 tracks=[];downloaded=0;limit=min(MAX_BYTES,value.max_video_mb*1048576)
                 for index,track_url in enumerate((value.url,value.audio_url)):
                     host=urlsplit(track_url).hostname or ''
-                    domains=('googlevideo.com',) if youtube else ('bilivideo.com','bilivideo.cn')
+                    domains=PLATFORM_CDNS['youtube' if youtube else 'bilibili']
                     if not any(host==h or host.endswith('.'+h) for h in domains):
                         raise ValueError('分轨来源与作品平台不一致')
                     validate_url(track_url)

@@ -146,7 +146,7 @@ def attach(app, authorize, origins, catalog, release, stop_child):
                 compact['message'] = redact(value.progress['message'])[:1000]
             state = {'running': 'running', 'paused': 'paused', 'stopped': 'stopping'}[item['control']]
             job = value.backend_job or {}
-            if job and (job.get('kind') not in ('collect', 'video') or not isinstance(job.get('jobId'), str) or len(job['jobId']) > 100):
+            if job and (job.get('kind') not in ('collect', 'video', 'resolve') or not isinstance(job.get('jobId'), str) or len(job['jobId']) > 100):
                 raise HTTPException(422, '无效的后台任务编号')
             persist(item, status=state, progress=compact, child_id=value.child_id,
                     backend_job={k: job[k] for k in ('kind', 'jobId') if k in job})
