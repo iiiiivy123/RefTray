@@ -2,9 +2,9 @@
 
 ## 1. 下载安装包
 
-打开 [0.5.47 预发布下载页](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.47)，在 **Assets** 下载 `InspirationCollector-0.5.47-Windows-x64-Setup.exe`。需要稳定版可选 [0.5.37](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.37)。页面上的 Source code ZIP 是源码，普通使用请选择 `.exe` 安装包。
+打开 [0.5.48 预发布下载页](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.48)，在 **Assets** 下载 `InspirationCollector-0.5.48-Windows-x64-Setup.exe`。需要稳定版可选 [0.5.37](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.37)。页面上的 Source code ZIP 是源码，普通使用请选择 `.exe` 安装包。
 
-安装包内置运行环境、媒体组件和扩展文件。新版功能与待修项见 [0.5.47 版本说明](release-0.5.47.md)。
+安装包内置运行环境、媒体组件和扩展文件。新版功能与待修项见 [0.5.48 版本说明](release-0.5.48.md)。
 
 AI客户端接入见 [MCP接口](mcp.md)。本地视频抽帧、视频转GIF和音频提取位于管理页“工具与帮助”。
 
