@@ -4,9 +4,9 @@
 
 RefTray 是 Windows + Chrome 本地素材采集工具。素材保存在你选的目录，图文保存为 Markdown，视频可以提取字幕、文字稿、音频或参考画面。
 
-[下载安装包](https://github.com/iiiiivy123/inspiration-collector/releases) · [使用说明](docs/usage.md) · [首次安装](docs/install.md) · [更新与恢复](docs/update.md) · [English](README_EN.md)
+[下载安装包](https://github.com/iiiiivy123/RefTray/releases) · [使用说明](docs/usage.md) · [首次安装](docs/install.md) · [更新与恢复](docs/update.md) · [English](README_EN.md)
 
-当前正式版为 **1.0.0**。[下载 Windows 安装包](https://github.com/iiiiivy123/inspiration-collector/releases/download/v1.0.0/InspirationCollector-1.0.0-Windows-x64-Setup.exe) · [版本说明](docs/release-1.0.0.md)
+当前正式版为 **1.0.1**。[下载 Windows 安装包](https://github.com/iiiiivy123/RefTray/releases/download/v1.0.1/InspirationCollector-1.0.1-Windows-x64-Setup.exe) · [版本说明](docs/release-1.0.1.md)
 
 ## 能做什么
 
@@ -72,7 +72,7 @@ RefTray 是独立项目，平台名称用于说明支持哪些网页。
 
 源代码可公开查看，项目尚未选定开源许可证；第三方组件遵守各自许可。[第三方声明](docs/third-party-notices.md) · [媒体组件](docs/third-party-media.md)
 
-维护：[iiiiivy123](https://github.com/iiiiivy123) · [问题反馈](https://github.com/iiiiivy123/inspiration-collector/issues) · [全部文档](docs/README.md)。反馈请附版本、步骤与脱敏截图。开发过程中使用 OpenAI Codex 辅助。
+维护：[iiiiivy123](https://github.com/iiiiivy123) · [问题反馈](https://github.com/iiiiivy123/RefTray/issues) · [全部文档](docs/README.md)。反馈请附版本、步骤与脱敏截图。开发过程中使用 OpenAI Codex 辅助。
 
 ## Windows 构建前检查
 

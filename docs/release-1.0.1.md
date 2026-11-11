@@ -1,0 +1,24 @@
+# RefTray 1.0.1 · 更新兼容与使用说明
+
+项目仓库改名为 **RefTray**。这一版让软件内更新识别新的仓库地址，也保留对旧地址的兼容。采集功能和界面沿用 1.0.0。
+
+## 这次更新
+
+- 更新检查、下载链接和离线帮助使用新的 RefTray 项目地址。
+- 保留安装包名称、安装位置和数据格式，已有素材、设置和采集记录继续使用。
+- 重写安装、使用、MCP 和常见问题说明，把操作步骤说清楚。
+- 补充素材来源、署名、水印、转载、商用和第三方组件许可说明。
+
+## 下载和更新
+
+Windows 10/11 64 位、Chrome 120 或更新版本，请下载 [InspirationCollector-1.0.1-Windows-x64-Setup.exe](https://github.com/iiiiivy123/RefTray/releases/download/v1.0.1/InspirationCollector-1.0.1-Windows-x64-Setup.exe)，按[安装教程](install.md)核对 SHA256。
+
+**1.0.0 和更早版本**若在软件内更新时提示“更新文件来源不匹配”，直接运行这次完整安装包，安装到原目录。完成后重新加载 Chrome 扩展、刷新作品页；使用 MCP 时重新连接 AI 客户端。之后可以继续使用软件内更新。
+
+`user.zip` 是需要自行配置 Python 的源码包。普通 Windows 用户请选择上面的安装包。
+
+## 素材使用
+
+保存时留好原链接、作者和权利说明。转载、公开分享或商用前确认授权覆盖用途，署名不能代替许可。具体说明见[素材使用与隐私](rights-and-privacy.md)。
+
+[使用教程](usage.md) · [安装步骤](install.md) · [更新与恢复](update.md) · [MCP 接入](mcp.md)

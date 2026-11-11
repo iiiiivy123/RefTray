@@ -12,13 +12,13 @@
 | --- | --- |
 | [首次安装](install.md) | 下载正确安装包、加载扩展、选择自己的素材库 |
 | [旧版更新](update.md) | 退出后台、覆盖安装、重载扩展与保留数据 |
-| [1.0.0 正式版说明](release-1.0.0.md) | 下载、功能范围、更新与数据保留 |
+| [1.0.1 正式版说明](release-1.0.1.md) | 下载、功能范围、更新与数据保留 |
 | [MCP接口](mcp.md) | AI接入、工具参数、会话与网络 |
 | [全仓代码审查交接](REVIEW_HANDOFF.md) | 产品、架构、规范、历史问题和审查范围 |
 | [安装与使用教程](usage.md) | 下载安装、加载 Chrome 扩展、选择素材库、日常使用、更新与故障排查 |
 | [常见问题](use-cases.md) | 启动、更新、页面识别、批量数量、文件位置和素材使用 |
 | [English FAQ](use-cases-en.md) | Setup, updates, collection issues and use of saved material |
-| [下载与发布记录](https://github.com/iiiiivy123/inspiration-collector/releases) | Windows 安装包、版本说明与校验文件 |
+| [下载与发布记录](https://github.com/iiiiivy123/RefTray/releases) | Windows 安装包、版本说明与校验文件 |
 
 > 已有旧版：先从系统托盘**退出灵感采集**，再运行新安装包，最后重新加载 Chrome 扩展。只关闭浏览器不会退出本地后台。
 
@@ -57,4 +57,4 @@
 
 ## 反馈问题
 
-在 [GitHub Issues](https://github.com/iiiiivy123/inspiration-collector/issues) 中说明软件版本、来源平台、操作步骤和实际结果。截图请脱敏，不要提交 Cookie、登录凭据、私人资料或受版权保护的完整媒体文件。
+在 [GitHub Issues](https://github.com/iiiiivy123/RefTray/issues) 中说明软件版本、来源平台、操作步骤和实际结果。截图请脱敏，不要提交 Cookie、登录凭据、私人资料或受版权保护的完整媒体文件。

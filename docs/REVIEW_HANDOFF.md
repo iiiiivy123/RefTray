@@ -4,7 +4,7 @@
 
 ## 1. 先确认拿到哪份代码
 
-仓库：https://github.com/iiiiivy123/inspiration-collector
+仓库：https://github.com/iiiiivy123/RefTray
 
 | 对象 | 本次核对的状态 |
 | --- | --- |

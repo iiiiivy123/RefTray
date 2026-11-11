@@ -23,7 +23,7 @@
 
 目前只做了 **Windows + Chrome**，首次需要安装桌面程序，再手动加载 Chrome 扩展。批量支持部分作者主页和画板，具体操作和平台范围放在 GitHub 说明里。
 
-项目地址：https://github.com/iiiiivy123/inspiration-collector
+项目地址：https://github.com/iiiiivy123/RefTray
 
 它还在继续完善，欢迎提使用体验和 bug。也提醒一下：仅用于保存自己有权使用的内容，不能因为网页公开就直接转载或商用。
 
@@ -41,8 +41,8 @@
 
 当前版本为 Windows 10/11 + Chrome；安装包在 GitHub Releases。扩展目前需要手动加载，教程里有具体步骤。只保存拥有许可或其他合法依据的内容。
 
-GitHub：https://github.com/iiiiivy123/inspiration-collector
-完整教程：https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/usage.md
+GitHub：https://github.com/iiiiivy123/RefTray
+完整教程：https://github.com/iiiiivy123/RefTray/blob/main/docs/usage.md
 
 ## C. V2EX / 中文技术社区｜作品分享
 
@@ -56,7 +56,7 @@ GitHub：https://github.com/iiiiivy123/inspiration-collector
 
 安装包已放到 GitHub Releases，Windows 10/11 + Chrome 可用，首次需要手动加载扩展。当前源码公开可查看，但项目自身尚未选定开源许可证；第三方组件按各自许可分发。这个阶段更希望收集实际使用反馈，尤其是不同页面类型的兼容问题。
 
-Repo：https://github.com/iiiiivy123/inspiration-collector
+Repo：https://github.com/iiiiivy123/RefTray
 
 功能范围和限制 README 里写了，反馈也可以直接开 Issue。项目不提供绕过登录、付费或 DRM 的功能。
 
@@ -72,7 +72,7 @@ It's a Windows app plus a Chrome extension that saves supported images, Markdown
 
 It's still an early-stage project. Installation currently means running the Windows installer and loading an unpacked Chrome extension. Supported pages and formats are listed in the README. It does not bypass paywalls, logins or DRM.
 
-Repo and setup guide: https://github.com/iiiiivy123/inspiration-collector
+Repo and setup guide: https://github.com/iiiiivy123/RefTray
 
 I'd be interested in feedback on the setup flow and the way references are organized. Please use it only for material you're allowed to save. (Please check each subreddit's self-promotion rules before posting.)
 
@@ -88,7 +88,7 @@ It combines a Chrome extension with a Windows-local service. It can save images 
 
 The first-time setup still needs an installer plus an unpacked extension, and compatibility varies a lot by site. I'm particularly looking for feedback on the installation UX, failure handling and what kinds of local reference workflows would be useful.
 
-https://github.com/iiiiivy123/inspiration-collector
+https://github.com/iiiiivy123/RefTray
 
 Source is viewable; the project does not yet have a project-wide open-source license. Third-party dependencies are separately attributed.
 

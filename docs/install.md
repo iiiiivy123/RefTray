@@ -1,10 +1,10 @@
 # 首次安装
 
-需要 Windows 10/11 64 位和 Chrome 120 或更新版本。当前正式版为 **1.0.0**。
+需要 Windows 10/11 64 位和 Chrome 120 或更新版本。当前正式版为 **1.0.1**。
 
 ## 1. 下载安装包
 
-打开 [Releases 下载页](https://github.com/iiiiivy123/inspiration-collector/releases)，在 Assets 下载文件名以 `Windows-x64-Setup.exe` 结尾的安装包，以及同版本的 `SHA256SUMS` 文件。`user.zip` 和 Source code ZIP 都需要自行配置运行环境；普通使用请选择安装包。
+打开 [Releases 下载页](https://github.com/iiiiivy123/RefTray/releases)，在 Assets 下载文件名以 `Windows-x64-Setup.exe` 结尾的安装包，以及同版本的 `SHA256SUMS` 文件。`user.zip` 和 Source code ZIP 都需要自行配置运行环境；普通使用请选择安装包。
 
 安装包内置运行环境、媒体组件和扩展文件。
 
@@ -13,10 +13,10 @@ AI客户端接入见 [MCP接口](mcp.md)。本地视频抽帧、视频转GIF和�
 安装包尚未签名。下载后，在文件所在文件夹打开 PowerShell，运行：
 
 ```powershell
-Get-FileHash .\InspirationCollector-1.0.0-Windows-x64-Setup.exe -Algorithm SHA256
+Get-FileHash .\InspirationCollector-1.0.1-Windows-x64-Setup.exe -Algorithm SHA256
 ```
 
-把输出的 Hash 与 `SHA256SUMS-1.0.0.txt` 中该文件名旁的值对照，字母大小写不影响比较。不一致就先别运行，重新从本仓库下载。系统若提示未知发布者，先核实来源和校验结果，保留系统安全防护。
+把输出的 Hash 与 `SHA256SUMS-1.0.1.txt` 中该文件名旁的值对照，字母大小写不影响比较。不一致就先别运行，重新从本仓库下载。系统若提示未知发布者，先核实来源和校验结果，保留系统安全防护。
 
 ## 2. 安装并启动
 

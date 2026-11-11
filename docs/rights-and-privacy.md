@@ -49,7 +49,7 @@ RefTray 是独立项目。文中使用平台名称，是为了说明支持哪些
 
 ## 反馈问题
 
-在 [GitHub Issues](https://github.com/iiiiivy123/inspiration-collector/issues) 提供版本、操作步骤、错误提示和必要的截图。截图先遮住个人信息；不要上传 Cookie、密码、访问令牌、私人日志或有争议的完整作品。
+在 [GitHub Issues](https://github.com/iiiiivy123/RefTray/issues) 提供版本、操作步骤、错误提示和必要的截图。截图先遮住个人信息；不要上传 Cookie、密码、访问令牌、私人日志或有争议的完整作品。
 
 ## English summary
 

@@ -1,0 +1,653 @@
+{
+  "source_url": "https://www.bilibili.com/video/BV1tdL863E8D/",
+  "captured_date": "2026-11-10",
+  "videoData": {
+    "bvid": "BV1tdL863E8D",
+    "aid": 116613311433692,
+    "title": "盘点近期热门，剪辑小曲",
+    "owner": {
+      "mid": 676768548,
+      "name": "Eternalworld"
+    },
+    "pages": [
+      {
+        "page": 1,
+        "cid": 38509084951,
+        "part": "盘点近期热门，剪辑小曲",
+        "duration": 1290
+      }
+    ],
+    "season_id": 5056136,
+    "ugc_season": {
+      "id": 5056136,
+      "title": "音乐盘点",
+      "mid": 676768548,
+      "ep_count": 28,
+      "sections": [
+        {
+          "id": 5629118,
+          "season_id": 5056136,
+          "title": "正片",
+          "episodes": [
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114205478947128,
+              "cid": 29015868434,
+              "title": "盘点那些值得单曲循环的“英文歌曲”",
+              "bvid": "BV1feXsY3EgJ",
+              "arc": {
+                "aid": 114205478947128,
+                "duration": 1815,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 29015868434,
+                "part": "盘点那些值得单曲循环的“英文歌曲”",
+                "duration": 1815
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114244519463857,
+              "cid": 29126690534,
+              "title": "\"那些奏响世界与生活篇章的歌曲\"",
+              "bvid": "BV1uQZcYgE6F",
+              "arc": {
+                "aid": 114244519463857,
+                "duration": 2014,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 29126690534,
+                "part": "\"那些奏响世界与生活篇章的歌曲\"",
+                "duration": 2014
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114172142616778,
+              "cid": 28897707987,
+              "title": "盘点那些听到旋律就想“跟着唱的音乐”",
+              "bvid": "BV16qQaYbEFH",
+              "arc": {
+                "aid": 114172142616778,
+                "duration": 1795,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 28897707987,
+                "part": "盘点那些听到旋律就想“跟着唱的音乐”",
+                "duration": 1795
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114317013879358,
+              "cid": 29347612941,
+              "title": "“带上耳机，感受纯音乐的魅力”",
+              "bvid": "BV1f6dmYjEj7",
+              "arc": {
+                "aid": 114317013879358,
+                "duration": 1920,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 29347612941,
+                "part": "“闭上眼睛，感受纯音乐的魅力”",
+                "duration": 1920
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114356943587717,
+              "cid": 29475999056,
+              "title": "“戴上耳机，享受旅途风景”",
+              "bvid": "BV1Fc5CzkEV9",
+              "arc": {
+                "aid": 114356943587717,
+                "duration": 1992,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 29475999056,
+                "part": "“戴上耳机，享受旅途的风景”",
+                "duration": 1992
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114385380968052,
+              "cid": 29563162140,
+              "title": "“节奏感小曲，每日一燃”",
+              "bvid": "BV121LxzrESt",
+              "arc": {
+                "aid": 114385380968052,
+                "duration": 1924,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 29563162140,
+                "part": "“节奏感小曲，每日一燃”",
+                "duration": 1924
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114426686473732,
+              "cid": 29717826558,
+              "title": "盘点全网播放破亿的粤语神曲，每一首都是经典",
+              "bvid": "BV1hZGbzJEUu",
+              "arc": {
+                "aid": 114426686473732,
+                "duration": 2322,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 29717826558,
+                "part": "盘点全网播放破亿的粤语神曲，每一首都是经典",
+                "duration": 2322
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114440074693600,
+              "cid": 29764486802,
+              "title": "“那些直击心灵的中文歌曲”",
+              "bvid": "BV1y9VLzBEo7",
+              "arc": {
+                "aid": 114440074693600,
+                "duration": 2384,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 29764486802,
+                "part": "“那些直击心灵的中文歌曲”",
+                "duration": 2384
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114478729398510,
+              "cid": 29882516329,
+              "title": "盘点那些在B站你绝对听过的歌曲",
+              "bvid": "BV19qVSz7ExJ",
+              "arc": {
+                "aid": 114478729398510,
+                "duration": 2291,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 29882516329,
+                "part": "盘点那些在B站你绝对听过的歌曲",
+                "duration": 2291
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114506126657143,
+              "cid": 29958144985,
+              "title": "盘点近期热门の小曲，很多人听过却不知道歌名",
+              "bvid": "BV1MhEBzHEGG",
+              "arc": {
+                "aid": 114506126657143,
+                "duration": 1606,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 29958144985,
+                "part": "盘点近期热门の小曲，很多人听过却不知道歌名",
+                "duration": 1606
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114506160147020,
+              "cid": 29958275496,
+              "title": "盘点短视频常用の小曲，很多人听过却不知道歌名",
+              "bvid": "BV11eEBzEEZo",
+              "arc": {
+                "aid": 114506160147020,
+                "duration": 1755,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 29958275496,
+                "part": "盘点短视频常用の小曲，很多人听过却不知道歌名",
+                "duration": 1755
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114566289688226,
+              "cid": 30152855207,
+              "title": "【emo纯音乐】脸上的笑，藏不住心里的泪",
+              "bvid": "BV1hijuzqEMc",
+              "arc": {
+                "aid": 114566289688226,
+                "duration": 1763,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 30152855207,
+                "part": "【emo纯音乐】脸上的笑，藏不住心里的泪",
+                "duration": 1763
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114638834371565,
+              "cid": 30360800596,
+              "title": "盘点那些宿命感超强的“纯音乐”",
+              "bvid": "BV1gKTGzpExn",
+              "arc": {
+                "aid": 114638834371565,
+                "duration": 1677,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 30360800596,
+                "part": "盘点那些宿命感超强的“纯音乐”",
+                "duration": 1677
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 114934063042414,
+              "cid": 31348559588,
+              "title": "盘点2025上半年B站热门音乐，很多人听过却不知道歌名",
+              "bvid": "BV1Uk8DzDEhR",
+              "arc": {
+                "aid": 114934063042414,
+                "duration": 1545,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 31348559588,
+                "part": "盘点2025上半年B站热门音乐，很多人听过却不知道歌名",
+                "duration": 1545
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 115013486448537,
+              "cid": 31636653430,
+              "title": "“每种纯音乐可以，拥有不同的故事”",
+              "bvid": "BV1YntXzoEgK",
+              "arc": {
+                "aid": 115013486448537,
+                "duration": 2220,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 31636653430,
+                "part": "“每种纯音乐可以，拥有不同的故事”",
+                "duration": 2220
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 115033233162741,
+              "cid": 31719425747,
+              "title": "“自由如同这音乐近在咫尺”",
+              "bvid": "BV1XcbxzUEiG",
+              "arc": {
+                "aid": 115033233162741,
+                "duration": 1942,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 31719425747,
+                "part": "“自由如同这音乐近在咫尺”",
+                "duration": 1942
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 115123377145903,
+              "cid": 32074172267,
+              "title": "盘点25年八月の小曲，很多人听过却不知道歌名",
+              "bvid": "BV1Bva5zqEL4",
+              "arc": {
+                "aid": 115123377145903,
+                "duration": 978,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 32074172267,
+                "part": "盘点25年8月热门の小曲，很多人听过却不知道歌名",
+                "duration": 978
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 115162870778612,
+              "cid": 32226412622,
+              "title": "“那些充满回忆的顶级纯音乐”",
+              "bvid": "BV1cEY5zVEux",
+              "arc": {
+                "aid": 115162870778612,
+                "duration": 1896,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 32226412622,
+                "part": "“那些充满回忆的顶级纯音乐”",
+                "duration": 1896
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 115246538753743,
+              "cid": 32549899134,
+              "title": "“那些压迫感超强的纯音乐”",
+              "bvid": "BV1y1nFz5E1Y",
+              "arc": {
+                "aid": 115246538753743,
+                "duration": 1415,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 32549899134,
+                "part": "“那些压迫感超强的纯音乐”",
+                "duration": 1415
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 115313697884242,
+              "cid": 32885181920,
+              "title": "你听过的音乐，没听过我吃",
+              "bvid": "BV1XYxWzMEJU",
+              "arc": {
+                "aid": 115313697884242,
+                "duration": 1651,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 32885181920,
+                "part": "你听过的音乐，没听过我吃",
+                "duration": 1651
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 115653973444063,
+              "cid": 34467351703,
+              "title": "在纯音乐里，落下你的浓墨的一笔",
+              "bvid": "BV1qQSeBJExE",
+              "arc": {
+                "aid": 115653973444063,
+                "duration": 1871,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 34467351703,
+                "part": "在纯音乐里，落下你的浓墨的一笔",
+                "duration": 1871
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 115863420207413,
+              "cid": 35275998908,
+              "title": "盘点近期热门の小曲，很多人听过却不知道名字",
+              "bvid": "BV1GnrNBzEdQ",
+              "arc": {
+                "aid": 115863420207413,
+                "duration": 1407,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 35275998908,
+                "part": "盘点近期热门の小曲，很多人听过却不知道名字",
+                "duration": 1407
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 116378749108873,
+              "cid": 37383374619,
+              "title": "近期热门小曲盘点",
+              "bvid": "BV1X7QcBnEgE",
+              "arc": {
+                "aid": 116378749108873,
+                "duration": 1575,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 37383374619,
+                "part": "近期热门小曲盘点",
+                "duration": 1575
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 116613311433692,
+              "cid": 38509084951,
+              "title": "盘点近期热门，剪辑小曲",
+              "bvid": "BV1tdL863E8D",
+              "arc": {
+                "aid": 116613311433692,
+                "duration": 1290,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 38509084951,
+                "part": "盘点近期热门，剪辑小曲",
+                "duration": 1290
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 116709998463221,
+              "cid": 38940904974,
+              "title": "戴上耳机，享受片刻自由",
+              "bvid": "BV1Z6E86wELM",
+              "arc": {
+                "aid": 116709998463221,
+                "duration": 1818,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 38940904974,
+                "part": "戴上耳机，享受片刻自由",
+                "duration": 1818
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 116891595115028,
+              "cid": 39801982897,
+              "title": "盘点那些短视频，常用的智斗小曲",
+              "bvid": "BV1K1MH6hEHB",
+              "arc": {
+                "aid": 116891595115028,
+                "duration": 1641,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 39801982897,
+                "part": "盘点那些短视频，常用的智斗小曲",
+                "duration": 1641
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 116902601034451,
+              "cid": 39863782617,
+              "title": "盘点那些，节奏感拉满的纯音乐",
+              "bvid": "BV1evNN6pEMq",
+              "arc": {
+                "aid": 116902601034451,
+                "duration": 1336,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 39863782617,
+                "part": "盘点那些，节奏感拉满的纯音乐",
+                "duration": 1336
+              }
+            },
+            {
+              "season_id": 5056136,
+              "section_id": 5629118,
+              "aid": 117049032443373,
+              "cid": 40660176307,
+              "title": "盘点近期，热门剪辑小曲",
+              "bvid": "BV1awup6kEvh",
+              "arc": {
+                "aid": 117049032443373,
+                "duration": 1932,
+                "author": {
+                  "mid": 676768548,
+                  "name": "Eternalworld"
+                }
+              },
+              "page": {
+                "page": 1,
+                "cid": 40660176307,
+                "part": "盘点近期，热门剪辑小曲",
+                "duration": 1932
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

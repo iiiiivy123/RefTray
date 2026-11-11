@@ -164,3 +164,9 @@
 !/docs/release-0.5.55.md
 !/docs/release-1.0.0.md
 !/tests/collector/test_history_preview.py
+
+# Release notes and the public Bilibili regression input.
+!/docs/release-1.0.1.md
+!/tests/collector/fixtures/
+/tests/collector/fixtures/*
+!/tests/collector/fixtures/bilibili-season-5056136.json

@@ -6,7 +6,7 @@ RefTray 把网页里的图片、图文、视频和音频保存到你选的文件
 
 ## 下载和开始使用
 
-Windows 10/11 64 位、Chrome 120 或更新版本，请从[本次发布](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v1.0.0)下载 `InspirationCollector-1.0.0-Windows-x64-Setup.exe`。
+Windows 10/11 64 位、Chrome 120 或更新版本，请从[本次发布](https://github.com/iiiiivy123/RefTray/releases/tag/v1.0.0)下载 `InspirationCollector-1.0.0-Windows-x64-Setup.exe`。
 
 安装包内置运行环境和媒体组件。`user.zip` 是供自行配置 Python 的用户使用的源码包，不能当免安装版直接打开。
 
