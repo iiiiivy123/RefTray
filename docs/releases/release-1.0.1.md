@@ -13,7 +13,7 @@
 
 ## 下载和更新
 
-Windows 10/11 64 位、Chrome 120 或更新版本，请下载 [InspirationCollector-1.0.1-Windows-x64-Setup.exe](https://github.com/iiiiivy123/RefTray/releases/download/v1.0.1/InspirationCollector-1.0.1-Windows-x64-Setup.exe)，按[安装教程](install.md)核对 SHA256。
+Windows 10/11 64 位、Chrome 120 或更新版本，请下载 [InspirationCollector-1.0.1-Windows-x64-Setup.exe](https://github.com/iiiiivy123/RefTray/releases/download/v1.0.1/InspirationCollector-1.0.1-Windows-x64-Setup.exe)，按[安装教程](../install.md)核对 SHA256。
 
 **1.0.0 和更早版本**若在软件内更新时提示“更新文件来源不匹配”，直接运行这次完整安装包，安装到原目录。完成后重新加载 Chrome 扩展、刷新作品页；使用 MCP 时重新连接 AI 客户端。之后可以继续使用软件内更新。
 
@@ -21,6 +21,6 @@ Windows 10/11 64 位、Chrome 120 或更新版本，请下载 [InspirationCollec
 
 ## 素材使用
 
-保存时留好原链接、作者和权利说明。转载、公开分享或商用前确认授权覆盖用途，署名不能代替许可。具体说明见[素材使用与隐私](rights-and-privacy.md)。
+保存时留好原链接、作者和权利说明。转载、公开分享或商用前确认授权覆盖用途，署名不能代替许可。具体说明见[素材使用与隐私](../rights-and-privacy.md)。
 
-[使用教程](usage.md) · [安装步骤](install.md) · [更新与恢复](update.md) · [MCP 接入](mcp.md)
+[使用教程](../usage.md) · [安装步骤](../install.md) · [更新与恢复](../update.md) · [MCP 接入](../mcp.md)

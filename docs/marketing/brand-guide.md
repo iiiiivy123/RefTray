@@ -1,4 +1,4 @@
-[← 文档导航](README.md) · [项目首页](../README.md)
+[← 文档导航](../README.md) · [项目首页](../../README.md)
 
 # RefTray 品牌与表达规范
 
@@ -21,7 +21,7 @@ RefTray 帮助创作者将有权保存的网页图片、图文笔记和视频参
 
 **采用简洁文件图标：空心文件轮廓 + 右上实心方块，不加内部横线。**
 
-[SVG 原稿](assets/icon-clean-file.svg) · [反白版本](assets/icon-clean-file-white.svg)
+[SVG 原稿](../assets/icon-clean-file.svg) · [反白版本](../assets/icon-clean-file-white.svg)
 
 图标使用 32 × 32 viewBox；描边 2，外轮廓与方块的整体边界均落在 x=3–29、y=3–29，四边留白一致。首页横幅内嵌同一组路径，避免不同位置使用不同造型。
 
@@ -33,10 +33,10 @@ RefTray 帮助创作者将有权保存的网页图片、图文笔记和视频参
 
 | 方案 | SVG | 表达 |
 | --- | --- | --- |
-| A · 托盘 | [查看 / 下载](assets/icon-a-tray.svg) | 卡片归入托盘，呼应 reference + tray；早期方案 |
-| B · 叠页 | [查看 / 下载](assets/icon-b-sheets.svg) | 分层参考资料，延续原图标的层叠感 |
-| C · 字母标 | [查看 / 下载](assets/icon-c-monogram.svg) | R 与 t 的组合，偏独立品牌识别 |
-| D · 框选 | [查看 / 下载](assets/icon-d-frame.svg) | 从页面选取并留下一份内容，适合小尺寸展示 |
+| A · 托盘 | [查看 / 下载](../assets/icon-a-tray.svg) | 卡片归入托盘，呼应 reference + tray；早期方案 |
+| B · 叠页 | [查看 / 下载](../assets/icon-b-sheets.svg) | 分层参考资料，延续原图标的层叠感 |
+| C · 字母标 | [查看 / 下载](../assets/icon-c-monogram.svg) | R 与 t 的组合，偏独立品牌识别 |
+| D · 框选 | [查看 / 下载](../assets/icon-d-frame.svg) | 从页面选取并留下一份内容，适合小尺寸展示 |
 
 以下四款仅作早期设计归档。SVG 为 32 × 32 viewBox；导出 16 / 32 / 48 / 128 等尺寸时需检查描边和负空间。深色底使用反白版本，不要加灰雾、渐变或厚阴影。
 
@@ -58,10 +58,10 @@ RefTray 帮助创作者将有权保存的网页图片、图文笔记和视频参
 
 正式发布版本以 [Releases](https://github.com/iiiiivy123/RefTray/releases) 为准。程序和 Chrome 扩展显示「灵感采集」，对外介绍使用 RefTray · 灵感采集。介绍材料不要另存一份“当前版本号”，以免过期。
 
-仓库使用 RefTray 名称；安装包文件名、部分内部标识和默认目录仍保留 `InspirationCollector`，用于兼容旧版。不要为了统一文案而替换 `LIBLIB_ROOT`、安装器 AppId、状态目录或用户素材路径。旧版更新入口的处理见[更新与恢复](update.md)。
+仓库使用 RefTray 名称；安装包文件名、部分内部标识和默认目录仍保留 `InspirationCollector`，用于兼容旧版。不要为了统一文案而替换 `LIBLIB_ROOT`、安装器 AppId、状态目录或用户素材路径。旧版更新入口的处理见[更新与恢复](../update.md)。
 
 名称做过初步公开检索；商标、域名与软件商店的完整核查仍待完成。注册或商业使用前需要另行核对。
 
 ## 版权与平台关系
 
-项目为独立第三方工具，非相关平台官方产品。仅保存有权使用的内容，遵守平台规则与版权要求。公开可见不等于获得复制、再分发或商用许可。详见 [版权与隐私](rights-and-privacy.md)。
+项目为独立第三方工具，非相关平台官方产品。仅保存有权使用的内容，遵守平台规则与版权要求。公开可见不等于获得复制、再分发或商用许可。详见 [版权与隐私](../rights-and-privacy.md)。

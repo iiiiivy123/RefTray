@@ -1,6 +1,6 @@
 # RefTray 0.5.37 交付与审查说明
 
-本文是版本交付记录。独立审查者的**整个项目背景、架构、规范、历史失败、未完成项和全仓审查要求**见 [全仓代码审查交接与任务书](REVIEW_HANDOFF.md)，不能只审查本版本列表。
+本文是版本交付记录。独立审查者的**整个项目背景、架构、规范、历史失败、未完成项和全仓审查要求**见 [全仓代码审查交接与任务书](../development/archive/REVIEW_HANDOFF.md)，不能只审查本版本列表。
 
 日期：2026-11-06。该版本汇总0.5.30–0.5.36修改，以及管理页、评论静态配图和本地加工增量。最新代码统一在main，以下列出完成内容、验证记录和后续待办。
 
@@ -36,7 +36,7 @@ background.js和batch.js只在本次新增评论图片分支上追加行为；�
 
 ## 给审查者
 
-先读AGENTS.md、docs/CURRENT.md和docs/SPEC.md。当前本机Ivy入口属于执行环境，其他宿主不可读时明确报告，不应猜测其内容。
+先读AGENTS.md、docs/development/CURRENT.md和docs/development/SPEC.md。当前本机Ivy入口属于执行环境，其他宿主不可读时明确报告，不应猜测其内容。
 
 重点审查：manage.js/catalog.py/app.py的筛选分页与本机较新记录合并；x-comments.js对父帖和纯图片回复的处理；background.js/batch.js评论分支是否影响旧媒体；storage.py评论去重及Markdown引用；local_tools.py的授权、文件上限、输出路径、停止/升级占用。不要以“清理结构”为由重写已通过的Pinterest/GIF/代理实现。
 

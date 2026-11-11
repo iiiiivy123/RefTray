@@ -43,4 +43,4 @@ RefTray is an independent project. Its source is publicly viewable, but a projec
 
 ## Development
 
-Build prerequisites and test commands are in the [development guide](docs/development.md) (Chinese). For normal use, download the Windows installer instead.
+Build prerequisites and test commands are in the [development guide](docs/development/README.md) (Chinese). For normal use, download the Windows installer instead.

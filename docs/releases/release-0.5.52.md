@@ -8,4 +8,4 @@ Pinterest 单图、Pinterest / 花瓣画板图片继续平铺；纯文字直接�
 
 旧素材不移动、不改名；未完成的旧任务继续使用原目录。同一作品重新发起新任务时采用新规则，新规则内重复采集会复用已有目录并保留用户改过的文字稿。
 
-更新包含后台、Chrome 扩展和 MCP 文件。Chrome 提示版本不一致时重新加载 RefTray；已打开的 AI 客户端在重新连接 MCP 后加载新版接口。详细路径见[保存目录说明](SAVE-LAYOUT-REVIEW-2026-11-11.md)。
+更新包含后台、Chrome 扩展和 MCP 文件。Chrome 提示版本不一致时重新加载 RefTray；已打开的 AI 客户端在重新连接 MCP 后加载新版接口。详细路径见[保存目录说明](../development/archive/SAVE-LAYOUT-REVIEW-2026-11-11.md)。

@@ -22,18 +22,11 @@
 
 第三方组件：[声明汇总](third-party-notices.md) · [媒体组件](third-party-media.md) · [语音组件](third-party-speech.md) · [CAT·LOGUE 许可](CAT-LOGUE-LICENSE.txt)。
 
-## 版本与开发
+## 版本与其他资料
 
-- [1.0.1 版本说明](release-1.0.1.md)；其他已发布版本见 [Releases](https://github.com/iiiiivy123/RefTray/releases)。
-- [开发与构建](development.md)：依赖预检、构建步骤和测试命令。
-- [当前开发状态](CURRENT.md) · [任务与验证记录](TASK.md) · [功能约定](SPEC.md)。这些记录区分源码、构建和实测状态，不等同于已发布版本。
-- 历史资料：[全仓审查交接](REVIEW_HANDOFF.md) · [目录变更记录](SAVE-LAYOUT-REVIEW-2026-11-11.md)。使用前核对记录日期与实际提交。
-
-## 发布与介绍材料
-
-[发布清单](publishing.md) · [名称与视觉](brand-guide.md) · [演示脚本](demo-script.md) · [宣传稿](launch-copy.md) · [媒体资料](press-kit.md)。
-
-介绍材料是草稿。对外发布时核对实际版本，使用该版本的真实截图或录屏；早期图标候选在品牌文档中归档。
+- [1.0.1 版本说明](releases/release-1.0.1.md) · [历史版本说明](releases/README.md) · [下载安装包](https://github.com/iiiiivy123/RefTray/releases)。
+- [开发与构建](development/README.md)：源码结构、构建、测试和维护记录。
+- [介绍材料](marketing/README.md)：名称、视觉、演示和宣传草稿。
 
 ## 反馈问题
 

@@ -1,14 +1,14 @@
 # RefTray 开发短入口
 
-首次进入先读 `docs/CURRENT.md`：它是当前版本、工作目录、任务状态与验证证据的唯一短交接。不从旧聊天猜版本，不递归阅读历史文档。
+首次进入先读 `docs/development/CURRENT.md`：它是当前版本、工作目录、任务状态与验证证据的唯一短交接。不从旧聊天猜版本，不递归阅读历史文档。
 
-涉及媒体识别、GIF、X评论、任务状态或工具页时，按 `docs/SPEC.md` 对应编号读取功能边界与验收条件；交付逐项报告，不将规范已写入等同于实现或验收通过。
+涉及媒体识别、GIF、X评论、任务状态或工具页时，按 `docs/development/SPEC.md` 对应编号读取功能边界与验收条件；交付逐项报告，不将规范已写入等同于实现或验收通过。
 
-构建或打包前必须遵守 `docs/SPEC.md` B02：先执行依赖预检，失败不进入打包；命令见 `docs/development.md`。不得把预检推迟到安装依赖或编译阶段。
+构建或打包前必须遵守 `docs/development/SPEC.md` B02：先执行依赖预检，失败不进入打包；命令见 `docs/development/README.md`。不得把预检推迟到安装依赖或编译阶段。
 
-执行整仓审查时先读 `docs/REVIEW_HANDOFF.md`，确认检出的分支和HEAD；审查整棵代码树，不只审查最近提交或已知问题清单。
+执行整仓审查时先读 `docs/development/archive/REVIEW_HANDOFF.md`，确认检出的分支和HEAD；审查整棵代码树，不只审查最近提交或已知问题清单。
 
-每轮改动收尾按 `docs/SPEC.md` B01 检查受影响的依赖、参数、任务状态和失败传播，并执行 `docs/development.md` 中的架构检查；修改共享采集模块时追加相关平台回归，把结果写入 TASK。
+每轮改动收尾按 `docs/development/SPEC.md` B01 检查受影响的依赖、参数、任务状态和失败传播，并执行 `docs/development/README.md` 中的架构检查；修改共享采集模块时追加相关平台回归，把结果写入 TASK。
 
 遵守本机 Ivy 入口 `C:/Users/Admin/.codex/ivy-dev-system/AGENTS.md`，其余规则按动作读取。
 

@@ -31,7 +31,7 @@
 ## 证据与产物
 
 - `tests/collector/test_*`：保存/身份/任务配置/进度/恢复反例；`tests/test_runtime_contracts.py`、`test_installer_maintenance.py`、`test_distribution.py`：运行与分发合同。
-- `docs/runtime-0528-verification.md` 和 `docs/evidence/runtime-0528/`：隔离运行/依赖/升级证据（早期整合提交，非本机部署）。
+- `docs/development/archive/runtime-0528-verification.md` 和 `docs/evidence/runtime-0528/`：隔离运行/依赖/升级证据（早期整合提交，非本机部署）。
 - `tests/collector/pinterest_public_evidence/`：真实公共Pin登录墙证据。
 - `work/http-integration.json`：本轮0.5.29独立端口HTTP保存与目录检查；未动用户服务。
 - `work/test-popup.cjs`：原87控件保留、320px、语言、批量、进度场景；截图在用户outputs。

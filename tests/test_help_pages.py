@@ -34,13 +34,13 @@ class HelpPagesTests(unittest.TestCase):
         self.assertIn('SAVE-LAYOUT-REVIEW-2026-11-11.html',pages)
         for name in ('index.html','usage.html','SAVE-LAYOUT-REVIEW-2026-11-11.html'):
             self.assertIn('href="save-layout.html"',pages[name],name)
-        self.assertIn('历史记录',pages['SAVE-LAYOUT-REVIEW-2026-11-11.html'])
+        self.assertEqual(pages['save-layout.html'],pages['SAVE-LAYOUT-REVIEW-2026-11-11.html'])
         self.assertIn('P03-第三讲',pages['save-layout.html'])
 
     def test_build_commands_live_in_the_developer_guide(self):
         readme=(ROOT/'README.md').read_text('utf-8')
-        development=(ROOT/'docs/development.md').read_text('utf-8')
-        self.assertIn('(docs/development.md)',readme)
+        development=(ROOT/'docs/development/README.md').read_text('utf-8')
+        self.assertIn('(docs/development/README.md)',readme)
         for command in ('python tools/build_windows.py --check-dependencies','test_architecture_boundaries.py'):
             self.assertNotIn(command,readme)
             self.assertIn(command,development)
@@ -48,11 +48,11 @@ class HelpPagesTests(unittest.TestCase):
         self.assertNotIn('F:/RefTray',readme)
 
     def test_current_documentation_relative_file_links_resolve(self):
-        names=('README.md','README_EN.md','AGENTS.md','docs/README.md','docs/development.md',
+        names=('README.md','README_EN.md','AGENTS.md','docs/README.md','docs/development/README.md',
                'docs/usage.md','docs/install.md','docs/update.md','docs/mcp.md','docs/save-layout.md',
                'docs/use-cases.md','docs/use-cases-en.md','docs/rights-and-privacy.md',
-               'docs/brand-guide.md','docs/press-kit.md','docs/launch-copy.md','docs/publishing.md',
-               'docs/demo-script.md','docs/release-1.0.1.md','docs/SAVE-LAYOUT-REVIEW-2026-11-11.md')
+               'docs/marketing/brand-guide.md','docs/marketing/press-kit.md','docs/marketing/launch-copy.md','docs/development/publishing.md',
+               'docs/marketing/demo-script.md','docs/releases/release-1.0.1.md','docs/development/archive/SAVE-LAYOUT-REVIEW-2026-11-11.md')
         for name in names:
             source=(ROOT/name).read_text('utf-8-sig')
             self.assertNotIn('\ufffd',source,name)

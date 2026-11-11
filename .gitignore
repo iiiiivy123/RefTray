@@ -11,16 +11,10 @@
 !/docs/install.md
 !/docs/update.md
 !/docs/ytdlp-license.md
-!/docs/release-0.5.28.md
 !/docs/use-cases.md
 !/docs/rights-and-privacy.md
 !/docs/third-party-notices.md
 !/docs/CAT-LOGUE-LICENSE.txt
-!/docs/publishing.md
-!/docs/brand-guide.md
-!/docs/press-kit.md
-!/docs/launch-copy.md
-!/docs/demo-script.md
 !/docs/use-cases-en.md
 !/docs/third-party-media.md
 !/source/
@@ -44,8 +38,6 @@
 /tools/*
 !/tools/build_release.py
 !/tools/enable_speech_utf8.py
-!/docs/release-0.5.51.md
-!/docs/SAVE-LAYOUT-REVIEW-2026-11-11.md
 !/tools/build_windows.py
 !/tools/build_media.sh
 !/tools/prepare_build_inputs.py
@@ -69,7 +61,6 @@
 
 # Current development entry and narrow regression checks travel with the code.
 !/AGENTS.md
-!/docs/CURRENT.md
 !/tests/collector/test_pinterest_identity.cjs
 !/tests/collector/test_pinterest_layout.py
 !/tests/collector/check_installer_mcp.py
@@ -85,11 +76,7 @@
 !/tools/update_local.ps1
 
 !/tests/collector/test_import_boundary.py
-!/docs/release-0.5.29.md
-!/docs/SPEC.md
-!/docs/REVIEW_HANDOFF.md
 !/docs/mcp.md
-!/docs/release-0.5.37.md
 !/tests/collector/test_x_comments.cjs
 !/tests/collector/test_local_tools.py
 !/tests/test_build_preflight.py
@@ -98,10 +85,8 @@
 !/tests/collector/test_progress_journal.cjs
 !/tests/collector/test_mcp_video_dispatch.py
 !/tests/collector/test_video_finalize.py
-!/docs/review-fixes.md
 !/tests/test_extension_install.py
 !/tests/collector/test_image_proxy.py
-!/docs/TASK.md
 !/tests/collector/check_upgrade_listener.py
 !/tools/review_windows_upgrade.py
 
@@ -121,12 +106,10 @@
 !/tests/collector/test_x_text_quota.cjs
 !/tests/collector/test_x_page_handoff.cjs
 
-!/docs/release-0.5.47.md
 /installer/*.generated.iss
 !/tests/collector/test_browser_bridge.py
 !/tests/collector/test_browser_runner.cjs
 !/tests/collector/test_media_jobs.py
-!/docs/release-0.5.48.md
 !/tests/collector/test_bilibili_parts.cjs
 !/tests/collector/test_bili_sources.cjs
 !/tests/collector/test_media_candidates.cjs
@@ -142,35 +125,70 @@
 !/tools/speech_bundle.py
 !/tests/test_speech_bundle.py
 !/docs/third-party-speech.md
-!/docs/release-0.5.50.md
 !/tests/collector/test_collection_lists.cjs
 !/tests/collector/test_update_ui.cjs
-!/docs/release-0.5.49.md
 !/docs/RELEASE-1.0-CHECKLIST.md
 !/tests/collector/test_folder_picker.py
 !/tests/collector/test_folder_chooser.cjs
 !/tests/collector/test_save_layout.py
-!/docs/ADR-001-directory-layout-v3.md
-!/docs/release-0.5.52.md
 
-!/docs/release-0.5.53.md
 !/tests/collector/test_cold_page_loading.cjs
 !/tests/collector/test_x_profile.cjs
 !/tools/build_help.py
 !/tests/test_help_pages.py
 !/tests/collector/test_diagnostics_view.cjs
-!/docs/release-0.5.54.md
 
-!/docs/release-0.5.55.md
-!/docs/release-1.0.0.md
 !/tests/collector/test_history_preview.py
 
 # Release notes and the public Bilibili regression input.
-!/docs/release-1.0.1.md
 !/tests/collector/fixtures/
 /tests/collector/fixtures/*
 !/tests/collector/fixtures/bilibili-season-5056136.json
 
 # Current user guide and the separate developer entry.
 !/docs/save-layout.md
-!/docs/development.md
+
+# Developer records, release history and marketing stay separate from user guides.
+!/docs/development/
+/docs/development/**
+!/docs/releases/
+/docs/releases/**
+!/docs/marketing/
+/docs/marketing/**
+!/docs/development/archive/
+!/docs/development/archive/evidence/
+!/docs/development/archive/evidence/runtime-0528/
+!/docs/development/ADR-001-directory-layout-v3.md
+!/docs/development/CURRENT.md
+!/docs/development/README.md
+!/docs/development/SPEC.md
+!/docs/development/TASK.md
+!/docs/development/archive/REVIEW_HANDOFF.md
+!/docs/development/archive/SAVE-LAYOUT-REVIEW-2026-11-11.md
+!/docs/development/archive/evidence/runtime-0528/dependency-repeat.json
+!/docs/development/archive/evidence/runtime-0528/lifecycle-smoke.json
+!/docs/development/archive/evidence/runtime-0528/managed-upgrade-simulation.json
+!/docs/development/archive/evidence/runtime-0528/runtime-lifecycle-results.json
+!/docs/development/archive/review-fixes.md
+!/docs/development/archive/runtime-0528-verification.md
+!/docs/development/publishing.md
+!/docs/marketing/brand-guide.md
+!/docs/marketing/demo-script.md
+!/docs/marketing/launch-copy.md
+!/docs/marketing/press-kit.md
+!/docs/releases/release-0.5.28.md
+!/docs/releases/release-0.5.29.md
+!/docs/releases/release-0.5.37.md
+!/docs/releases/release-0.5.47.md
+!/docs/releases/release-0.5.48.md
+!/docs/releases/release-0.5.49.md
+!/docs/releases/release-0.5.50.md
+!/docs/releases/release-0.5.51.md
+!/docs/releases/release-0.5.52.md
+!/docs/releases/release-0.5.53.md
+!/docs/releases/release-0.5.54.md
+!/docs/releases/release-0.5.55.md
+!/docs/releases/release-1.0.0.md
+!/docs/releases/release-1.0.1.md
+!/docs/releases/README.md
+!/docs/marketing/README.md

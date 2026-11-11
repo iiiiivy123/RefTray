@@ -26,4 +26,4 @@ Windows 10/11 64 位用户请下载 `InspirationCollector-0.5.55-Windows-x64-Set
 
 已完成本机安装与数据保留检查、页面操作与缩略图检查、相关自动化回归和架构检查。正式包另行核对文件摘要、源码一致性和隔离启动退出；干净 Windows 虚拟机验收尚未完成。
 
-安装包暂未签名，请从本仓库下载并核对 SHA256。详细操作见 [使用说明](usage.md)、[安装步骤](install.md)、[更新与恢复](update.md) 和 [MCP 接入](mcp.md)。
+安装包暂未签名，请从本仓库下载并核对 SHA256。详细操作见 [使用说明](../usage.md)、[安装步骤](../install.md)、[更新与恢复](../update.md) 和 [MCP 接入](../mcp.md)。

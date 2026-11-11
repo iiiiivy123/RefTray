@@ -1,6 +1,6 @@
 # RefTray｜公开介绍资料 / Product fact sheet
 
-[项目主页](../README.md) · [English](../README_EN.md) · [下载](https://github.com/iiiiivy123/RefTray/releases/latest) · [版权与隐私](rights-and-privacy.md)
+[项目主页](../../README.md) · [English](../../README_EN.md) · [下载](https://github.com/iiiiivy123/RefTray/releases/latest) · [版权与隐私](../rights-and-privacy.md)
 
 ## 30 秒认识 RefTray
 
@@ -52,7 +52,7 @@ English: local-first reference collector, Chrome extension, Windows media organi
 
 ## 平台与内容授权
 
-RefTray 不是任何所列平台的官方产品。公开网页内容不一定授权保存、复制、转载或商业利用。请根据权利范围与网站规则使用；准确说明浏览器及平台兼容性限制。详情见 [版权与隐私](rights-and-privacy.md)。
+RefTray 不是任何所列平台的官方产品。公开网页内容不一定授权保存、复制、转载或商业利用。请根据权利范围与网站规则使用；准确说明浏览器及平台兼容性限制。详情见 [版权与隐私](../rights-and-privacy.md)。
 
 ## 联系与反馈
 

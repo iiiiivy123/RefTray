@@ -70,4 +70,4 @@
 
 反馈问题时附版本、步骤和必要的截图，先遮住私人信息；不要提交 Cookie、密码或完整私人日志。
 
-[返回首页](../README.md) · [使用教程](usage.md) · [1.0 说明](release-1.0.1.md)
+[返回首页](../README.md) · [使用教程](usage.md) · [1.0 说明](releases/release-1.0.1.md)
