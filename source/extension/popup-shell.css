@@ -41,7 +41,7 @@ body:has(>#scroll-content){width:320px;background:var(--paper)}
 .popup-redesign .header-actions{gap:8px}.popup-redesign .languages{display:flex;gap:5px;align-items:center;white-space:nowrap;font-size:11px}
 .popup-redesign .languages button{border:0;min-width:20px;min-height:26px;padding:0;color:var(--muted)}
 .popup-redesign .languages button[aria-pressed=true]{color:var(--ink);border-bottom:1px solid var(--ink);font-weight:600}
-.popup-redesign .languages>span{color:#a49e93}.popup-redesign .field{grid-template-columns:79px minmax(0,1fr);gap:8px;min-height:39px;margin:0}
+.popup-redesign .languages>span{color:#a49e93}.popup-redesign .field{grid-template-columns:91px minmax(0,1fr);gap:8px;min-height:39px;margin:0}
 .popup-redesign .checks{display:flex;align-items:center;flex-wrap:wrap;gap:3px 9px;min-width:0}
 .popup-redesign .checks label,.popup-redesign #skip-gifs-option{display:inline-flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;margin:0;min-height:31px;color:var(--ink)}
 .popup-redesign #text-options{display:flex;flex-wrap:wrap;gap:4px 9px;padding:0;margin:0}
@@ -62,7 +62,7 @@ body:has(>#scroll-content){width:320px;background:var(--paper)}
 .popup-redesign .result-actions button+button{border-left:1px solid var(--line);padding-left:8px}
 .popup-redesign #task-log-drawer>summary{font-weight:400;gap:8px}.popup-redesign #task-log-count{margin-left:auto}
 .popup-redesign #recent-list p{cursor:pointer;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
-.popup-redesign #scroll-content{max-height:290px;padding-top:0}
+.popup-redesign #scroll-content{max-height:none;padding-top:0}
 .popup-redesign #scroll-content:focus-visible{outline:1px solid var(--muted);outline-offset:-1px}
 
 .popup-redesign #result-context{display:none!important}
@@ -95,3 +95,29 @@ body:has(>#scroll-content){width:320px;background:var(--paper)}
 .popup-redesign .result-stages[hidden]{display:none}
 .popup-redesign .result-stages span{padding:2px 5px;border-bottom:2px solid transparent}
 .popup-redesign .result-stages span.current{color:var(--ink);font-weight:600;border-bottom-color:var(--ink)}
+
+/* Let expanded options use the available height while keeping actions visible. */
+.popup-redesign .app-header{flex-shrink:0}
+.popup-redesign #scan-actions{display:flex;align-items:center;gap:0;margin:0 0 4px;padding:0;flex-wrap:wrap}
+.popup-redesign #scan-actions .text-button{min-height:30px;padding:4px 0;font-size:11px;line-height:18px}
+.popup-redesign #scan-actions .text-button+button{margin-left:10px;padding-left:10px;border-left:1px solid var(--line)}
+.popup-redesign .checks label,.popup-redesign #skip-gifs-option,.popup-redesign #text-options label{font-size:12px}
+.popup-redesign .advanced-body>label:has(input[type=checkbox]){display:flex;align-items:center;gap:6px;min-height:34px;margin:0;padding-left:99px;font-size:12px}
+.popup-redesign #comment-limit,.popup-redesign #skip-posts{max-width:90px;justify-self:start;font-variant-numeric:tabular-nums}
+.popup-redesign #trim-options summary{font-weight:400;min-height:34px;display:flex;align-items:center;gap:6px;list-style:none}
+.popup-redesign #trim-options summary::before{content:'▸';color:var(--muted)}
+.popup-redesign #trim-options[open] summary::before{transform:rotate(90deg)}
+
+/* November acceptance: one-line trim and edge-aligned square scrollbars. */
+.popup-redesign #scroll-content{margin-right:-11px;padding-right:8px}
+.popup-redesign :is(#scroll-content,#recent-list,#result-current,#task-result-summary,#diagnostic-text){scrollbar-width:auto;scrollbar-color:auto}
+.popup-redesign :is(#scroll-content,#recent-list,#result-current,#task-result-summary,#diagnostic-text)::-webkit-scrollbar{width:3px;height:3px}
+.popup-redesign :is(#scroll-content,#recent-list,#result-current,#task-result-summary,#diagnostic-text)::-webkit-scrollbar-thumb{background:#b4aea3;border-radius:0}
+.popup-redesign :is(#scroll-content,#recent-list,#result-current,#task-result-summary,#diagnostic-text)::-webkit-scrollbar-track{background:transparent}
+.popup-redesign :is(#scroll-content,#recent-list,#result-current,#task-result-summary,#diagnostic-text)::-webkit-scrollbar-button{display:none;width:0;height:0}
+.popup-redesign :is(#recent-list,#result-current){margin-right:-11px;padding-right:8px}
+.popup-redesign .trim-values{display:flex;align-items:center;gap:7px;font-size:11px;min-width:0}
+.popup-redesign .trim-values label{display:flex;align-items:center;gap:3px;white-space:nowrap}
+.popup-redesign .trim-values input{width:43px;min-width:0;min-height:30px;padding:3px 0;border:0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.popup-redesign #text-options{gap:0 12px}
+.popup-redesign #advanced-options{display:none!important}

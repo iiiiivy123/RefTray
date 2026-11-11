@@ -1,64 +1,36 @@
-<p align="center"><img src="docs/assets/icon-clean-file.svg" width="80" alt="RefTray"></p>
-
 # RefTray · Inspiration Collector
 
-Save web references to a folder on your Windows PC: images, GIFs, Markdown notes, videos and audio. Use the Chrome extension to collect a work or process an author page or board.
+Save web references to folders on your Windows PC: images, GIFs, Markdown notes, videos and audio.
 
-[Download 0.5.48 preview](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.48) · [Download 0.5.37 stable](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.37) · [中文](README.md)
+[Download 0.5.55](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.55) · [中文](README.md) · [Installation](docs/install.md) · [MCP setup](docs/mcp.md)
 
-The current preview is **0.5.48**. The stable version and application code on `main` are **0.5.37**; preview code is tagged `v0.5.48`. These guides describe the preview.
+**0.5.55 is the current stable release.** It uses the same capture engine in the Chrome extension and MCP interface.
 
 ## Getting started
 
-1. Install the Windows x64 `.exe` from the release assets.
-2. Start Inspiration Collector. Its icon appears in the Windows tray.
+1. Download the Windows x64 installer from the release assets.
+2. Install and launch RefTray. Its icon appears in the Windows tray.
 3. Copy the extension folder address from the tray menu. Open `chrome://extensions`, enable Developer mode, and load that folder as an unpacked extension.
 4. Open a work in Chrome, choose a library folder and collection mode, then start collecting.
 
-Windows 10/11 x64 and Chrome are required. The installer includes the runtime and media components. The extension is loaded manually; the installer is currently unsigned.
+Windows 10/11 x64 and Chrome are required. The extension is loaded manually. The installer is unsigned; compare it with the published SHA256 checksum.
 
-## What changed in 0.5.48
+## Features
 
-- Choose video + subtitles + Markdown, video only, transcript only, or audio extraction. Frame extraction is a separate option, with a default interval of one second.
-- Image and note modes expose GIF and video filters. Notes include the body images; plain-text mode saves text.
-- Set top-level comment and reply limits separately. Nested replies are off by default, with a default limit of two replies per top-level comment when enabled.
-- Keep duplicate handling, download size limits and frame intervals in settings.
-- Search and filter media diagnostics, or open a matching diagnostic from a failed task.
-- Use MCP with the extension popup closed, shared capture options, batch capture, progress and task controls.
-- Batch-save Bilibili video parts or extract their audio. Media resolution now considers valid backup addresses from the same track.
-- Fix stale preview options, mixed resolution caches, cancellation and progress attached to an earlier task.
-- Receive official release notifications. Download and run the installer to update; automatic installation is not implemented.
+- Save images and GIFs, preferring available high-resolution sources.
+- Save articles and notes as Markdown, with optional comments and local image text recognition.
+- Download supported videos, subtitles, transcripts or audio. Local speech recognition is included for videos without website captions.
+- Collect supported author pages, boards, collections and video lists, with a starting position and item limit.
+- View capture history with thumbnails, and pause, resume or retry tasks.
+- Use MCP from a compatible AI client while keeping collection and files on your computer.
+- Check for official updates and restore the previous program version while keeping your library and settings.
 
-## Problems reported during testing
-
-**The extension still shows the old version after installation.** Reload it in `chrome://extensions`, then refresh the work page. If the version stays old, check which extension folder Chrome has loaded.
-
-**The background service fails to start.** Version 0.5.44 had a startup failure when restoring an old task. The fix is included in 0.5.47. Keep the library and task database; retain `data/inspiration/logs/service-errors.log` if startup still fails.
-
-**Huaban shows the image, or X plays the video, but saving fails.** Both issues have been reported. Version 0.5.47 changes the extraction flow; live download verification for Huaban fullscreen/batch and X logged-in video is still unfinished.
-
-[More reported issues](docs/use-cases-en.md) · [Release notes](docs/release-0.5.48.md)
-
-## MCP for AI clients
-
-**0.5.48 provides 16 MCP tools** for background execution, shared capture options, batch capture, task control and diagnostics. Keep Chrome and the RefTray service running; the extension popup can be closed. Please test popup-closed capture, pause/resume and Bilibili part batches in your Chrome session. Direct download tools use the local backend. [Setup and tool parameters](docs/mcp.md)
-
-## Platforms
-
-Adapters cover Xiaohongshu, Pinterest, Instagram, X, Huaban, Bilibili, YouTube, ArtStation, Weibo and article pages. Collection modes vary by platform. Full live regression testing of this preview is not finished; the specific outstanding X and Huaban issues are listed above.
+Adapters cover Xiaohongshu, Huaban, Pinterest, X, Bilibili, YouTube, Instagram, ArtStation, Weibo and supported article pages. Available modes depend on the platform. Logged-in content uses the paired Chrome session; X profile batches should remain in the foreground while collecting.
 
 ## Updating
 
-Finish or stop active tasks, run the new installer in the existing program directory, start the app, reload the Chrome extension, and refresh work pages. Refresh the AI client's MCP connection after upgrading. The library and settings are retained.
+From 0.5.48 or earlier, install the full 0.5.55 package over the existing program. Later versions can check for updates in **Settings → About & updates**. Reload the Chrome extension and refresh work pages after upgrading. Reconnect the AI client's MCP connection when needed.
 
-Update notifications check official releases. Preview 0.5.48 is available through the download link above.
+Your library, settings and saved records are retained. Read the [update guide](docs/update.md) for recovery steps.
 
-## Project information
-
-RefTray / 灵感采集 is the display name; the installer and tray app also use Inspiration Collector. Older InspiShelf references refer to this project.
-
-Files are saved to your selected local folder. Changing the library location does not move existing files. The project provides no cloud synchronization.
-
-This is an independent third-party project. Save and use material with appropriate permission. The source is publicly viewable; a project-wide open-source license has not been selected. Third-party components retain their own licenses.
-
-[Documentation](docs/README.md) · [Rights and privacy](docs/rights-and-privacy.md) · [Third-party notices](docs/third-party-notices.md) · [Report an issue](https://github.com/iiiiivy123/inspiration-collector/issues)
+Use RefTray for material you are authorized to save. See the [rights and privacy guide](docs/rights-and-privacy.md) and [third-party notices](docs/third-party-notices.md).

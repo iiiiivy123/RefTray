@@ -8,7 +8,8 @@
   function safeUrl(value) {
     try {
       const url = new URL(String(value || ""));
-      return url.protocol === "https:" ? url.href : "";
+      return url.protocol === "https:" && !url.username && !url.password && (!url.port || url.port === '443') &&
+        /(^|\.)(cdninstagram\.com|fbcdn\.net)$/.test(url.hostname) ? url.href : "";
     } catch (_error) {
       return "";
     }

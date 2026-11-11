@@ -1,17 +1,16 @@
 """Server-owned selections bridge preflight to yt-dlp's native downloaders."""
 import copy
-import ipaddress
 import json
 import os
 import secrets
 import shutil
-import socket
 import subprocess
 import sys
 import threading
 import time
 from pathlib import Path
 from urllib.parse import urlsplit
+from .media_urls import supports_cdn
 
 _recipes = {}
 _lock = threading.Lock()
@@ -19,14 +18,11 @@ PROTOCOLS = ('https', 'http', 'm3u8', 'm3u8_native', 'http_dash_segments')
 
 
 def guard_url(url, platform):
-    u = urlsplit(url)
-    domains = ('googlevideo.com',) if platform == 'youtube' else ('twimg.com',)
-    if (u.scheme != 'https' or u.username or u.password or u.port not in (None, 443)
-            or not any(u.hostname == d or (u.hostname or '').endswith('.' + d) for d in domains)):
+    if platform not in ('youtube', 'x') or not supports_cdn(url, platform):
         raise ValueError('分段来源与作品平台不匹配')
-    addresses = socket.getaddrinfo(u.hostname, 443, type=socket.SOCK_STREAM)
-    if not addresses or any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):
-        raise ValueError('拒绝本机或内网媒体地址')
+    from .image_download import validate_url
+    validate_url(url)
+
 
 
 def register(item, canonical, platform):
@@ -61,7 +57,7 @@ def selection(token, canonical=None, url=None):
             raise ValueError('视频预检已过期或后台已重启，请重新开始任务')
         result = copy.deepcopy(value[1])
     if canonical is not None:
-        from .media_resolver import canonical as normalize
+        from .source_identity import canonical as normalize
         if normalize(canonical)[0] != result['canonical'] or url != result['formats'][0]['url']:
             raise ValueError('下载与预检作品不一致，请重新预检')
     return result

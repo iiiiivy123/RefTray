@@ -1,6 +1,5 @@
 """Create subtitles from loaded captions or offline speech, without deleting user media."""
 import hashlib
-import json
 import math
 import os
 import secrets
@@ -8,7 +7,7 @@ import tempfile
 from pathlib import Path
 from datetime import datetime
 from .storage import safe
-from .bilibili_media import run_local
+from .speech import transcribe
 
 def stamp(seconds):
     milliseconds = round(seconds * 1000)
@@ -20,15 +19,8 @@ def stamp(seconds):
 def save(source, directory, cues, checkpoint, metadata=None):
     origin = getattr(metadata, 'subtitle_source', '') or '网页已加载字幕'
     if not cues:
-        runtime = Path(os.environ.get('COLLECTOR_ASR_PYTHON', ''))
-        model = Path(os.environ.get('COLLECTOR_ASR_MODEL', ''))
-        if not runtime.is_file() or not model.is_dir() or not (model/'model.bin').is_file():
-            raise ValueError('本地语音识别组件或模型尚未就绪；未生成字幕')
         origin = '本地语音识别生成，可能有错字，请校对'
-        with tempfile.TemporaryDirectory(prefix='collector-subtitles-') as tmp:
-            result = Path(tmp)/'result.json'
-            run_local([str(runtime), '-X', 'utf8', str(Path(__file__).with_name('transcribe_local.py')), str(source), str(model), str(result)], checkpoint, timeout=10800)
-            cues = json.loads(result.read_text(encoding='utf-8'))['segments']
+        cues = transcribe(source, checkpoint)
     lines=[]
     for cue in cues[:100000]:
         start,end=float(cue['start']),float(cue['end'])

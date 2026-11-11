@@ -1,44 +1,43 @@
-"""Local MCP stdio adapter. No browser automation, credential export or new service."""
+"""Local MCP adapter for public downloads and paired Chrome capture."""
 import json
 import os
 import re
 import sys
 import uuid
-from html.parser import HTMLParser
-from urllib.parse import urlsplit
-from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
+from pathlib import Path
+from urllib.request import Request, build_opener, ProxyHandler
 
+if __package__:
+    from .public_post import identity, resolve_post
+    from .source_identity import canonical as video_post
+else:  # Installed MCP clients start this file by path.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from server.public_post import identity, resolve_post
+    from server.source_identity import canonical as video_post
 
-class Metadata(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.values = {}
-
-    def handle_starttag(self, tag, attrs):
-        attrs = dict(attrs)
-        if tag == 'meta' and attrs.get('property'):
-            self.values[attrs['property']] = attrs.get('content', '')
-
-
-def identity(url):
-    parsed = urlsplit(url)
-    if parsed.scheme != 'https' or parsed.username or parsed.password or parsed.port not in (None, 443):
-        raise ValueError('需要 HTTPS 原作品链接')
-    host = parsed.hostname
-    if host in ('www.pinterest.com', 'pinterest.com'):
-        match = re.fullmatch(r'/pin/(\d+)/?', parsed.path)
-        platform = 'pinterest'
-    elif host in ('x.com', 'www.x.com', 'twitter.com', 'www.twitter.com'):
-        match = re.fullmatch(r'/(?:[\w]+|i/web)/status/(\d+)/?', parsed.path)
-        platform = 'x'
-    else:
-        match = None
-    if not match:
-        raise ValueError('当前接口支持 Pinterest Pin 和 X 原帖详情链接')
-    return platform, match[1]
+from server import mcp_tools
 
 
 class Backend:
+    def process_local(self, path, format):
+        from urllib.parse import urlencode
+        source = Path(path)
+        if format not in ('gif', 'audio') or not source.is_absolute() or not source.is_file():
+            raise ValueError('请选择本地视频文件和输出格式')
+        if source.suffix.lower() not in ('.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v'):
+            raise ValueError('请选择视频文件')
+        size = source.stat().st_size
+        if not 0 < size <= 512 * 1024 * 1024:
+            raise ValueError('本地视频须为非空文件且不超过 512 MB')
+        with self.opener.open(self.base+'/health', timeout=5) as response:
+            token = json.load(response)['settings_token']
+        with source.open('rb') as body:
+            request = Request(self.base+'/tools/media?'+urlencode({'format':format, 'name':source.name}),
+                              data=body, headers={'X-Collector-Token':token, 'Content-Type':'application/octet-stream',
+                                                 'Content-Length':str(size)})
+            with self.opener.open(request, timeout=110) as response:
+                return {**json.load(response), 'kind':'local'}
+
     def __init__(self):
         port = int(os.environ.get('REFTRAY_MCP_PORT', '8766'))
         if not 1 <= port <= 65535:
@@ -58,50 +57,32 @@ class Backend:
             return json.load(response)
 
     def download_post(self, url):
-        expected = identity(url)
-        class SourceRedirect(HTTPRedirectHandler):
-            def redirect_request(self, req, fp, code, msg, headers, newurl):
-                if identity(newurl) != expected:
-                    raise ValueError('网页重定向身份不匹配')
-                return super().redirect_request(req, fp, code, msg, headers, newurl)
-        with build_opener(SourceRedirect()).open(Request(url, headers={'User-Agent': 'Mozilla/5.0'}), timeout=15) as response:
-            if identity(response.url) != expected:
-                raise ValueError('网页重定向身份不匹配')
-            body = response.read(8 * 1024 * 1024 + 1)
-        if len(body) > 8 * 1024 * 1024:
-            raise ValueError('网页超过解析上限')
-        parser = Metadata()
-        parser.feed(body.decode('utf-8', 'replace'))
-        meta = parser.values
-        if identity(meta.get('og:url', '')) != expected:
-            raise ValueError('分享元数据主帖身份不匹配或缺失')
-        if 'Age-restricted' in meta.get('og:description', ''):
-            raise ValueError('SESSION_REQUIRED: 接口尚未接入Chrome登录会话；不是用户未登录')
-        if any(key.startswith('og:video') for key in meta):
-            raise ValueError('VIDEO_RESOLVE_REQUIRED: 请使用reftray_resolve_video，不把视频封面保存为图片')
-        image = meta.get('og:image', '')
-        parsed = urlsplit(image)
-        valid = (parsed.hostname == 'pbs.twimg.com' and parsed.path.startswith('/media/')) if expected[0] == 'x' else (parsed.hostname == 'pinimg.com' or (parsed.hostname or '').endswith('.pinimg.com'))
-        if parsed.scheme != 'https' or not valid:
-            raise ValueError('未找到已确认属于原作品的正文媒体；未保存头像或推荐图')
+        resolved = resolve_post(url)
+        scope = resolved.pop('scope')
+        warning = resolved.pop('warning')
         health = self.api('/health')
-        return {**self.api('/collect/start', {
-            'canonical_url': url, 'platform': expected[0], 'page_title': meta.get('og:title', ''),
-            'collection_mode': 'images', 'images': [{'url': image}], 'ocr_enabled': False,
+        job = self.api('/collect/start', {
+            **resolved, 'collection_mode': 'images', 'ocr_enabled': False,
             'save_directory': health['inbox'], 'capture_scope': 'single', 'capture_kind': 'images',
-            'directory_schema': 'function-platform-v2', 'idempotency_key': uuid.uuid4().hex,
-            'extraction_warnings': ['当前接口仅确认分享图，不保证完整轮播。'],
-        }), 'scope': 'verified_share_image', 'complete_carousel': False}
+            'directory_schema': 'function-platform-v3', 'idempotency_key': uuid.uuid4().hex,
+            'extraction_warnings': [warning],
+        })
+        return {**job, 'scope': scope, 'warning': warning, 'complete_carousel': False}
 
 
 TOOLS = [
     ('reftray_status', '读取本机后台状态（不返回凭据）', {}),
-    ('reftray_download_post', '提交原帖链接并保存已核对身份的分享图片；明确报告尚未接入的登录会话，不保证完整轮播', {'url': {'type': 'string'}}),
-    ('reftray_resolve_video', '调用原有视频解析器，保留主帖身份校验', {'url': {'type': 'string'}}),
-    ('reftray_download_video', '核对原帖身份并提交全部已解析视频下载；通过任务查询确认文件保存', {'url': {'type': 'string'}}),
-    ('reftray_job_status', '读取下载任务结果及实际保存目录', {'job_id': {'type': 'string'}, 'kind': {'type': 'string', 'enum': ['collect', 'video']}}),
+    ('reftray_download_post', '提交原帖链接并保存已核对身份的公开图片（Instagram 静态轮播、Pin 原图、静态故事图片或分享图）；明确报告尚未接入的登录会话，不保证完整轮播', {'url': {'type': 'string'}}),
+    ('reftray_capture_browser', '在已配对的 Chrome 后台自动打开或复用网页并采集；支持登录页面、图文、评论、GIF、视频，无需打开弹窗；未传参数使用设置默认值', mcp_tools.CAPTURE),
+    ('reftray_download_videos', '将原帖全部视频交给后台顺序下载，返回持久任务号；失败保留各项结果', {'url': {'type': 'string'}}),
+    ('reftray_stop_queue', '停止指定的视频下载队列，已保存文件保留', {'job_id': {'type':'string'}}),
+    ('reftray_find_saved', '核对当前作品在素材库的实际文件和采集范围，可查浏览器扩展已保存的各平台作品', {'url': {'type':'string'}}),
+    ('reftray_resolve_video', '下载前预览视频数量和画质；普通下载会自动解析，无需先调用此工具', {'url': {'type': 'string'}}),
+    ('reftray_download_video', '核对原帖身份并提交一个视频下载；多视频先返回数量，再用 media_index（从1开始）选择，避免并发占用和丢失任务编号', {'url': {'type': 'string'}, 'media_index': {'type': 'integer', 'minimum': 1}}),
+    ('reftray_job_status', '读取下载任务结果及实际保存目录', {'job_id': {'type': 'string'}, 'kind': {'type': 'string', 'enum': ['collect', 'video', 'task', 'local']}}),
 ]
 
+TOOLS += mcp_tools.TOOLS
 
 def dispatch(method, params, backend):
     if method == 'initialize':
@@ -109,31 +90,53 @@ def dispatch(method, params, backend):
     if method == 'ping':
         return {}
     if method == 'tools/list':
-        return {'tools': [{'name': name, 'description': description, 'inputSchema': {'type': 'object', 'properties': properties, 'required': list(properties), 'additionalProperties': False}} for name, description, properties in TOOLS]}
+        return {'tools': [{'name': name, 'description': description, 'inputSchema': {'type': 'object', 'properties': properties, 'required': mcp_tools.REQUIRED[name], 'additionalProperties': False}} for name, description, properties in TOOLS]}
     if method != 'tools/call':
         raise ValueError('Unsupported method')
     name, args = params['name'], params.get('arguments', {})
     try:
         if name == 'reftray_status':
-            result = backend.api('/health')
+            result = {**backend.api('/health'), 'browser':backend.api('/browser/status')}
+        elif name in ('reftray_capture_browser', *[tool[0] for tool in mcp_tools.TOOLS]):
+            result = mcp_tools.extra_dispatch(name, args, backend)
+        elif name == 'reftray_download_videos':
+            url, _ = video_post(args['url'])
+            result = backend.api('/video/queue', {'url': url})
+        elif name == 'reftray_stop_queue':
+            if not re.fullmatch(r'[a-f0-9]{32}', args['job_id']):
+                raise ValueError('无效的队列编号')
+            result = backend.api('/video/queue/'+args['job_id']+'/stop', {})
+        elif name == 'reftray_find_saved':
+            item = backend.api('/history/lookup', {'url':args['url'], 'required':[]}).get('item')
+            result = ({'status':'verified_local', **{key:item[key] for key in ('directory','files','coverage','platform')}}
+                      if item else {'status':'no_verified_local_capture', 'files':[]})
         elif name == 'reftray_download_post':
             result = backend.download_post(args['url'])
         elif name == 'reftray_resolve_video':
-            identity(args['url'])
-            result = backend.api('/media/resolve', {'url': args['url'], 'captions': False})
+            url, _ = video_post(args['url'])
+            result = backend.api('/media/resolve', {'url': url, 'captions': False})
         elif name == 'reftray_download_video':
-            platform, _ = identity(args['url'])
-            media = backend.api('/media/resolve', {'url': args['url'], 'captions': False})['media']
+            url, platform = video_post(args['url'])
+            media = backend.api('/media/resolve', {'url': url, 'captions': False})['media']
             if not media:
                 raise ValueError('未解析到原帖视频')
-            health = backend.api('/health')
-            result = {'jobs': [backend.api('/video/start', {**source, 'canonical_url': args['url'],
+            index = args.get('media_index')
+            if index is not None and (isinstance(index, bool) or not isinstance(index, int) or not 1 <= index <= len(media)):
+                raise ValueError('media_index 必须在 1 到 '+str(len(media))+' 之间')
+            if len(media) > 1 and index is None:
+                result = {'status': 'selection_required', 'media_count': len(media), 'jobs': [],
+                          'message': '原帖包含多个视频。请用 media_index 选择；本次尚未启动下载。'}
+            else:
+                health = backend.api('/health')
+                source = media[(index or 1) - 1]
+                job = backend.api('/video/start', {**source, 'canonical_url': url,
                       'platform': platform, 'save_directory': health['inbox'], 'capture_kind': 'video',
-                      'capture_scope': 'single', 'directory_schema': 'function-platform-v2'}) for source in media]}
+                      'capture_scope': 'single', 'directory_schema': 'function-platform-v3'})
+                result = {'jobs': [job], 'media_count': len(media), 'media_index': index or 1}
         elif name == 'reftray_job_status':
-            if args['kind'] not in ('collect', 'video') or not re.fullmatch(r'[\w-]{1,100}', args['job_id']):
+            if args['kind'] not in ('collect', 'video', 'task', 'local') or not re.fullmatch(r'[\w-]{1,100}', args['job_id']):
                 raise ValueError('Invalid job')
-            result = backend.api('/' + args['kind'] + '/status/' + args['job_id'])
+            result = backend.api('/tasks/' + args['job_id'] if args['kind'] == 'task' else '/tools/media/'+args['job_id'] if args['kind']=='local' else '/' + args['kind'] + '/status/' + args['job_id'])
         else:
             raise ValueError('Unknown tool')
         return {'content': [{'type': 'text', 'text': json.dumps(result, ensure_ascii=False)}], 'isError': False}
@@ -142,6 +145,33 @@ def dispatch(method, params, backend):
         message = str(exc)
         if isinstance(exc, HTTPError):
             message = exc.read(4096).decode('utf-8', 'replace')
+        if name in ('reftray_download_post', 'reftray_download_video', 'reftray_download_videos', 'reftray_capture_browser', 'reftray_capture_batch'):
+            # Keep only an allowlisted work identity; share tokens and signed media URLs
+            # must never enter the user-visible task journal.
+            task_id = uuid.uuid4().hex
+            try:
+                if name in ('reftray_capture_browser', 'reftray_capture_batch'):
+                    from urllib.parse import urlsplit, urlunsplit
+                    parsed = urlsplit(args['url'])
+                    source, platform = urlunsplit((parsed.scheme, parsed.hostname or '', parsed.path, '', '')), 'browser'
+                elif name == 'reftray_download_post':
+                    platform, post_id = identity(args['url'])
+                    source = {'pinterest':'https://www.pinterest.com/pin/', 'instagram':'https://www.instagram.com/p/', 'x':'https://x.com/i/status/'}[platform] + post_id
+                else:
+                    source, platform = video_post(args['url'])
+            except (KeyError, TypeError, ValueError):
+                source, platform = '', ''
+            stage = '提交 Chrome 采集' if name == 'reftray_capture_browser' else '提交图片采集' if name == 'reftray_download_post' else '提交视频下载'
+            reason = re.sub(r'https?://[^\s\"<>]+', '[链接已省略]', message)[:500]
+            try:
+                backend.api('/tasks', {'id': task_id, 'data': {
+                    'source': source, 'platform': platform, 'name': 'MCP · ' + stage,
+                    'status': 'failed', 'completed': True, 'mode': 'current',
+                    'records': {'result': {'url': source, 'status': 'failed', 'reason': stage + '失败（' + type(exc).__name__ + '），详见当次接口回执。'}},
+                }})
+                message = reason + '\n任务记录：' + task_id + '（kind=task）'
+            except Exception:
+                message = reason + '\n本机后台未确认写入失败记录。'
         return {'content': [{'type': 'text', 'text': message}], 'isError': True}
 
 

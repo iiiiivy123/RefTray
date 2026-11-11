@@ -37,13 +37,15 @@ async function approveDownloads(entries){
   let known=0;for(const [url,item]of unique){if(item.bytes==null)unknown++;else known+=item.bytes;approvedSizes.set(url,item.bytes);if(item.bytes>(taskContext.options.max_video_mb||512)*1048576)throw new Error('有视频超过单个文件上限，请修改设置或跳过视频。');}
   // Consent is scoped to this task; later sources still get size probes and hard byte limits.
   if(downloadConsent || [...unique.values()].every(e=>e.local) && !unknown)return;
+  if(taskContext.bridgeId){downloadConsent=true;return;}
   const local=[...unique.values()].reduce((n,e)=>n+(e.local?(e.bytes||0):0),0);
   const qualities=[...new Set([...unique.values()].map(e=>e.source.quality||'当前源（未标注画质）'))].join('、');
   const format=n=>n>=1073741824?(n/1073741824).toFixed(2)+' GB':(n/1048576).toFixed(1)+' MB';
   const message=`实际画质：${qualities}\n当前媒体已知大小 ${format(known)}（可本地复用 ${format(local)}），${unknown} 项大小或地址未知。\n单个下载上限 ${format((taskContext.options.max_video_mb||512)*1048576)}；下载中超限会停止。\n逐篇保存，不预扫整批。确认同时授权本任务后续符合上限的媒体；总量未知。不会检查或预留磁盘空间。`;
   await chrome.storage.local.set({collectorApproval:{state:'pending',message,createdAt:Date.now()}});
-  await reportProgress({message:'媒体预检完成，等待确认下载',details:message});
+  await reportProgress({status:'awaiting_approval',percent:null,message:'媒体预检完成，等待确认下载',details:message});
   while(true){await controlPoint();const {collectorApproval:a}=await chrome.storage.local.get(['collectorApproval']);if(a?.state==='approved')break;if(!a||a.state==='rejected')throw new Error('USER_STOPPED');await wait(750);}
   downloadConsent=true;
+  await reportProgress({status:"running",stage:"downloading",percent:null,message:"开始下载"});
   await chrome.storage.local.remove('collectorApproval');
 }

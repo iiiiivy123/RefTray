@@ -1,10 +1,12 @@
 <!doctype html>
-<html lang="zh-CN"><meta charset="utf-8"><title>RefTray · 本地媒体加工</title>
-<link rel="stylesheet" href="panel.css">
-<style>body{max-width:760px;margin:48px auto;padding:24px}section{padding:24px;border:1px solid #ddd}label,button{margin:12px 8px 12px 0}#status{white-space:pre-wrap;line-height:1.8}</style>
-<h1>本地媒体加工</h1><p>文件只传给本机后台处理，原文件保留。结果保存到素材库的“加工结果”。</p>
-<section><label>选择视频 <input id="file" type="file" accept="video/*"></label>
-<label>操作 <select id="format"><option value="gif">视频转 GIF</option><option value="audio">提取音频（M4A）</option></select></label>
-<p>文件上限512 MB。GIF 使用现有转换设置，最长120秒；较长视频请先裁剪。需要对应转换组件，缺少时会说明原因。</p>
-<button id="start">开始处理</button><button id="open" hidden>打开保存位置</button><progress id="progress" hidden></progress><p id="status" role="status">请选择本地视频。</p></section>
-<script src="hub-api.js"></script><script src="media-tools.js"></script></html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RefTray · 本地媒体加工</title>
+<link rel="stylesheet" href="tool-page.css">
+<header class="tool-header"><h1>本地媒体加工</h1></header>
+<p class="tool-intro">结果另存到素材库的“加工结果”，保留原视频。</p>
+<section class="tool-form">
+<div class="tool-field"><label for="file">选择视频</label><input id="file" type="file" accept="video/*"></div>
+<div class="tool-field"><label for="format">处理方式</label><select id="format"><option value="gif">视频转 GIF</option><option value="audio">提取音频（M4A）</option></select></div>
+<p class="tool-note">视频最大 512 MB；转 GIF 最长 120 秒。</p>
+<div class="tool-actions"><button id="start" class="primary">开始处理</button><button id="stop" hidden>停止加工</button><button id="open" hidden>打开保存位置</button></div>
+<progress id="progress" hidden></progress><p id="status" role="status">请选择本地视频。</p></section>
+<script src="health-client.js"></script><script src="hub-api.js"></script><script src="media-tools.js"></script></html>

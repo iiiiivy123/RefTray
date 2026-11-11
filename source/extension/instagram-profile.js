@@ -12,6 +12,7 @@
     const post=new URL(link.href,url.href), id=post.pathname.match(/^\/(?:([\w.]+)\/)?(p|reels?)\/([\w-]{5,30})\/?$/);
     if(/(^|\.)instagram\.com$/.test(post.hostname) && id && (!id[1]||id[1].toLowerCase()===match[1].toLowerCase()))urls.set(id[3],`https://www.instagram.com/${id[2]==='p'?'p':'reel'}/${id[3]}/`);
   }
+  if(!urls.size)return {error:'当前页面未识别到作品链接，未开始批量。请确认作者主页的帖子或 Reels 列表已加载。'};
   const handle=match[1].toLowerCase();
   return {author_url:`https://www.instagram.com/${handle}`,author_name:`@${handle}`,handle,view:match[2]||'posts',urls:[...urls.values()]};
 })();

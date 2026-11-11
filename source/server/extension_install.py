@@ -1,5 +1,7 @@
 """Installer-owned extension paths. Never reads or edits browser profiles."""
 import argparse
+import hashlib
+import re
 import json
 import os
 import shutil
@@ -25,13 +27,33 @@ def is_reftray(path):
         return False
 
 
-def sync_extensions(source, destinations):
+def extension_files(manifest):
+    payload = json.loads(Path(manifest).read_text('utf-8'))
+    if payload.get('schema_version') != 1 or not isinstance(payload.get('files'), dict):
+        raise ValueError('扩展文件清单格式不支持')
+    result = {}
+    for name, digest in payload['files'].items():
+        if not name.startswith('extension/'):
+            continue
+        name = name[len('extension/'):]
+        if (not all(re.fullmatch(r'[A-Za-z0-9_-]+(?:[.][A-Za-z0-9_-]+)*', part) for part in name.split('/'))
+                or not re.fullmatch(r'[a-f0-9]{64}', digest)):
+            raise ValueError('扩展文件清单含无效条目')
+        result[Path(name)] = digest
+    return result
+
+
+def sync_extensions(source, destinations, incoming=None, previous=None):
     source = checked_directory(source)
     if not is_reftray(source):
         raise ValueError('安装包扩展身份检查失败')
-    files = [file for file in source.rglob('*') if file.is_file()]
+    files = ([source / name for name in incoming] if incoming is not None else
+             [file for file in source.rglob('*') if file.is_file()])
+    obsolete = {name: digest for name, digest in (previous or {}).items() if incoming is not None and name not in incoming}
     for file in files:
         checked_directory(file)
+        if incoming is not None and hashlib.sha256(file.read_bytes()).hexdigest() != incoming[file.relative_to(source)]:
+            raise ValueError('新版扩展文件与清单不符')
     targets = []
     for candidate in destinations:
         target = checked_directory(candidate)
@@ -62,6 +84,13 @@ def sync_extensions(source, destinations):
         changed = []
         try:
             for target, stage in plans:
+                for relative, expected in obsolete.items():
+                    destination = checked_directory(target / relative)
+                    if destination.is_file() and hashlib.sha256(destination.read_bytes()).hexdigest() == expected:
+                        saved = stage / 'old' / relative
+                        saved.parent.mkdir(parents=True, exist_ok=True)
+                        os.replace(destination, saved)
+                        changed.append((destination, saved))
                 for file in sorted(files, key=lambda f: f.name == 'manifest.json'):
                     relative = file.relative_to(source)
                     destination = target / relative
@@ -84,7 +113,7 @@ def sync_extensions(source, destinations):
     return [str(source), *map(str, targets)]
 
 
-def install(program):
+def install(program, previous_manifest=None):
     import winreg
     program = checked_directory(program)
     current = program / 'extension'
@@ -107,7 +136,11 @@ def install(program):
             legacy.append(Path(state) / 'plugins/liblib-automation/scripts/collector/extension')
         candidates += [str(path) for path in legacy if is_reftray(path)]
         candidates = [path for path in candidates if Path(path).exists()]
-        paths = sync_extensions(current, candidates)
+        incoming = extension_files(program / 'managed-files.json')
+        if Path('manifest.json') not in incoming:
+            raise ValueError('新版清单缺少扩展 manifest')
+        prior = extension_files(previous_manifest) if previous_manifest and Path(previous_manifest).is_file() else {}
+        paths = sync_extensions(current, candidates, incoming, prior)
         stable = preferred if preferred in paths else (paths[1] if len(paths) > 1 else paths[0])
         winreg.SetValueEx(key, 'ExtensionDirectories', 0, winreg.REG_SZ, json.dumps(paths))
         winreg.SetValueEx(key, 'ExtensionDirectory', 0, winreg.REG_SZ, stable)
@@ -119,5 +152,6 @@ def install(program):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--program', required=True)
+    parser.add_argument('--previous-manifest')
     args = parser.parse_args()
-    print(json.dumps(install(args.program), ensure_ascii=True))
+    print(json.dumps(install(args.program, args.previous_manifest), ensure_ascii=True))

@@ -2,7 +2,7 @@
 
 把作品链接和要求发给 AI，例如“保存这篇图文，带 10 条评论”。AI 通过 RefTray 的 MCP 接口创建任务、查询进度，并返回实际保存位置。
 
-## 0.5.48 的 Chrome 采集
+## Chrome 采集
 
 Chrome 和 RefTray 后台保持运行，扩展已加载即可。扩展在后台接单，自动打开或复用作品页；不用打开采集弹窗，也不用手动点击开始。空闲时通常在 30 秒内接单。
 
@@ -19,7 +19,7 @@ args:
   F:\RefTray\app\server\mcp_stdio.py
 ```
 
-默认安装目录为 `%LOCALAPPDATA%\Programs\InspirationCollector`。更新后重新加载 Chrome 扩展，并刷新 AI 客户端的 MCP 连接。调用 `reftray_status` 可查看后台版本和扩展是否在线。
+默认安装目录为 `%LOCALAPPDATA%\Programs\InspirationCollector`。完整安装包同时包含后台、扩展和 MCP，更新沿用同一条启动命令，不需要重新填写安装路径。安装会关闭占用旧运行时的 MCP 进程；在 AI 客户端重新连接 RefTray 后，调用 `reftray_status` 可查看新后台版本和扩展是否在线。
 
 ## 日常使用
 
@@ -34,10 +34,22 @@ args:
 | 按原链接核对本地文件 | `reftray_find_saved` |
 | 查看某项任务的失败原因 | `reftray_diagnostics` |
 | 本地视频转 GIF 或提取音频 | `reftray_process_local` |
+| 检查官方正式新版 | `reftray_check_update` |
+| 下载并安装指定的正式新版 | `reftray_install_update` |
+| 查询更新进度、结果和备份位置 | `reftray_update_status` |
+| 恢复上一版程序，保留当前素材和设置（0.5.50起） | `reftray_restore_update` |
+
+从 0.5.49 起，可以直接对 AI 说“检查 RefTray 更新”或“更新到刚查到的正式版”。安装工具只接收版本号，复用界面使用的更新器，遵守同样的忙碌检查、官方来源校验、备份和重启规则。接受请求后返回下载中；最终结果持久保存，重新连接 MCP 后继续查询即可。
 
 单篇和批量的 `mode` 都可选 `images`（图片/GIF）、`text`（图文）、`plain`（纯文字）、`video`（视频）。批量的 `scope` 选 `author` 或 `board`。具体平台支持范围跟浏览器扩展一致。
 
 B 站分 P 选集可直接传当前视频链接，使用 `reftray_capture_batch`、`scope: author`、`mode: video`。`skip_posts: 2`、`limit: 5` 表示从第 3 P 开始保存 5 集；加 `output_format: audio` 则只保存这 5 首音频。每一 P 单独计数和命名。
+
+视频页右侧的多稿件合集沿用同一入口和参数。当前稿件只有一个 P 时，读取其已加载的完整合集目录；`skip_posts: 23`、`limit: 2` 表示保存合集第 24、25 个视频。合集保留各稿件标题，不收集侧栏推荐；单个稿件含多个 P 时优先沿用分 P 范围。
+
+0.5.50浏览器界面直接填写“从第几 P 开始”。MCP 保留原参数兼容性：用户说“从第 10 P 开始取 5 集”，AI 传 `skip_posts: 9`、`limit: 5`。恢复未完成任务沿用原起点和数量。
+
+程序恢复与界面使用同一入口。调用前先查 `reftray_update_status` 的 `recovery.available` 和目标版本；接受后连接会断开，重新连接并查询到 `rolled_back` 才算恢复结束。后台无法启动时，用 [更新说明](update.md) 中的独立恢复程序。
 
 ## 采集选项
 

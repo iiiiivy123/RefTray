@@ -38,8 +38,14 @@
     const info = Array.isArray(image.infoList || image.info_list)
       ? image.infoList || image.info_list
       : [];
-    const preferred = info.find((item) => /WB_DFT|CRD_WM|ORIGINAL/i.test(String(item && (item.imageScene || item.image_scene) || ""))) || info[0];
-    return safeUrl(preferred && preferred.url || image.urlDefault || image.url_default || image.urlPre || image.url_pre || image.url);
+    // Use only URLs supplied for this image. Signed transformations cannot be
+    // safely rewritten; prefer an explicitly provided original over web previews.
+    const usable = info.filter(item => safeUrl(item?.url));
+    for(const scene of [/^(?:.*_)?ORIGINAL(?:_.*)?$/i, /^WB_DFT$/i, /^CRD_WM$/i]) {
+      const preferred=usable.find(item=>scene.test(String(item.imageScene||item.image_scene||'')));
+      if(preferred)return safeUrl(preferred.url);
+    }
+    return safeUrl(image.urlDefault || image.url_default || usable[0]?.url || image.urlPre || image.url_pre || image.url);
   }
 
   function videoCandidates(video) {

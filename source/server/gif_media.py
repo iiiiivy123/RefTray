@@ -6,7 +6,7 @@ from PIL import Image
 from . import bilibili_media
 
 
-def convert(source, target, checkpoint, min_free_mb=256):
+def convert(source, target, checkpoint, min_free_mb=256, progress=None):
     executable = os.environ.get('COLLECTOR_GIF_FFMPEG') or shutil.which('ffmpeg')
     if not executable or not Path(executable).is_file():
         raise ValueError('缺少 GIF 转换组件，未把 MP4 当成 GIF 保存')
@@ -20,8 +20,9 @@ def convert(source, target, checkpoint, min_free_mb=256):
             '-i', str(source), '-an', '-filter_complex_threads', '1', '-filter_complex',
             "[0:v:0]fps=20,scale=w='min(640,iw)':h=-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse",
             '-loop', '0', '-fs', str(128 * 1048576), '-f', 'gif', str(target)
-        ], checkpoint, timeout=120)
+        ], checkpoint, timeout=120, **({'progress': lambda seconds: progress(min(.98, seconds/duration))} if progress else {}))
         checkpoint()
+        if progress: progress(.99)
         with Image.open(target) as image:
             if image.format != 'GIF' or image.n_frames < 2:
                 raise ValueError('转换结果不是多帧 GIF')

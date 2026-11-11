@@ -3,8 +3,19 @@ import argparse,base64,contextlib,hashlib,json,os,shutil,socket,struct,subproces
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 VERSION=json.loads((ROOT/'source/extension/manifest.json').read_text('utf-8'))['version']
-parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--run-isolated-installer-tests',action='store_true');args=parser.parse_args()
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--run-isolated-installer-tests',action='store_true')
+parser.add_argument('--baseline-package', type=Path, help='Local archived 0.5.38 installer for disposable Windows VM QA')
+args=parser.parse_args()
 if not args.run_isolated_installer_tests:parser.error('Explicit --run-isolated-installer-tests required; this temporarily replaces and restores this app uninstall registry record.')
+# /DIR cannot isolate registered extension directories, upgrade pipes or shortcuts.
+for view in (winreg.KEY_WOW64_32KEY, winreg.KEY_WOW64_64KEY):
+ for key in (r'Software\RefTray', r'Software\Microsoft\Windows\CurrentVersion\Uninstall\{293CFEA9-3205-4D70-96E6-A5F7491438CC}_is1'):
+  try:
+   with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key, 0, winreg.KEY_READ | view):
+    parser.exit(2, 'Existing RefTray registration: use a disposable Windows VM. No installer started.\n')
+  except FileNotFoundError:
+   pass
 SCRATCH=Path(os.environ['LOCALAPPDATA'])/'hermes/cache/scratch'/('collector-installer-'+uuid.uuid4().hex[:8]);SCRATCH.mkdir(parents=True)
 APP=SCRATCH/'installed';STATE=SCRATCH/'state';LIBRARY=SCRATCH/'materials';LIBRARY.mkdir()
 KEY=r'Software\Microsoft\Windows\CurrentVersion\Uninstall\{293CFEA9-3205-4D70-96E6-A5F7491438CC}_is1'
@@ -70,11 +81,15 @@ def collect(health,payload):
 def install(setup):
  run([setup,'/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS','/TASKS=!desktopicon','/GROUP=InspirationCollector-Isolated-QA','/DIR='+str(APP),'/LOG='+str(SCRATCH/(setup.stem+'.log'))],180)
  assert (APP/'extension/manifest.json').is_file()
-def download_old():
- target=SCRATCH/'InspirationCollector-0.5.13-Windows-x64-Setup.exe'
- url='https://github.com/iiiiivy123/inspiration-collector/releases/download/v0.5.13/'
- with urllib.request.urlopen(url+target.name,timeout=60) as source,target.open('wb') as output:shutil.copyfileobj(source,output)
- sums=urllib.request.urlopen(url+'SHA256SUMS-0.5.13.txt',timeout=30).read().decode();assert hashlib.sha256(target.read_bytes()).hexdigest() in sums
+def verified_baseline():
+ package=args.baseline_package
+ if package is None or not package.is_absolute() or package.name!='InspirationCollector-0.5.38-Windows-x64-Setup.exe':
+  raise ValueError('Supply the local archived 0.5.38 installer using an absolute path')
+ target=SCRATCH/package.name
+ shutil.copyfile(package,target)
+ with target.open('rb') as handle:
+  if hashlib.file_digest(handle,'sha256').hexdigest()!='563a5bf29c82ee3c493cf1d53162f0b540e815a160da9ab337fa7e4d96bc3b71':
+   raise ValueError('Unexpected baseline package digest')
  return target
 def image_bytes():
  def chunk(kind,data):return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data)&0xffffffff)
@@ -87,10 +102,10 @@ def main():
  if original is not None:
   names={name:value for name,value,_ in original['values']};assert names.get('DisplayName','').startswith('Inspiration Collector')
  try:
-  old=download_old();install(old)
-  assert json.loads((APP/'extension/manifest.json').read_text('utf-8'))['version']=='0.5.13'
+  old=verified_baseline();install(old)
+  assert json.loads((APP/'extension/manifest.json').read_text('utf-8'))['version']=='0.5.38'
   with server() as health:
-   assert health['release']=='0.5.13';api(health,'/settings/directory',{'directory':str(LIBRARY)})
+   assert health['release']=='0.5.38';api(health,'/settings/directory',{'directory':str(LIBRARY)})
    payload={'canonical_url':'https://example.test/install-migration','page_title':'Installer migration fixture','destination':str(LIBRARY),'images':[{'url':'https://img.example.test/fixture.png','data_base64':base64.b64encode(image_bytes()).decode(),'content_type':'image/png'}]}
    saved=collect(health,payload);assert saved['new_images']==1
   sentinel=LIBRARY/'MANUAL-EDIT-KEEP.md';sentinel.write_text('User-owned sentinel; never delete or rewrite.\n',encoding='utf-8')

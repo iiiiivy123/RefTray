@@ -4,12 +4,13 @@ import json
 import os
 import subprocess
 import threading
+import time
 from pathlib import Path
 
 _lock = threading.Lock()
 
 
-def choose_folder(initial: str) -> dict:
+def choose_folder(initial: str, cancel=None) -> dict:
     if os.name != 'nt':
         raise ValueError('本机文件夹选择仅支持 Windows')
     if not _lock.acquire(blocking=False):
@@ -36,14 +37,31 @@ try {
   } else { @{cancelled=$true} | ConvertTo-Json -Compress }
 } finally { $dialog.Dispose(); $owner.Dispose() }
 '''
+    cancel = cancel or threading.Event()
+    process = None
     try:
         executable = Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
-        result = subprocess.run([str(executable), '-NoProfile', '-STA', '-EncodedCommand',
+        process = subprocess.Popen([str(executable), '-NoProfile', '-STA', '-EncodedCommand',
                                  base64.b64encode(script.encode('utf-16-le')).decode('ascii')],
                                 env={**os.environ, 'COLLECTOR_PICK_INITIAL': initial},
-                                capture_output=True, encoding='utf-8', timeout=120,
-                                creationflags=subprocess.CREATE_NO_WINDOW, check=True)
-        value = json.loads(result.stdout.lstrip('\ufeff'))
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8',
+                                creationflags=subprocess.CREATE_NO_WINDOW)
+        deadline = time.monotonic() + 120
+        while True:
+            if cancel.is_set():
+                return {'cancelled': True}
+            if time.monotonic() >= deadline:
+                raise ValueError('选择文件夹超时，原目录未改变')
+            try:
+                stdout, _ = process.communicate(timeout=.2)
+                break
+            except subprocess.TimeoutExpired:
+                continue
+        if cancel.is_set():
+            return {'cancelled': True}
+        if process.returncode:
+            raise ValueError('无法打开本机文件夹窗口，原目录未改变')
+        value = json.loads(stdout.lstrip('\ufeff'))
         if not value.get('cancelled') and not Path(value.get('directory', '')).is_dir():
             raise ValueError('所选文件夹不存在，原目录未改变')
         return value
@@ -52,4 +70,9 @@ try {
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
         raise ValueError('无法打开本机文件夹窗口，原目录未改变') from exc
     finally:
-        _lock.release()
+        try:
+            if process is not None and process.poll() is None:
+                process.kill()
+                process.communicate(timeout=5)
+        finally:
+            _lock.release()

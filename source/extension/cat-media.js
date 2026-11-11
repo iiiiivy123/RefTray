@@ -31,6 +31,10 @@
     return variants
       .filter((variant) => {
         const contentType = variant && (variant.content_type || variant.contentType || variant.mime_type);
+        let url;
+        try { url = new URL(variant?.url); } catch (_) { return false; }
+        if (url.protocol !== 'https:' || url.username || url.password || url.port && url.port !== '443' ||
+            !/(^|\.)video\.twimg\.com$/.test(url.hostname)) return false;
         const dimensions=String(variant.url||'').match(/\/(\d+)x(\d+)\//);
         const height=variant.height|| (dimensions?Number(dimensions[2]):0);
         return contentType === "video/mp4" && variant.url && (cap===Infinity||height&&height<=cap);
@@ -110,7 +114,7 @@
   function tweetRecord(value) {
     if (!value || typeof value !== "object") return null;
     const id = String(value.rest_id || value.id_str || "");
-    const legacy = value.legacy;
+    const legacy = value.legacy || (value.extended_entities || value.entities || value.mediaDetails || value.media_details ? value : null);
     if (!/^\d{10,20}$/.test(id) || !legacy || typeof legacy !== "object") return null;
     const media = tweetMedia(value, legacy);
     const relatedIds = relatedTweetIds(value, legacy);
@@ -121,7 +125,7 @@
       media,
       relatedTweetIds: relatedIds,
       text: String(legacy.full_text || ""),
-      account: String(user && user.legacy && user.legacy.screen_name || "")
+      account: String(user && (user.legacy?.screen_name || user.core?.screen_name) || "")
     };
   }
 

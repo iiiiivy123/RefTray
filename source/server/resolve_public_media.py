@@ -1,7 +1,8 @@
 """Isolated yt-dlp worker. X quotes/cards/retweets are outside the main-post scope."""
 import json
 import sys
-if __name__=='__main__':sys.path.insert(0, sys.argv[1])
+from pathlib import Path
+if __name__=='__main__':sys.path[:0]=[str(Path(__file__).resolve().parents[1]),sys.argv[1]]
 from yt_dlp import YoutubeDL
 from yt_dlp.extractor.twitter import TwitterIE
 from yt_dlp.extractor.bilibili import BiliBiliIE
@@ -10,6 +11,20 @@ from yt_dlp.utils import ExtractorError
 class CollectorBiliIE(BiliBiliIE):
     @classmethod
     def ie_key(cls):return "BiliBili"
+    def extract_formats(self, play_info):
+        if __package__:
+            from .bili_resolver import prefer_supported_cdn, supported_cdn_url, track_backups
+        else:
+            from server.bili_resolver import prefer_supported_cdn, supported_cdn_url, track_backups
+        formats = super().extract_formats(prefer_supported_cdn(play_info))
+        # Filter before yt-dlp ranks quality; an unusable high-quality track must
+        # not hide a downloadable track from this same, identity-checked part.
+        formats = [fmt for fmt in formats if supported_cdn_url(fmt.get('url'))]
+        backups = track_backups(play_info)
+        for fmt in formats:fmt['collector_backup_urls'] = backups.get(fmt['url'], [])
+        if not formats:
+            raise ExtractorError('当前B站音视频轨道没有可用的常规HTTPS下载地址', expected=True)
+        return formats
     def _download_playinfo(self,*args,**kwargs):
         data=super()._download_playinfo(*args,**kwargs)
         if data and (data.get("is_preview") or data.get("is_drm") or data.get("drm_tech_type")):

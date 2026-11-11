@@ -16,9 +16,11 @@ from .image_download import download_image
 from .config import Settings
 from .models import ClassifyRequest, CollectRequest, ImageItem
 from .destinations import resolve_destination, text_assets, note_media_layout, pinterest_image_layout
+from . import destination_layout
 from .ocr import recognize
 from .catalog import Catalog, fingerprint
 from .image_validation import validate_image
+from .image_sources import original_candidates
 import shutil
 
 
@@ -43,7 +45,11 @@ class Storage:
     def collect(self, request: CollectRequest, progress=lambda _p, _m: None) -> dict[str, object]:
         # Requests for the same author share one index; serialize index updates.
         with self._collect_lock:
-            return self._collect(request, progress)
+            created = destination_layout.missing_directories(resolve_destination(self.settings.inbox, request)[0]) if destination_layout.enabled(request) else []
+            try:
+                return self._collect(request, progress)
+            finally:
+                destination_layout.clean_empty(created)
 
     def _collect(self, request: CollectRequest, progress) -> dict[str, object]:
         omitted = request.omitted_images
@@ -82,24 +88,27 @@ class Storage:
         if text_only_images:
             known_images = {}
         confirmed_files = set()
-        saved, warnings = [], list(request.extraction_warnings)
+        saved, warnings, quality_warnings = [], list(request.extraction_warnings), []
+        failed_images = 0
         with ThreadPoolExecutor(max_workers=6) as pool:
             items = request.images
             total = max(len(items), 1)
-            read_count = 0
             progress_lock = threading.Lock()
             def load(item):
-                nonlocal read_count
-                try:
-                    cached = self.catalog.cached(item.url, image=True) if request.duplicate_policy != 'refresh' and not item.data_base64 else None
-                    if cached:
-                        data = cached.read_bytes()
-                        return data, validate_image(data)
-                    return self._download(item)
-                finally:
-                    with progress_lock:
-                        read_count += 1
-                        progress(10 + int(read_count / total * 70), f'读取图片 {read_count}/{total}，按顺序保存')
+                preferred = original_candidates(request.platform,item.url,item.preferred_url) if item.role == 'body' and item.source_kind == 'image' else []
+                quality_error = None
+                for url in [*preferred, item.url]:
+                    try:
+                        candidate = item.model_copy(update={'url':url,**({'data_base64':None,'content_type':None} if (item.data_url or item.url)!=url else {})})
+                        cached = self.catalog.cached(url, image=True) if request.duplicate_policy != 'refresh' and not candidate.data_base64 else None
+                        if cached:
+                            data = cached.read_bytes(); suffix = validate_image(data)
+                        else:
+                            data, suffix = self._download(candidate)
+                        return data, suffix, url, quality_error if url == item.url else None, bool(preferred and url != item.url)
+                    except Exception as exc:
+                        if url == item.url: raise
+                        quality_error = type(exc).__name__ + ': ' + str(exc)[:160]
             def queued():
                 remaining = iter(items)
                 pending = deque((item, pool.submit(load, item)) for item in islice(remaining, 6))
@@ -110,7 +119,8 @@ class Storage:
                         pending.append((item, pool.submit(load, item)))
             for done, (item, future) in enumerate(queued(), 1):
                 try:
-                    data, suffix = future.result()
+                    data, suffix, download_url, quality_error, original_image = future.result()
+                    if quality_error: quality_warnings.append(f'图片 {done}：高清源暂不可用，已保存网页图（{quality_error}）')
                     digest = hashlib.sha256(data).hexdigest()
                     if text_only_images:
                         if digest not in known_images and request.ocr_enabled:
@@ -121,7 +131,11 @@ class Storage:
                                 known_images[digest] = {'sha256': digest, 'ocr': recognize(temporary_image)}
                         continue
                     previous_image = known_images.get(digest, {})
+                    if original_image or quality_error:
+                        previous_image.update(download_url=download_url, image_quality=('original_png' if request.platform=='xhs' else 'high_resolution') if original_image else 'web_preview')
                     if previous_image.get('file') and (not note_media_layout(request) or Path(previous_image['file']).parent == Path('.')) and (page_dir / previous_image['file']).is_file() and fingerprint(page_dir / previous_image['file']) == digest:
+                        if 'role' not in previous_image or item.role == 'body':
+                            previous_image.update(role=item.role, comment_id=item.comment_id)
                         confirmed_files.add(known_images[digest]["file"])
                         continue
                     filename = f"{page_id}_{digest[:16]}{suffix}" if author_dir else f"{len(known_images) + 1:03d}_{digest[:10]}{suffix}"
@@ -138,21 +152,33 @@ class Storage:
                         path = path.with_name(path.stem + '_' + uuid4().hex[:8] + path.suffix)
                     # Disk reserve policy removed; OS write errors still propagate.
                     temporary = path.with_suffix(path.suffix + '.part')
-                    temporary.write_bytes(data)
-                    temporary.replace(path)
-                    record = {**previous_image, "file": str(path.relative_to(page_dir)), "sha256": digest, "url": item.url, "alt": item.alt}
+                    try:
+                        temporary.write_bytes(data)
+                        temporary.replace(path)
+                    finally:
+                        temporary.unlink(missing_ok=True)
+                    record = {**previous_image, "file": str(path.relative_to(page_dir)), "sha256": digest, "url": item.url, "alt": item.alt,
+                              "role": item.role, "comment_id": item.comment_id}
                     if item.source_kind == 'video_frame':
                         record.update(source_kind='video_frame', frame_time=item.frame_time)
                     saved.append(record)
                     known_images[digest] = record
-                    self.catalog.register_asset(item.url, path, digest)
+                    self.catalog.register_asset(download_url, path, digest)
                     confirmed_files.add(record["file"])
                 except Exception as exc:
                     # Do not expose signed CDN queries; keep the real download failure.
+                    failed_images += 1
                     parsed = urlparse(item.url)
                     warnings.append(f"图片 {done}（{parsed.hostname}）：{type(exc).__name__}: {str(exc)[:300]}")
-                with progress_lock:
-                    progress(10 + int(read_count / total * 70), f"保存图片 {done}/{total}")
+                finally:
+                    with progress_lock:
+                        progress(10 + int(done / total * 70), f"已处理图片 {done}/{total}")
+        warnings.extend(quality_warnings)
+        if destination_layout.enabled(request) and not confirmed_files and (request.collection_mode != 'text' or not request.body_text.strip()):
+            failures = warnings[len(request.extraction_warnings):]
+            raise RuntimeError('图片没有保存，未创建作品文件夹。' + ('\n' + '\n'.join(failures[:5]) if failures else '没有可保存的图片。'))
+        if confirmed_files:
+            destination_layout.commit(page_dir, request)
         merged_images = list(known_images.values())
         metadata = {
             **existing,
@@ -199,12 +225,13 @@ class Storage:
                 document_source=request.document_source.model_dump() if request.document_source else (None if request.body_text else existing.get('document_source')),
                 author_name=request.author_name or existing.get('author_name'),
                 published_at=request.published_at or existing.get('published_at'),
+                comments_requested=request.comments_requested,
                 comments=list(comments.values()), comments_status=request.comments_status if request.comments_status != 'not_requested' else existing.get('comments_status', '未开启'))
             for index, image in enumerate(merged_images, 1):
-                if image.get('file') and request.ocr_enabled and image.get('ocr', {}).get('status') != 'completed':
+                if image.get('role', 'body') != 'comment' and image.get('file') and request.ocr_enabled and image.get('ocr', {}).get('status') != 'completed':
                     progress(92, f'识别图片文字 {index}/{len(merged_images)}')
                     image['ocr'] = recognize(page_dir / image['file'])
-            metadata['ocr_status'] = ('completed' if all(i.get('ocr', {}).get('status') == 'completed' for i in merged_images) else 'partial') if request.ocr_enabled else 'disabled'
+            metadata['ocr_status'] = ('completed' if all(i.get('ocr', {}).get('status') == 'completed' for i in merged_images if i.get('role', 'body') != 'comment') else 'partial') if request.ocr_enabled else 'disabled'
             valid_media = set(existing.get('media_files', []))
             for name in request.media_files:
                 candidate = (page_dir / name).resolve()
@@ -214,7 +241,7 @@ class Storage:
             if not existing.get('reading_file') and (page_dir / markdown_name).exists(): markdown_name = safe(request.page_title or '未命名笔记') + '_' + page_id[:6] + '.md'
             metadata['reading_file'] = markdown_name
             previous_doc = page_dir / markdown_name
-            if previous_doc.is_file() and (request.duplicate_policy == 'refresh' or not existing.get('reading_sha256') or fingerprint(previous_doc) != existing.get('reading_sha256')):
+            if previous_doc.is_file() and (not existing.get('reading_sha256') or fingerprint(previous_doc) != existing['reading_sha256']):
                 # Preserve an edited or untracked document, rather than overwrite it.
                 from uuid import uuid4
                 markdown_name = safe(request.page_title or '未命名笔记') + '_' + uuid4().hex[:8] + '.md'
@@ -229,10 +256,15 @@ class Storage:
             reason = '网站拒绝图片请求（HTTP 403）；图片尚未保存。' if any('403' in w for w in warnings) else '图片未能下载；请查看具体原因。'
             failures = warnings[len(request.extraction_warnings):]
             raise RuntimeError(f"图片下载全部失败（{len(failures)} 张）；{reason}\n" + '\n'.join(failures[:5]))
+        destination_layout.commit(page_dir, request)
         progress(100, "保存完成")
         result = {"directory": str(page_dir), "author_directory": str(author_dir) if author_dir else None, "new_images": len(saved), "total_images": 0 if text_only_images else len(confirmed_files) if author_dir else len(merged_images), "warnings": warnings}
+        if destination_layout.enabled(request):
+            group = destination_layout.batch_directory(page_dir, request)
+            result['batch_directory'] = str(group) if group else None
         result['duplicate_images'] = max(0, len(confirmed_files) - len(saved))
-        result['failed_images'] = len(warnings) - len(request.extraction_warnings)
+        result['failed_images'] = failed_images
+        result['original_fallbacks'] = len(quality_warnings)
         result['omitted_images'] = omitted
         result['partial'] = bool(omitted or result['failed_images'])
         if omitted:
@@ -240,11 +272,13 @@ class Storage:
         if request.collection_mode == 'text':
             result['comments_status'] = metadata['comments_status']
             result['ocr_status'] = metadata['ocr_status']
-            result['warnings'].append('评论：' + metadata['comments_status'])
+            if request.comments_requested and metadata['comments_status'] not in ('not_requested', 'unknown', '未开启'):
+                result['warnings'].append('评论：' + metadata['comments_status'])
             if metadata['ocr_status'] == 'partial': result['warnings'].append('部分图片文字识别未完成；请检查 Windows OCR 语言包。' + ('未保留识别用图片。' if text_only_images else '原图已保留。'))
         result['files'] = sorted(confirmed_files)
         if request.collection_mode == 'text':
-            result['message'] = f"图文已保存：{markdown_name}\n新增 {len(saved)} 张图片，累计 {len(metadata['comments'])} 条已加载评论\n{page_dir}"
+            comments_note = f"，累计 {len(metadata['comments'])} 条评论" if metadata['comments'] or request.comments_requested else ''
+            result['message'] = f"图文已保存：{markdown_name}\n新增 {len(saved)} 张图片{comments_note}\n{page_dir}"
         if warnings:
             result['message'] = str(result.get('message') or f'新增 {len(saved)} 张图片，累计 {len(merged_images)} 张') + '\n提示：' + '\n'.join(warnings)
         if request.collection_mode != 'text':
@@ -275,11 +309,21 @@ class Storage:
         index_key = hashlib.sha256((str(directory.resolve()) + source_key(request.canonical_url)).encode()).hexdigest()
         metadata_path = self.settings.root / 'data/inspiration/md-only' / (index_key + '.json')
         old = self._load(metadata_path, {})
-        filename = old.get('reading_file') or safe(request.page_title or '笔记') + '_' + page_id + '.md'
+        if destination_layout.enabled(request):
+            # A shared sidecar travels with plain documents when the library moves.
+            metadata_path = directory / '_来源记录' / ('metadata_文字_' + page_id + '.json')
+            old = self._load(metadata_path, {}) or old
+            if not old:
+                previous = self.catalog.lookup(request.canonical_url, ['md_only'])
+                if previous and Path(previous['directory']) == directory:
+                    item = next((f for f in previous['files'] if Path(f['path']).suffix == '.md'), None)
+                    if item: old = {'reading_file': Path(item['path']).name, 'reading_sha256': item['sha']}
+        prefix = '文字-' if destination_layout.enabled(request) else ''
+        filename = old.get('reading_file') or prefix + safe(request.page_title or '笔记') + '_' + page_id + '.md'
         target = directory / filename
         if target.exists() and (not old.get('reading_sha256') or fingerprint(target) != old['reading_sha256']):
             from uuid import uuid4
-            filename = safe(request.page_title or '笔记') + '_' + uuid4().hex[:8] + '.md'
+            filename = prefix + safe(request.page_title or '笔记') + '_' + uuid4().hex[:8] + '.md'
         data = {'page_title': request.page_title, 'source_url': request.canonical_url,
                 'author_name': request.author_name, 'published_at': request.published_at,
                 'body_text': request.body_text, 'images': [], 'warnings': request.extraction_warnings,
@@ -289,13 +333,16 @@ class Storage:
                 'comments_status': request.comments_status, 'md_only': True,
                 'comments_requested': request.comments_requested}
         # Disk reserve policy removed; OS write errors still propagate.
+        directory.mkdir(parents=True, exist_ok=True)
         self._write_markdown(directory, data, filename)
+        destination_layout.commit(directory, request)
         self._write(metadata_path, {**data, 'reading_file': filename, 'reading_sha256': fingerprint(directory/filename)})
         self.catalog.record(request.canonical_url, request.page_title, request.author_name, 'text', directory,
                             [filename], {'text': True, 'md_only': True, 'comments': request.comments_requested,
                             'category': 'batch' if grouped else 'text'})
         progress(100, '纯文字已保存')
-        return {'directory': str(directory), 'files': [filename], 'new_images': 0, 'total_images': 0,
+        group = destination_layout.batch_directory(directory, request)
+        return {'directory': str(directory), 'batch_directory': str(group) if group else None, 'files': [filename], 'new_images': 0, 'total_images': 0,
                 'failed_images': 0, 'duplicate_images': 0, 'warnings': list(request.extraction_warnings),
                 'message': '纯文字已保存：' + filename}
 
@@ -344,36 +391,43 @@ class Storage:
             body = [plain(data.get('body_text')), '']
         elif source.get('warnings'):
             body.extend(['### 原纯文字（结构有省略或转换）', '', plain(data.get('body_text')), ''])
-        lines = [f"# {plain(data.get('page_title'))}", '',
-            '来源：' + plain(data['source_url']), '',
-            '作者：' + plain(data.get('author_name') or '未识别'), '',
-            '发布时间：' + plain(data.get('published_at') or '未识别'), '',
-            '## 正文', '', *body,
-            '## 已加载评论', '', f"已保存 {len(data.get('comments', []))} 条；本次状态：{plain(data.get('comments_status', 'unknown'))}。仅包含已加载内容，不代表全部评论。", '']
+        lines = [f"# {plain(data.get('page_title'))}", '', '来源：' + plain(data['source_url']), '']
+        for key, caption in [('author_name', '作者'), ('published_at', '发布时间')]:
+            if data.get(key): lines.extend([caption + '：' + plain(data[key]), ''])
+        lines.extend(['## 正文', '', *body])
+        if data.get('comments_requested') or data.get('comments'):
+            lines.extend(['## 评论', '', f"已保存 {len(data.get('comments', []))} 条", ''])
+            if data.get('comments_requested') and data.get('comments_status') not in (None, 'unknown', 'not_requested'):
+                lines.extend([plain(data['comments_status']), ''])
         for item in data.get('comments', []):
-            lines.extend([f"- {plain(item.get('author') or '未识别作者')}：{plain(item['text'])}", ''])
+            lines.extend([f"{'  ' if item.get('parent_id') else ''}- {plain(item.get('author') or '未识别作者')}：{plain(item['text'])}", ''])
             if item.get('url'): lines.extend(['  来源：' + plain(item['url']), ''])
             for url in item.get('images', []):
                 image = next((i for i in data.get('images', []) if i.get('url') == url and i.get('file')), None)
                 if image:
                     from urllib.parse import quote
                     lines.extend(['  ![评论图片](' + quote(Path(image['file']).as_posix(), safe='/') + ')', ''])
-        if data.get('md_only') and not data.get('comments_requested'):
-            lines = lines[:lines.index('## 已加载评论')]
-        if not data.get('md_only'):
-            lines.extend(['## 图片识别文字', '', '以下为本地 OCR 结果，可能有错字或漏字，请对照原图。', ''])
+                    rendered_images.add(Path(image['file']).as_posix())
+        ocr_enabled = data.get('ocr_status') in ('completed', 'partial')
+        has_ocr = ocr_enabled or any(i.get('ocr', {}).get('text') for i in data['images'])
+        if not data.get('md_only') and has_ocr:
+            lines.extend(['## 图片识别文字', ''])
         for i, item in enumerate(data['images'], 1):
+            if item.get('role') == 'comment':
+                continue
             relative = Path(item['file']).as_posix() if item.get('file') else None
             from urllib.parse import quote
             ocr = item.get('ocr', {})
-            lines.extend([f'### 图片 {i}', '', plain(ocr.get('text') or ('未检测到文字' if ocr.get('status') == 'completed' else '文字识别未完成或未启用')), ''])
+            if ocr_enabled or ocr.get('text'):
+                text = ocr.get('text') or ('未检测到文字' if ocr.get('status') == 'completed' else '识别失败：' + (ocr.get('error') or '未返回识别结果'))
+                lines.extend([f'### 图片 {i}', '', plain(text), ''])
             if relative and relative not in rendered_images:
                 lines.extend([f'![正文图片]({quote(relative)})', ''])
         from urllib.parse import quote
         for name in data.get('media_files', []):
             lines.extend([f'![GIF 动图]({quote(name)})' if Path(name).suffix.lower()=='.gif' else f'[视频附件]({quote(name)})', ''])
         warnings = list(dict.fromkeys([*data['warnings'], *source.get('warnings', [])]))
-        lines.extend(['## 采集提示', '', *[plain(w) for w in warnings]])
+        if warnings: lines.extend(['## 采集提示', '', *[plain(w) for w in warnings]])
         temporary = directory / (filename + '.tmp')
         temporary.write_text('\n'.join(lines), encoding='utf-8')
         temporary.replace(directory / filename)
@@ -392,6 +446,12 @@ class Storage:
         return metadata
 
     def _download(self, item: ImageItem) -> tuple[bytes, str]:
+        if item.source_kind == 'comment_gif':
+            from .comment_gif import read_gif
+            if item.role != 'comment' or not item.comment_id or item.data_base64:
+                raise ValueError('评论动图缺少归属或来源不符')
+            data = read_gif(item.url, self.settings.timeout)
+            return data, validate_image(data)
         if item.data_base64:
             if len(item.data_base64) > 40 * 1024 * 1024:
                 raise ValueError('image exceeds 30MB')

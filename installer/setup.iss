@@ -1,4 +1,4 @@
-#ifndef AppVersion
+﻿#ifndef AppVersion
   #error AppVersion must be passed explicitly by the versioned build script
 #endif
 [Setup]
@@ -24,8 +24,11 @@ UninstallDisplayIcon={app}\InspirationCollector.exe
 CloseApplications=no
 DisableProgramGroupPage=yes
 [Files]
+Source: "..\build-windows\payload\InspirationCollector.exe"; DestName: "upgrade-client.exe"; Flags: dontcopy
 Source: "..\build-windows\payload\*"; DestDir: "{app}"; Excludes: "*.pyc,__pycache__\*,Scripts\*,bin\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\source\server\maintenance.py"; Flags: dontcopy
+Source: "..\source\server\update_recovery.py"; Flags: dontcopy
+Source: "..\source\server\update_storage.py"; Flags: dontcopy
 Source: "..\build-windows\payload\managed-files.json"; DestName: "incoming-managed-files.json"; Flags: dontcopy
 [Tasks]
 Name: "desktopicon"; Description: "Create desktop shortcut"
@@ -39,23 +42,34 @@ Type: files; Name: "{group}\首次安装引导.lnk"
 [Run]
 Filename: "{app}\安装后说明.html"; Description: "扩展加载与更新说明"; Flags: shellexec nowait postinstall skipifsilent
 Filename: "{sys}\notepad.exe"; Parameters: """{app}\README.txt"""; Description: "Read instructions"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\InspirationCollector.exe"; Description: "Start Inspiration Collector"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\InspirationCollector.exe"; Description: "Start Inspiration Collector"; Flags: nowait postinstall skipifsilent; Check: NeedStart
 
 [Code]
+var
+  RecoveryPrepared, InstallationFinished: Boolean;
+
+function NeedStart(): Boolean;
+begin
+  Result := not RecoveryPrepared;
+end;
+
 function GetInstallDirectory(Param: String): String;
 begin
   if not RegQueryStringValue(HKCU, 'Software\RefTray', 'InstallDirectory', Result) then
     Result := ExpandConstant('{localappdata}\Programs\InspirationCollector');
 end;
 
-function StopOwnedLauncher(): String;
+function StopOwnedLauncher(UseIncomingClient: Boolean): String;
 var
   ExitCode: Integer;
   Launcher: String;
 begin
   Result := '';
   if not CheckForMutexes('Local\InspirationCollectorLauncher') then exit;
-  Launcher := ExpandConstant('{app}\InspirationCollector.exe');
+  if UseIncomingClient then begin
+    ExtractTemporaryFile('upgrade-client.exe');
+    Launcher := ExpandConstant('{tmp}\upgrade-client.exe');
+  end else Launcher := ExpandConstant('{app}\InspirationCollector.exe');
   if not FileExists(Launcher) then begin
     Result := '后台仍在运行。请从系统托盘退出灵感采集后重试。';
     exit;
@@ -66,13 +80,25 @@ begin
     Result := '后台尚未确认退出。请等待采集或目录选择完成，再重试；旧版后台请从托盘退出。';
 end;
 
+function GetStateRoot(): String;
+begin
+  Result := GetEnv('LIBLIB_ROOT');
+  if Result = '' then RegQueryStringValue(HKCU, 'Software\RefTray', 'StateRoot', Result);
+  if Result = '' then Result := ExpandConstant('{localappdata}\InspirationCollector');
+  Result := ExpandFileName(Result);
+end;
+
 function IsOwnedMcpCommand(Command, Python, Adapter: String): Boolean;
 begin
   Command := Trim(Command);
   Result := (CompareText(Command, '"' + Python + '" "' + Adapter + '"') = 0) or
     (CompareText(Command, '"' + Python + '" ' + Adapter) = 0) or
     (CompareText(Command, Python + ' "' + Adapter + '"') = 0) or
-    (CompareText(Command, Python + ' ' + Adapter) = 0);
+    (CompareText(Command, Python + ' ' + Adapter) = 0) or
+    (CompareText(Command, '"' + Python + '" -B "' + Adapter + '"') = 0) or
+    (CompareText(Command, '"' + Python + '" -B ' + Adapter) = 0) or
+    (CompareText(Command, Python + ' -B "' + Adapter + '"') = 0) or
+    (CompareText(Command, Python + ' -B ' + Adapter) = 0);
 end;
 
 function StopOwnedMcpClients(): String;
@@ -140,18 +166,56 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ExitCode: Integer;
 begin
-  Result := StopOwnedLauncher();
+  WizardForm.StatusLabel.Caption := '正在等待旧后台安全退出…';
+  Log('RefTray prepare: stopping owned launcher');
+  Result := StopOwnedLauncher(True);
   if Result <> '' then exit;
+  WizardForm.StatusLabel.Caption := '正在检查并关闭本程序的 MCP 占用…';
+  Log('RefTray prepare: checking owned MCP clients');
   Result := StopOwnedMcpClients();
   if Result <> '' then exit;
   if FileExists(ExpandConstant('{app}\runtime\python.exe')) then begin
+    WizardForm.StatusLabel.Caption := '正在核对旧程序文件，保留素材与设置…';
+    Log('RefTray prepare: checking managed program files');
     ExtractTemporaryFile('maintenance.py');
     ExtractTemporaryFile('incoming-managed-files.json');
-    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{tmp}\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{tmp}\incoming-managed-files.json') + '" --report "' + ExpandConstant('{localappdata}\InspirationCollector\data\inspiration\logs\installer-maintenance.json') + '" --state "' + ExpandConstant('{localappdata}\InspirationCollector') + '" --plan-only --export-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{tmp}\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{tmp}\incoming-managed-files.json') + '" --report "' + GetStateRoot() + '\data\inspiration\logs\installer-maintenance.json" --state "' + GetStateRoot() + '" --plan-only --export-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
       Result := '无法检查旧程序清单，尚未替换程序。'
     else if ExitCode <> 0 then
       Result := '旧程序清单或素材保护检查失败，尚未替换程序。详情见状态目录 data/inspiration/logs/installer-maintenance.json。';
   end;
+  Log('RefTray prepare: finished; result=' + Result);
+  if (Result = '') and FileExists(ExpandConstant('{app}\managed-files.json')) and
+     (GetEnv('REFTRAY_UPDATE_OWNS_RECOVERY') <> '1') and not RecoveryPrepared then begin
+    WizardForm.StatusLabel.Caption := '正在保存完整旧程序，更新失败时可恢复…';
+    ExtractTemporaryFile('upgrade-client.exe');
+    ExtractTemporaryFile('update_recovery.py');
+    ExtractTemporaryFile('update_storage.py');
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{tmp}\update_recovery.py') + '" --prepare-installer "' + GetStateRoot() + '" --program "' + ExpandConstant('{app}') + '" --package "' + ExpandConstant('{srcexe}') + '" --version "{#AppVersion}" --launcher "' + ExpandConstant('{tmp}\upgrade-client.exe') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+      Result := '无法准备旧程序恢复副本，尚未替换程序。'
+    else if ExitCode <> 0 then
+      Result := '旧程序备份或文件核验失败，尚未替换程序。请保留程序目录并检查可用磁盘空间。'
+    else RecoveryPrepared := True;
+  end;
+end;
+
+procedure DeinitializeSetup();
+var
+  ExitCode: Integer;
+  Helper: String;
+begin
+  if RecoveryPrepared and not InstallationFinished then begin
+    Helper := GetStateRoot() + '\data\inspiration\updates\{#AppVersion}\RefTrayRestore.exe';
+    { Detached helper waits for an older updater to finish before restoring. }
+    Exec(Helper, '--restore-after-setup "' + ExpandConstant('{app}') + '" "' + GetStateRoot() + '"', '', SW_HIDE, ewNoWait, ExitCode);
+  end;
+end;
+
+function GetCustomSetupExitCode(): Integer;
+begin
+  { A post-install exception alone does not change Inno's successful exit code. }
+  if RecoveryPrepared and not InstallationFinished then Result := 12
+  else Result := 0;
 end;
 
 function InitializeUninstall(): Boolean;
@@ -159,7 +223,7 @@ var
   Error, Params: String;
   ExitCode: Integer;
 begin
-  Error := StopOwnedLauncher();
+  Error := StopOwnedLauncher(False);
   if Error = '' then Error := StopOwnedMcpClients();
   Result := Error = '';
   if not Result then begin MsgBox(Error, mbError, MB_OK); exit; end;
@@ -172,7 +236,7 @@ begin
     end;
   end;
   if Params <> '' then begin
-    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\maintenance.py') + '" --report "' + ExpandConstant('{localappdata}\InspirationCollector\data\inspiration\logs\installer-maintenance.json') + '" --state "' + ExpandConstant('{localappdata}\InspirationCollector') + '"' + Params, '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\maintenance.py') + '" --report "' + GetStateRoot() + '\data\inspiration\logs\installer-maintenance.json" --state "' + GetStateRoot() + '"' + Params, '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
       Error := '无法执行所选数据清理；卸载已停止。'
     else if ExitCode <> 0 then Error := '数据清理保护检查失败，卸载已停止；请保留素材并联系维护者。';
     Result := Error = '';
@@ -191,15 +255,25 @@ var
   ExitCode: Integer;
 begin
   if CurStep = ssPostInstall then begin
-    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\extension_install.py') + '" --program "' + ExpandConstant('{app}') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\extension_install.py') + '" --program "' + ExpandConstant('{app}') + '" --previous-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
       RaiseException('扩展目录更新未执行，安装未完成。请保留当前目录并重试安装。')
     else if ExitCode <> 0 then
       RaiseException('扩展目录更新或文件核验失败，安装未完成。未将旧扩展标为已更新，请保留当前目录并重试安装。');
   end;
   if (CurStep = ssPostInstall) and FileExists(ExpandConstant('{tmp}\previous-managed-files.json')) then begin
-    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{app}\managed-files.json') + '" --previous-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '" --report "' + ExpandConstant('{localappdata}\InspirationCollector\data\inspiration\logs\installer-maintenance.json') + '" --state "' + ExpandConstant('{localappdata}\InspirationCollector') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\server\maintenance.py') + '" --upgrade-program "' + ExpandConstant('{app}') + '" --incoming-manifest "' + ExpandConstant('{app}\managed-files.json') + '" --previous-manifest "' + ExpandConstant('{tmp}\previous-managed-files.json') + '" --report "' + GetStateRoot() + '\data\inspiration\logs\installer-maintenance.json" --state "' + GetStateRoot() + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
       MsgBox('新版已安装，但旧文件清单清理未执行。素材未移动；详情见状态目录 data/inspiration/logs/installer-maintenance.json。', mbError, MB_OK)
     else if ExitCode <> 0 then
       MsgBox('新版已安装，但旧文件清单清理失败。素材未移动；详情见状态目录 data/inspiration/logs/installer-maintenance.json。', mbError, MB_OK);
+  end;
+  if CurStep = ssPostInstall then begin
+    if RecoveryPrepared then begin
+      WizardForm.StatusLabel.Caption := '正在确认新版可以启动…';
+      if not Exec(GetStateRoot() + '\data\inspiration\updates\{#AppVersion}\RefTrayRestore.exe', '--finish-installer "' + ExpandConstant('{app}') + '" "' + GetStateRoot() + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+        RaiseException('新版启动检查未完成，退出安装后将恢复旧程序。')
+      else if ExitCode <> 0 then
+        RaiseException('新版未正常启动，退出安装后将恢复旧程序。素材与设置保留。');
+    end;
+    InstallationFinished := True;
   end;
 end;

@@ -8,20 +8,19 @@ let historyRequest=0,taskRequest=0;
 q('#history-platform').add(new Option('YouTube','YouTube'));
 let historyPage=1,taskPage=1;const pageSize=20;
 function pager(parent,page,pages,total,change){
-  const nav=document.createElement('div');nav.className='inline-actions';
+  const nav=document.createElement('div');nav.className='inline-actions record-pager';
   const previous=button('上一页',()=>change(page-1)),next=button('下一页',()=>change(page+1));
   previous.disabled=page<=1;next.disabled=page>=pages;
   const info=document.createElement('span');UI.message(info,'第 {page} / {pages} 页 · 共 {total} 条',{page,pages,total});
   nav.append(previous,info,next);parent.append(nav);
 }
-q('#history-content > p').textContent='每页20条，可翻页查看全部匹配记录。保留实际保存位置；文件移动后不会自动关联。';
 q('#task-state').add(new Option('不再处理','ignored'));
 async function dismissTasks(ids,ignored){
   const {collectorDismissedTasks:values={}}=await chrome.storage.local.get(['collectorDismissedTasks']);
   for(const id of ids)if(ignored)values[id]=Date.now();else delete values[id];
   await chrome.storage.local.set({collectorDismissedTasks:values});await tasks();
 }
-const dismissSelected=button('不再处理所选（保留文件）',()=>dismissTasks([...q('#task-list').querySelectorAll('input[data-task-id]:checked')].map(input=>input.dataset.taskId),true));
+const dismissSelected=button('忽略所选',()=>dismissTasks([...q('#task-list').querySelectorAll('input[data-task-id]:checked')].map(input=>input.dataset.taskId),true));dismissSelected.title='保留已保存的文件';
 dismissSelected.disabled=true;
 q('#refresh-tasks').after(dismissSelected);
 const selectAll=document.createElement('label');selectAll.className='task-selection';
@@ -56,16 +55,27 @@ async function history(){
   }
   for(const item of items){
     const row=document.createElement('article');row.className='record-row';
-    const icon=document.createElement('span');icon.className='record-icon';icon.setAttribute('aria-hidden','true');if(globalThis.ManageLayout)icon.append(ManageLayout.icon(item.category==='video'?'video':item.category==='text'?'records':'image'));else icon.textContent='▧';
+    const kind=item.content_kind||item.mode,kindName=({text:'图文',plain:'文字',images:'图片',video:'视频',audio:'音频'})[kind]||'图片';
+    const icon=document.createElement('span');icon.className='record-preview';icon.setAttribute('aria-label',kindName+'预览');
+    const placeholder=document.createElement('span');placeholder.className='preview-placeholder';placeholder.textContent=kindName;icon.append(placeholder);
+    icon.dataset.previewId=item.id;
     const copy=document.createElement('div'),title=document.createElement('h2');title.className='record-title';title.dataset.userContent='';title.textContent=item.title;
-    copy.append(title);line(copy,'{platform} · {author} · {mode} · {time}',{platform:item.platform||'',author:item.author,mode:{ui:({text:'图文',images:'图片',video:'视频',batch:'批量'})[item.category||item.mode]||'图片'},time:new Date(item.updated*1000).toLocaleString()}).className='record-meta';
-    line(copy,'{state} · {directory}',{state:{ui:item.available?'文件存在':'文件已移走、删除或大小改变'},directory:item.directory}).className='record-path';
+    if(!title.textContent.trim())title.textContent=(item.platform||'网页')+'作品 · '+(item.url.match(/\/(?:status|pins)\/(\d+)/)?.[1]||item.author||'未命名作品');
+    copy.className='record-copy';copy.append(title);line(copy,'{platform} · {author} · {mode} · {time}',{platform:item.platform||'',author:item.author,mode:{ui:(item.category==='batch'?'批量':'')+kindName},time:new Date(item.updated*1000).toLocaleString()}).className='record-meta';
+    if(!item.available)line(copy,'文件已移走或发生变化').className='record-unavailable';
     const actions=document.createElement('div');actions.className='record-actions';
-    actions.append(button('打开文件夹',()=>Hub.api('/history/'+item.id+'/open',{})),button('打开原帖',()=>chrome.tabs.create({url:item.url})),button('重新采集',async()=>{
+    const more=document.createElement('details'),moreLabel=document.createElement('summary'),menu=document.createElement('div');more.className='record-more';more.name='record-actions';moreLabel.textContent='更多';more.append(moreLabel,menu);
+    menu.append(button('打开原帖',()=>chrome.tabs.create({url:item.url})),button('重新采集',async()=>{
       await chrome.storage.local.set({collectorNextAction:{url:item.url,duplicate_policy:'refresh'}});await chrome.tabs.create({url:item.url});notice('已打开原帖。打开采集面板后确认本次位置并开始；不会删除旧文件。');
-    }));row.append(icon,copy,actions);q('#history-list').append(row);
+    }));menu.addEventListener('click',()=>{more.open=false;});actions.append(button('打开文件夹',()=>Hub.api('/history/'+item.id+'/open',{})),more);row.append(icon,copy,actions);q('#history-list').append(row);
   }
   pager(q('#history-list'),historyPage,result.pages||1,result.total??items.length,async page=>{historyPage=page;await history();});
+  if(q('#history').hidden||q('#history-content').hidden)return;
+  // Load only this page's small previews, with bounded concurrency. Old list
+  // responses never replace the next page, and no original media URL is exposed.
+  const previews=[...q('#history-list').querySelectorAll('[data-preview-id]')];
+  const load=async()=>{while(previews.length&&request===historyRequest&&!q('#history').hidden&&!q('#history-content').hidden){const node=previews.shift();try{const result=await Hub.api('/history/'+node.dataset.previewId+'/preview');if(request!==historyRequest)return;if(result.image){const img=document.createElement('img');img.alt='';img.src=result.image;node.replaceChildren(img);}else node.title=result.reason||'暂无缩略图';}catch(error){node.title='缩略图暂不可用';}}};
+  void Promise.all([load(),load()]);
 }
 async function taskDetail(item){
   const stored=await chrome.storage.local.get(['collectorCheckpoint','collectorTaskJournal']);
@@ -78,11 +88,12 @@ async function taskDetail(item){
 }
 function taskVisible(item,view,active,ignored){
  const running=Boolean(active)&&item.id===active,fail=Number(item.failed)||(['failed','partial'].includes(item.status)||item.error?1:0),saved=Number(item.saved)||0;
- if(item.resolvedBy||item.completed&&!fail&&!running)return false;
+ const interrupted=['stopped','interrupted','paused'].includes(item.status);
+ if(item.resolvedBy||item.completed&&!fail&&!running&&!interrupted)return false;
  if(view==='ignored')return !running&&Boolean(ignored[item.id]);
  if(!running&&ignored[item.id])return false;
  if(view==='running')return running;
- if(view==='unfinished')return !running&&(saved>0&&fail>0||!item.completed&&item.status!=='failed');
+ if(view==='unfinished')return !running&&(saved>0&&fail>0||interrupted||!item.completed&&item.status!=='failed');
  if(view==='failed')return !running&&!saved&&fail>0;
  return true;
 }
@@ -133,8 +144,11 @@ async function tasks(){
     if(!running&&(filter==='ignored'?!ignored:ignored))continue;
     if(running&&filter==='ignored')continue;
     if(!taskVisible({...item,failed:failureCount},filter||'all',running?item.id:'',stored.collectorDismissedTasks||{}))continue;
-    line(row,'{name} · {state} · {count} 篇 · 失败/部分失败 {failures}',{name:item.name||item.title||item.source||'',state:{ui:running?'正在运行':ignored?'已忽略':failureCount?(item.saved?'部分完成':'失败'):'已暂停'},count:item.total??item.done??'待查看',failures:failureCount});
-    if(item.directory){const p=document.createElement('p');p.dataset.userContent='';p.textContent=item.directory;row.append(p);}else line(row,'尚未确认保存位置');
+    const heading=document.createElement('div');heading.className='task-heading';
+    const title=document.createElement('h3');title.className='task-name';title.dataset.userContent='';title.textContent=item.name||item.title||item.source||'采集任务';
+    const state=document.createElement('span');state.className='task-status';state.dataset.state=running?'running':failureCount?'failed':'paused';state.textContent=running?'进行中':ignored?'已忽略':failureCount?(item.saved?'部分完成':'失败'):'已暂停';heading.append(title,state);row.append(heading);
+    const count=item.done??Object.keys(item.records||{}).length;
+    line(row,count?'已处理 {count} 项 · 失败 {failures}':'尚未保存内容',{count,failures:failureCount}).className='task-count';
     const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='逐项结果';details.append(summary);
     let loaded=false,loading=false;
     details.addEventListener('toggle',async()=>{
@@ -144,7 +158,7 @@ async function tasks(){
         const full=await taskDetail(item);content.replaceChildren();
         const records=Object.values(full.records||{});
         if(!records.length)line(content,'暂无逐项结果');
-        for(const r of records){const p=document.createElement('p');UI.message(p,'{state} · {url} · {reason}',{state:{ui:({saved:'成功',completed:'成功',failed:'失败',partial:'部分完成',skipped:'已跳过',planned:'待保存',stopped:'已停止'})[r.status]||r.status},url:(r.url||'').replace(/([?&](?:token|xsec_token|signature)=)[^&#]*/gi,'$1[hidden]'),reason:r.reason||''});content.append(p);}
+        for(const r of records){const p=document.createElement('p');UI.message(p,'{state} · {url} · {reason}',{state:{ui:({saved:'成功',completed:'成功',failed:'失败',partial:'部分完成',skipped:'已跳过',planned:'待保存',stopped:'已停止'})[r.status]||r.status},url:(r.url||'').replace(/([?&](?:token|xsec_token|signature)=)[^&#]*/gi,'$1[hidden]'),reason:r.reason||''});content.append(p);const diagnostic=DiagnosticsView.id(r.reason);if(diagnostic)content.append(button('查看本次诊断',()=>DiagnosticsView.open(diagnostic)));}
         loaded=true;
       }catch(error){content.textContent='详情读取失败，重新展开可重试：'+error.message;}
       finally{loading=false;if(!loaded)details.addEventListener('toggle',()=>content.remove(),{once:true});}
@@ -154,9 +168,10 @@ async function tasks(){
     if(!item.localOnly&&!running&&!item.completed)row.append(button('回原页续采',()=>restore(item,false)));
     if(!item.localOnly&&!item.error&&!running&&failureCount)row.append(button('只重试失败项',()=>restore(item,true)));
     if(!running&&item.id){
-      const choose=document.createElement('input');choose.type='checkbox';choose.dataset.taskId=item.id;choose.setAttribute('aria-label','选择此任务');const label=document.createElement('label');label.className='task-selection';label.append(choose,document.createTextNode('选择此任务'));row.prepend(label);
-      row.append(button(ignored?'恢复到待处理':'不再处理（保留文件）',()=>dismissTasks([item.id],!ignored)));
+      const choose=document.createElement('input');choose.type='checkbox';choose.dataset.taskId=item.id;choose.setAttribute('aria-label','选择任务：'+title.textContent);heading.prepend(choose);
+      const dismiss=button(ignored?'恢复到待处理':'忽略任务',()=>dismissTasks([item.id],!ignored));dismiss.title='保留已保存的文件';row.append(dismiss);
     }
+    const actions=document.createElement('div');actions.className='task-buttons';for(const b of row.querySelectorAll(':scope > button'))actions.append(b);if(actions.childElementCount)row.append(actions);
     rows.push({row,running,updated:item.updated||0});
   }
   rows.sort((a,b)=>Number(b.running)-Number(a.running)||b.updated-a.updated);
@@ -186,7 +201,7 @@ function paintDefaults(values){
   savedDefaults=structuredClone(values);
   for(const [key,value] of Object.entries(values)){const input=q('#defaults-form').elements.namedItem(key);if(input)input.type==='checkbox'?input.checked=value:input.value=value;}
   for(const fieldset of q('#defaults-form').querySelectorAll('fieldset'))fieldset.disabled=false;
-  globalThis.refreshSelects?.();
+  globalThis.refreshSelects?.();document.dispatchEvent(new Event('defaults-painted'));
   q('#defaults-form').querySelector('[type=submit]').disabled=true;undoDefaults.disabled=true;
   UI.message(defaultsState,'默认设置已保存 · 仅影响之后的新任务');
 }
@@ -201,7 +216,7 @@ q('#query').addEventListener('input',()=>{historyRequest++;});
 q('#history-category').onchange=q('#history-platform').onchange=guard(async()=>{historyPage=1;await history();});
 q('#task-state').onchange=guard(async()=>{taskPage=1;await tasks();});
 q('#search-form').onsubmit=guard(async e=>{e.preventDefault();historyPage=1;await history();});
-q('#resolver-diagnostics').onclick=guard(async()=>{q('#resolver-diagnostics').closest('details').open=true;q('#resolver-diagnostic-text').textContent='正在读取诊断…';const result=await Hub.api('/diagnostics');q('#resolver-diagnostic-text').textContent=result.items.length?result.items.map(x=>`${x.time} · ${x.stage} · ${x.code} · ${x.id}\n${x.summary}\n退出码 ${x.exit_code??'未知'} · 耗时 ${x.elapsed_seconds??'未知'} 秒\n${x.detail}`).join('\n\n'):'暂无媒体解析诊断';});
+q('#resolver-diagnostics').onclick=()=>DiagnosticsView.load();
 q('#refresh-tasks').onclick=guard(tasks);q('#local-video').onclick=()=>chrome.tabs.create({url:chrome.runtime.getURL('video.html')});
 let previewToken,previewDirectory,previewRequest=0,importing=false;
 function invalidatePreview(){previewRequest++;previewToken=undefined;previewDirectory=undefined;q('#import-confirm').disabled=true;}
@@ -246,5 +261,5 @@ Promise.allSettled([
   initializeBlock(history,q('#history-list')),
   initializeBlock(tasks,q('#task-list')),
   initializeBlock(approval,q('#approval-text')),
-  initializeBlock(async()=>{const {liblibProgress:p}=await chrome.storage.local.get(['liblibProgress']);q('#diagnostic-text').textContent=[p?.message,p?.details].filter(Boolean).join('\n');},q('#diagnostic-text'))
+  initializeBlock(async()=>{q('#diagnostic-text').textContent='';},q('#diagnostic-text'))
 ]);

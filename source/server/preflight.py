@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, build_opener
-from .video import validate_url, SafeRedirect
+from .media_urls import validate_file_url as validate_url, SafeRedirect
 from .bilibili_media import source_headers
 
 

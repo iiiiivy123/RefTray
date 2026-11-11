@@ -13,7 +13,7 @@ def source_id(value):
     u = urlsplit(value)
     host = (u.hostname or '').lower()
     if host in ('youtube.com','www.youtube.com','m.youtube.com','youtu.be'):
-        from .media_resolver import canonical
+        from .source_identity import canonical
         return canonical(value)[0]
     if host in ('bilibili.com','www.bilibili.com') and re.fullmatch(r'/video/BV[\da-zA-Z]{10}/?',u.path):
         from .destinations import source_key
@@ -99,6 +99,61 @@ class Catalog:
             db.execute('INSERT OR REPLACE INTO assets VALUES(?,?,?,?)',
                        (hashlib.sha256(url.encode()).hexdigest(), str(path.resolve()), sha, path.stat().st_size))
 
+    def relocate_library(self, old_root, new_root, time_limit=8):
+        """Rebind verified moved files only. Never move files or rewrite task snapshots."""
+        old_root, new_root = Path(old_root).resolve(), Path(new_root).resolve()
+        if old_root == new_root or not new_root.is_dir(): return {'linked': 0, 'pending': 0}
+        deadline = time.monotonic() + time_limit
+        verified = {}
+        def moved(path, size, sha):
+            path = Path(path)
+            if path.exists() or not path.is_relative_to(old_root) or not sha: return None
+            target = (new_root / path.relative_to(old_root)).resolve()
+            try:
+                if target.is_relative_to(new_root) and target.is_file() and target.stat().st_size == size:
+                    key = (str(target), size, sha)
+                    if key not in verified:
+                        digest = hashlib.sha256()
+                        with target.open('rb') as stream:
+                            while chunk := stream.read(1024*1024):
+                                if time.monotonic() >= deadline: return None
+                                digest.update(chunk)
+                        verified[key] = digest.hexdigest() == sha
+                    if verified[key]: return target
+            except OSError:
+                pass
+            return None
+        count = pending = 0
+        with self.connect() as db:
+            rows = db.execute('SELECT * FROM captures').fetchall()
+            for row in rows:
+                folder = Path(row['directory'])
+                if not folder.is_relative_to(old_root): continue
+                target = (new_root / folder.relative_to(old_root)).resolve()
+                if not target.is_relative_to(new_root): continue
+                if folder.exists() or not target.is_dir(): continue
+                if db.execute('SELECT id FROM captures WHERE source=? AND mode=? AND directory=?',
+                              (row['source'], row['mode'], str(target))).fetchone(): continue
+                files = json.loads(row['files']); relocated = []
+                for item in files:
+                    path = moved(item['path'], item['size'], item.get('sha'))
+                    if path is None or not path.is_relative_to(target): break
+                    relocated.append({**item, 'path': str(path)})
+                if not files or len(relocated) != len(files):
+                    pending += 1
+                    continue
+                db.execute('UPDATE captures SET directory=?,files=? WHERE id=?',
+                           (str(target), json.dumps(relocated), row['id']))
+                count += 1
+            for row in db.execute('SELECT * FROM assets').fetchall():
+                if time.monotonic() >= deadline: break
+                target = moved(row['path'], row['size'], row['sha'])
+                if target is None: continue
+                db.execute('INSERT OR IGNORE INTO assets VALUES(?,?,?,?)',
+                           (row['url_hash'], str(target), row['sha'], row['size']))
+                db.execute('DELETE FROM assets WHERE url_hash=? AND path=?', (row['url_hash'], row['path']))
+        return {'linked': count, 'pending': pending}
+
     def cached(self, url, *, image=False):
         with self.connect() as db:
             rows = db.execute('SELECT * FROM assets WHERE url_hash=?', (hashlib.sha256(url.encode()).hexdigest(),)).fetchall()
@@ -123,6 +178,13 @@ class Catalog:
         item['files'] = json.loads(item['files'])
         item['coverage'] = json.loads(item['coverage'])
         item.update(Catalog.classify(item['mode'], item['directory'], item['coverage'], item['url']))
+        suffixes = {Path(f['path']).suffix.lower() for f in item['files']}
+        # Batch is a capture scope, not a media type. Derive old rows without a migration.
+        item['content_kind'] = ('video' if suffixes & {'.mp4','.webm','.mkv','.mov','.m4v'}
+            else 'audio' if suffixes & {'.m4a','.mp3','.aac','.wav','.flac','.ogg','.opus'}
+            else 'text' if item['mode'] == 'text' and suffixes & {'.jpg','.jpeg','.png','.webp','.gif','.avif','.bmp'}
+            else 'plain' if item['mode'] == 'text'
+            else 'images')
         item['available'] = check_files and bool(item['files']) and all(Path(f['path']).is_file() and Path(f['path']).stat().st_size == f['size'] for f in item['files'])
         return item
 
@@ -281,14 +343,17 @@ class Catalog:
         conditions, params = [], []
         if view is not None:
             conditions.append("COALESCE(resolvedBy,'')=''")
-            conditions.append("(id=? OR NOT COALESCE(completed,0) OR failed>0 OR status IN ('failed','partial') OR COALESCE(error,'')!='')")
+            conditions.append("(id=? OR NOT COALESCE(completed,0) OR failed>0 OR status IN ('failed','partial','stopped','interrupted','paused') OR COALESCE(error,'')!='')")
             params.append(active_id)
             conditions.append("(id=? OR id " + ('IN' if view == 'ignored' else 'NOT IN') + " (SELECT value FROM json_each(?)))")
             params.extend((active_id if view != 'ignored' else '', json.dumps(list(ignored_ids))))
             if view == 'running':
-                conditions.append('id=?'); params.append(active_id)
+                if active_id:
+                    conditions.append('id=?'); params.append(active_id)
+                else:
+                    conditions.append("status IN ('running','waiting_browser','stopping')")
             elif view == 'unfinished':
-                conditions.append("id!=? AND ((saved>0 AND (failed>0 OR status='partial')) OR (NOT COALESCE(completed,0) AND status!='failed'))")
+                conditions.append("id!=? AND ((saved>0 AND (failed>0 OR status='partial')) OR status IN ('stopped','interrupted','paused') OR (NOT COALESCE(completed,0) AND status!='failed'))")
                 params.append(active_id)
             elif view == 'failed':
                 conditions.append("id!=? AND saved=0 AND (failed>0 OR status='failed' OR COALESCE(error,'')!='')")

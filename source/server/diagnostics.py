@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 LABELS = {
+    'LOCAL_MEDIA': '本地音视频处理失败，已保存文件保留',
     'COMPONENT': '本地媒体解析组件未配置或不可用',
     'DNS': '解析器无法解析站点域名（DNS）',
     'PROXY': '解析器代理连接失败',
@@ -22,18 +23,20 @@ LABELS = {
     'CONNECT': '解析器无法建立网络连接',
     'PAYLOAD': '解析组件返回数据无效',
     'EXTRACTOR': '解析组件未能识别作品数据',
+    'IDENTITY': '解析结果缺少或不匹配当前帖子编号，未开始下载',
 }
 
 
 def classify(message):
     patterns = [
+        ('IDENTITY', r'主帖身份字段缺失|主帖身份不匹配|X_PAGE_ID'),
         ('PROXY', r'ProxyError|proxy (?:error|connection)|tunnel connection|SOCKS'),
         ('DNS', r'getaddrinfo|name or service not known|temporary failure in name resolution|could not resolve (?:host|hostname)|unable to resolve host|nodename nor servname'),
         ('TLS', r'CERTIFICATE_VERIFY_FAILED|SSLError|SSL:|TLS handshake|certificate verify'),
         ('TIMEOUT', r'timed?\s*out|TimeoutError|ReadTimeout|ConnectTimeout'),
         ('HTTP_403', r'HTTP(?: Error)?\s*403|403 Forbidden'),
         ('HTTP_429', r'HTTP(?: Error)?\s*429|429 Too Many'),
-        ('ACCESS', r'sign in|login required|log in|private (?:video|account)|age.restrict|cookies.*required'),
+        ('ACCESS', r'sign in|login required|log in|requires authentication|authentication required|not authorized|private (?:video|account)|protected (?:tweet|post|account)|age.restrict|cookies.*required'),
         ('FORMAT', r'Requested format.*not available|No video formats|no suitable formats'),
         ('UNAVAILABLE', r'video unavailable|tweet unavailable|deleted|not found'),
         ('CONNECT', r'ConnectionRefusedError|connection (?:refused|reset|aborted)|Network is unreachable|WinError (?:10060|10061|10054)'),
@@ -85,13 +88,13 @@ def record(code, message, *, canonical='', exit_code=None, elapsed=None, stage='
 
 def failure(code, message, **context):
     identity = record(code, message, **context)
-    return ValueError(f'[{code}] {LABELS.get(code, code)}。诊断编号：{identity}；可在管理页「帮助与工具」查看脱敏诊断。')
+    return ValueError(f'[{code}] {LABELS.get(code, code)}。诊断编号：{identity}；可在管理页「诊断记录」查看详细日志。')
 
 
 def recent():
     root = folder()
     rows = []
-    for path in sorted(root.glob('*.json'), key=lambda p: p.stat().st_mtime, reverse=True)[:20]:
+    for path in sorted(root.glob('*.json'), key=lambda p: p.stat().st_mtime, reverse=True)[:100]:
         try:
             rows.append(json.loads(path.read_text(encoding='utf-8')))
         except (OSError, ValueError):

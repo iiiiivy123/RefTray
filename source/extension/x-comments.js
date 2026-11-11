@@ -5,7 +5,7 @@
   if (!target || !/(^|\.)(x\.com|twitter\.com)$/.test(location.hostname)) return empty('未读取：当前不是 X 帖子详情');
   const rendered = new Map(), stack = [];
   for (const article of document.querySelectorAll('article[data-testid="tweet"]')) {
-    const link = [...article.querySelectorAll('a[href]')].find(a => a.querySelector('time') && !a.closest('[data-testid="quoteTweet"]'));
+    const link = [...article.querySelectorAll('a[href]')].find(a => a.closest('article')===article && a.querySelector('time') && !a.closest('[data-testid="quoteTweet"]'));
     const id = link?.href.match(/\/status\/(\d+)/)?.[1];
     if (!id || id === target) continue;
     rendered.set(id, article);
@@ -37,8 +37,15 @@
       const content=value.note_tweet?.note_tweet_results?.result?.text || legacy.full_text || value.fullText || article.querySelector('[data-testid="tweetText"]')?.innerText || '';
       const user=value.core?.user_results?.result;
       const author=user?.legacy?.screen_name || user?.core?.screen_name || article.querySelector('[data-testid="User-Name"]')?.innerText || null;
-      const images=[...article.querySelectorAll('[data-testid="tweetPhoto"] img')].filter(img=>!img.closest('[data-testid="quoteTweet"],[data-testid="videoPlayer"],[data-testid="videoComponent"]')).map(img=>img.currentSrc||img.src).filter(url=>/^https:\/\/pbs\.twimg\.com\/media\//.test(url));
-      if(String(content).trim()||images.length)comments.set(id,{id,url:linkFor(id),text:String(content).trim().slice(0,10000),author:author?String(author).slice(0,1000):null,images:[...new Set(images)]});
+      const images=[...article.querySelectorAll('[data-testid="tweetPhoto"] img')].filter(img=>img.closest('article')===article&&!img.closest('[data-testid="quoteTweet"],[data-testid="videoPlayer"],[data-testid="videoComponent"]')).map(img=>img.currentSrc||img.src).filter(url=>/^https:\/\/pbs\.twimg\.com\/media\//.test(url));
+      const originals=images.map(source=>{
+        const url=new URL(source);
+        if(/^(jpg|jpeg|png)$/i.test(url.searchParams.get('format')||''))url.searchParams.set('name','orig');
+        return url.href;
+      });
+      const record=globalThis.XEagleMedia?.tweetRecord(value);
+      const gifs=record?.tweetId===id ? record.media.filter(item=>item.kind==='gif').map(item=>item.url) : [];
+      if(String(content).trim()||images.length||gifs.length)comments.set(id,{id,url:linkFor(id),text:String(content).trim().slice(0,10000),author:author?String(author).slice(0,1000):null,images:[...new Set(originals)],gifs:[...new Set(gifs)]});
     }
     for(const [key,descriptor] of Object.entries(Object.getOwnPropertyDescriptors(value)).slice(0,300)) {
       if(['return','alternate','stateNode','_owner','ownerDocument','parentNode'].includes(key))continue;

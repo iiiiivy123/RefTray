@@ -27,12 +27,11 @@ def capabilities():
         conversion = False
     package = ytdlp_path()
     node = os.environ.get('COLLECTOR_NODE') or shutil.which('node')
-    runtime = Path(os.environ.get('COLLECTOR_ASR_PYTHON', ''))
-    model = Path(os.environ.get('COLLECTOR_ASR_MODEL', ''))
+    from .speech import component
     return {'mp4_inspection_and_copy': inspection, 'mp4_remux': inspection,
             'transcode': conversion, 'media_resolver': (package/'yt_dlp/__main__.py').is_file(),
             'youtube_js_runtime': bool(node and Path(node).is_file()),
-            'local_transcription': runtime.is_file() and (model/'model.bin').is_file(),
+            'local_transcription': component()['ready'],
             'loaded_captions': True}
 
 

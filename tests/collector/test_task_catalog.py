@@ -9,6 +9,15 @@ from server.catalog import Catalog
 
 
 class TaskCatalogTests(unittest.TestCase):
+    def test_old_stopped_records_remain_visible_without_rewriting_user_data(self):
+        with tempfile.TemporaryDirectory() as root:
+            catalog = Catalog(Path(root))
+            for status in ('stopped', 'interrupted', 'paused'):
+                catalog.save_task({'id': status, 'completed': True, 'status': status})
+            self.assertEqual({x['id'] for x in catalog.task_page(view='unfinished')['items']}, {'stopped', 'interrupted', 'paused'})
+            self.assertEqual(catalog.task_page(view='failed')['total'], 0)
+            self.assertTrue(catalog.get_task('stopped')['completed'])
+
     def test_filter_before_pagination_and_partial_is_unfinished(self):
         with tempfile.TemporaryDirectory() as root:
             catalog = Catalog(Path(root))

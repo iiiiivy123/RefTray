@@ -4,6 +4,38 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const Options=require('../../source/extension/capture-options.js');
 
+test('new captures use approved folders while resumed snapshots retain their original schema',()=>{
+  assert.equal(Options.browser({mode:'text',scope:'single',options:{}}).directory_schema,'function-platform-v3');
+  const resume={root:'original',options:{directory_schema:'function-platform-v2',limit:2}};
+  assert.equal(Options.resolve({defaults:{directory_schema:'function-platform-v3'},resume}).directory_schema,'function-platform-v2');
+});
+
+test('popup video batch uses this run skip count; single and resumed tasks retain their scope',()=>{
+  const source=fs.readFileSync(require.resolve('../../source/extension/popup.js'),'utf8');
+  const values={'#collection-mode':'video','#scope':'bulk','#batch-limit':'2','#skip-posts':'3','#trim-start':'0','#trim-end':'0','#comment-limit':'10','#task-destination':'','#video-action':'skip','#subtitle-mode':'audio'};
+  const context=vm.createContext({
+    q:selector=>({value:values[selector]??'0',checked:false}),
+    defaults:{skip_posts:0,interval:1,limit:20,max_video_mb:512},
+    resumeOptions:null,requestedPolicy:null,site:{site:'B站',parts:true},videoMode:'download',
+    isVideo:()=>true,isAudio:()=>true,textModeComments:()=>false,Hub:{options:x=>x}
+  });
+  vm.runInContext(source.slice(source.indexOf('function options(){'),source.indexOf('async function start(')),context);
+  let result=context.options();
+  assert.equal(result.skip_posts,2);assert.equal(result.limit,2);assert.equal(result.output_format,'audio');
+  assert.equal(result.capture_scope,'batch');assert.equal(context.defaults.skip_posts,0);
+  values['#skip-posts']='1';assert.equal(context.options().skip_posts,0);
+  values['#skip-posts']='0';assert.throws(()=>context.options(),/起始 P/);
+  values['#skip-posts']='10';context.site.partCount=9;assert.throws(()=>context.options(),/超出/);
+  context.site={site:'B站',parts:false,collection:true,collectionCount:28};
+  values['#skip-posts']='24';assert.equal(context.options().skip_posts,23);
+  values['#skip-posts']='1';assert.equal(context.options().skip_posts,0);
+  values['#skip-posts']='0';assert.throws(()=>context.options(),/起始视频/);
+  values['#skip-posts']='29';assert.throws(()=>context.options(),/超出/);
+  values['#scope']='current';assert.equal(context.options().skip_posts,0);
+  context.resumeOptions={skip_posts:7,limit:3};result=context.options();
+  assert.equal(result.skip_posts,7);assert.equal(result.limit,3);assert.equal(result.resume,true);
+});
+
 test('defaults, matching mode, last and current draft have stable precedence',()=>{
   const defaults={limit:20,interval:5,destination:'default'};
   const result=Options.resolve({defaults,mode:'text',modePreferences:{text:{interval:2}},last:{kind:'text',options:{limit:40,destination:'old'}},draft:{tabId:1,expires:200,options:{limit:60,destination:'current'}},tabId:1,now:100});
@@ -31,6 +63,7 @@ function client(responses){
     calls.push({url,options});const next=responses.shift();if(next instanceof Error)throw next;
     if(!next)throw new Error('unexpected request');return {ok:next.status<400,status:next.status,json:async()=>next.body};
   }});
+  vm.runInContext(fs.readFileSync(require.resolve('../../source/extension/health-client.js'),'utf8'),context);
   vm.runInContext(fs.readFileSync(require.resolve('../../source/extension/hub-api.js'),'utf8')+';globalThis.client=Hub;',context);
   return {api:context.client.api,invalidateOptions:context.client.invalidateOptions,calls,storage,removed};
 }

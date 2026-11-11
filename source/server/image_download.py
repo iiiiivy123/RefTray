@@ -10,7 +10,18 @@ MAX_BYTES = 30 * 1024 * 1024
 
 def platform_cdn(host):
     return any(host == domain or host.endswith('.' + domain)
-               for domain in ('pinimg.com', 'twimg.com'))
+               for domain in ('pinimg.com', 'twimg.com', 'cdninstagram.com', 'fbcdn.net', 'googlevideo.com'))
+
+
+def proxy_dns_host(host):
+    return platform_cdn(host) or host in {'cdn.artstation.com','cdna.artstation.com','cdnb.artstation.com'} or host in {
+        'www.instagram.com', 'youtube.com', 'www.youtube.com', 'pinterest.com', 'www.pinterest.com',
+        'x.com', 'www.x.com', 'twitter.com', 'www.twitter.com',
+    }
+
+
+def public_opener(redirect_handler):
+    return build_opener(ProxyHandler({}), PublicHTTPHandler(), PublicHTTPSHandler(), redirect_handler)
 
 
 def public_addresses(host, port):
@@ -50,7 +61,7 @@ class PublicHTTPSConnection(HTTPSConnection):
                 raise ValueError('图片下载需要无认证的 HTTP 系统代理')
             # CDN routing may depend on proxy-side DNS. Permit that only for
             # these fixed platform CDN domains; arbitrary hosts remain IP-pinned.
-            destination = target_host if platform_cdn(target_host) else public_addresses(target_host, target_port)[0][4][0]
+            destination = target_host if proxy_dns_host(target_host) else public_addresses(target_host, target_port)[0][4][0]
             self.host, self.port = parsed.hostname, parsed.port or 80
             self.set_tunnel(destination, target_port)
             try:
@@ -81,7 +92,7 @@ def validate_url(value):
         raise ValueError('图片只支持普通 HTTP(S) 公网地址')
     # These fixed HTTPS CDN names are resolved by the user's existing proxy;
     # requiring local DNS would break the same proxy-only networks again.
-    if not (parsed.scheme == 'https' and platform_cdn(host) and getproxies().get('https') and not proxy_bypass(host)):
+    if not (parsed.scheme == 'https' and proxy_dns_host(host) and getproxies().get('https') and not proxy_bypass(host)):
         public_addresses(host, parsed.port or (443 if parsed.scheme == 'https' else 80))
     return value
 
@@ -95,7 +106,7 @@ class SafeImageRedirect(HTTPRedirectHandler):
 def download_image(url, timeout):
     request = Request(validate_url(url), headers={'User-Agent': 'Mozilla/5.0', 'Referer': url})
     # Arbitrary destinations stay IP-pinned; fixed platform CDNs use proxy DNS.
-    with build_opener(ProxyHandler({}), PublicHTTPHandler(), PublicHTTPSHandler(), SafeImageRedirect()).open(request, timeout=timeout) as response:
+    with public_opener(SafeImageRedirect()).open(request, timeout=timeout) as response:
         if response.status != 200:
             raise ValueError('图片响应不完整，未保存')
         content_type = response.headers.get_content_type()

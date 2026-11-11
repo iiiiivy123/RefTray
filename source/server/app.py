@@ -1,12 +1,15 @@
 import threading
 import os
+import re
 import secrets
 import hashlib
+import sqlite3
 import tempfile
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse
 
 from .config import load_settings, save_directory, initialize_folders
@@ -28,14 +31,25 @@ def create_app(runtime=None):
         initialize_folders(settings.inbox)
     storage = runtime.storage if runtime is not None else Storage(settings)
     app = FastAPI(title="灵感采集", version="0.5.0")
-    app.add_middleware(CORSMiddleware, allow_origin_regex=r"^(chrome-extension|edge-extension)://.+$", allow_methods=["GET", "HEAD", "POST", "OPTIONS"], allow_headers=["Content-Type", "X-Collector-Token", "Range"], expose_headers=['Content-Length', 'Content-Range', 'Accept-Ranges'])
+    from .extension_origin import paired_origins
+    origins = paired_origins()
+    app.add_middleware(CORSMiddleware, allow_origins=sorted(origins), allow_methods=["GET", "HEAD", "POST", "OPTIONS"], allow_headers=["Content-Type", "X-Collector-Token", "Range"], expose_headers=['Content-Length', 'Content-Range', 'Accept-Ranges'])
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', '[::1]'], www_redirect=False)
     settings_token = secrets.token_urlsafe(32)
     jobs: dict[str, dict[str, object]] = {}
     active_urls: dict[str, str] = {}
     idempotency = {}
     lock = threading.Lock()
+    last_extension = None
     catalog = storage.catalog
     videos = runtime.videos if runtime is not None else VideoDownloads(catalog)
+    for record in catalog.tasks() if catalog is not None else ():
+        if record.get('mode') in ('video-queue', 'browser-capture') and record.get('status') in ('running', 'waiting_browser', 'paused', 'stopping'):
+            catalog.save_task({**record, 'status': 'interrupted', 'completed': False,
+                               'message': '后台已重启，已保存结果保留，请核对后重新提交'},
+                              expected_revision=record.get('revision', 0))
+    from .video_queue import VideoQueue
+    video_queue = VideoQueue(videos, catalog, lambda: settings)
     import_previews = {}
     folder_requests = {}
     local_tools_busy = lambda: False
@@ -51,12 +65,33 @@ def create_app(runtime=None):
         from .diagnostics import recent
         return {'items': recent()}
 
+    @app.post('/help/open')
+    def open_help(request: Request):
+        authorize_settings(request)
+        page = Path(__file__).resolve().parents[1] / 'help/index.html'
+        if not page.is_file():
+            raise HTTPException(404, '离线说明文件缺失，请安装完整安装包。')
+        os.startfile(str(page))
+        return {'opened': True}
+
 
     @app.get("/health")
-    def health() -> dict[str, object]:
+    @app.post("/health")
+    def health(request: Request) -> dict[str, object]:
+        nonlocal last_extension
+        origin = request.headers.get('origin')
+        browser = origin is not None or any(key.startswith('sec-fetch-') for key in request.headers)
+        if browser and origin not in origins:
+            raise HTTPException(403, '需要通过已登记的扩展目录连接；升级后请刷新扩展。')
+        version = request.query_params.get('extension_version', '')
+        if request.method == 'POST' and origin in origins and re.fullmatch(r'[0-9]{1,5}(?:\.[0-9]{1,5}){2,3}', version):
+            last_extension = {'release': version, 'seen_at': int(time.time())}
+        return health_data()
+
+    def health_data() -> dict[str, object]:
         # Protocol stays compatible; release identifies the deployed capabilities.
         cached = capability_cache.snapshot()
-        return {**health_protocol(), "download_protection": True, "disk_protection": False, "streaming_capture": True, "release": RELEASE, "md_only": True, "bilibili_mux": cached["values"].get("mp4_remux"), "components": cached["values"], "capabilities_state": cached["state"], "library_configured": settings.library_configured, "native_folder_picker": True, "busy": bool(active_urls) or videos.busy() or local_tools_busy() or any(item.get("state") == "pending" for item in folder_requests.values())}
+        return {**health_protocol(), "download_protection": True, "disk_protection": False, "streaming_capture": True, "release": RELEASE, "last_paired_extension": last_extension, "md_only": True, "bilibili_mux": cached["values"].get("mp4_remux"), "components": cached["values"], "capabilities_state": cached["state"], "library_configured": settings.library_configured, "native_folder_picker": True, "busy": busy()}
 
 
     def health_protocol() -> dict[str, object]:
@@ -142,10 +177,24 @@ def create_app(runtime=None):
         return {'item': catalog.lookup(value.url, value.required)}
 
 
+    @app.get('/history/{identity}/preview')
+    def history_preview(identity: int, request: Request):
+        authorize_settings(request)
+        try:
+            item = catalog.get(identity)
+        except ValueError as error:
+            raise HTTPException(404, '采集记录不存在') from error
+        from .history_preview import preview
+        return preview(catalog, item)
+
+
     @app.post('/history/{identity}/open')
     def open_history(identity: int, request: Request):
         authorize_settings(request)
-        item = catalog.get(identity)
+        try:
+            item = catalog.get(identity)
+        except ValueError as error:
+            raise HTTPException(404, '采集记录不存在') from error
         if not Path(item['directory']).is_dir(): raise HTTPException(404, '原目录已移走或删除')
         os.startfile(item['directory'])
         return {'ok': True}
@@ -174,6 +223,7 @@ def create_app(runtime=None):
     @app.get('/tasks')
     def task_history(request: Request, page: int | None = None, page_size: int = 20, view: str | None = None, ignored: str = '[]', active: str = ''):
         authorize_settings(request)
+        app.state.browser_bridge.expire()
         if page is None:
             return {'items': catalog.tasks()}
         if page < 1 or not 1 <= page_size <= 100:
@@ -191,6 +241,7 @@ def create_app(runtime=None):
     @app.get('/tasks/{task_id}')
     def task_detail(task_id: str, request: Request):
         authorize_settings(request)
+        app.state.browser_bridge.expire()
         item = catalog.get_task(task_id)
         if item is None:
             raise HTTPException(404, '任务记录不存在')
@@ -236,15 +287,25 @@ def create_app(runtime=None):
         with lock:
             if active_urls or videos.busy():
                 raise HTTPException(409, "请等待正在保存的图片完成，再修改目录")
+            if not catalog.path.is_file():
+                raise HTTPException(409, '设置和采集记录所在的 data 文件夹已被移动。请将它放回原位置后再修改素材库；未新建或清空记录。')
             try:
                 updated = save_directory(settings, value.directory)
             except (ValueError, OSError) as exc:
                 raise HTTPException(400, f"目录未修改：{exc}") from exc
+            old_inbox = settings.inbox
             settings = updated
             storage.settings = updated
             if value.layout is not None:
                 catalog.defaults({**CaptureDefaults(**catalog.defaults()).model_dump(), "layout": value.layout})
-            return health()
+            result = health_data()
+            try:
+                relocation = catalog.relocate_library(old_inbox, updated.inbox)
+                result['library_relinked'] = relocation['linked']
+                result['library_relink_pending'] = relocation['pending']
+            except (OSError, ValueError, sqlite3.Error) as exc:
+                result['library_relink_error'] = f'位置已保存，旧记录关联失败：{exc}'
+            return result
 
 
     class OpenDirectoryRequest(BaseModel):
@@ -268,19 +329,20 @@ def create_app(runtime=None):
     def choose_directory(request: Request):
         authorize_settings(request)
         with lock:
-            if any(v['state'] == 'pending' for v in folder_requests.values()):
+            if any(v['state'] in ('pending', 'cancelling') for v in folder_requests.values()):
                 raise HTTPException(409, '已有文件夹选择窗口，请先完成或取消')
             folder_requests.clear()
             identity = str(uuid4())
-            folder_requests[identity] = {'state': 'pending'}
+            cancel = threading.Event()
+            folder_requests[identity] = {'state': 'pending', 'cancel': cancel}
         initial = str(settings.inbox)
         def pick():
             try:
-                result = {'state': 'done', **choose_folder(initial)}
+                result = {'state': 'done', **choose_folder(initial, cancel)}
             except Exception as exc:
                 result = {'state': 'failed', 'error': str(exc)}
             with lock:
-                folder_requests[identity] = result
+                folder_requests[identity] = {'state': 'done', 'cancelled': True} if cancel.is_set() else result
         threading.Thread(target=pick, daemon=True).start()
         return {'id': identity}
 
@@ -291,7 +353,19 @@ def create_app(runtime=None):
         with lock:
             if identity not in folder_requests:
                 raise HTTPException(404, '文件夹选择已失效，请重新选择')
-            return dict(folder_requests[identity])
+            return {key: value for key, value in folder_requests[identity].items() if key != 'cancel'}
+
+    @app.post('/settings/choose-folder/{identity}/cancel')
+    def cancel_directory(identity: str, request: Request):
+        authorize_settings(request)
+        with lock:
+            value = folder_requests.get(identity)
+            if value is None:
+                raise HTTPException(404, '文件夹选择已失效，请重新选择')
+            if value['state'] in ('pending', 'cancelling'):
+                value['cancel'].set()
+                value['state'] = 'cancelling'
+            return {'state': value['state']}
 
 
     @app.post('/video/start')
@@ -301,6 +375,8 @@ def create_app(runtime=None):
             if value.save_directory != str(settings.inbox):
                 raise HTTPException(409, '保存目录已改变，请重新开始')
             try:
+                if video_queue.busy():
+                    raise ValueError('视频队列正在运行，请完成或停止后再开始')
                 return {'job_id': videos.start(settings.inbox, value)}
             except ValueError as exc:
                 raise HTTPException(409, str(exc)) from exc
@@ -321,12 +397,44 @@ def create_app(runtime=None):
         quality: str = Field(default='best', pattern='^(best|1080|720|480)$')
         output_format: str = Field(default='original',pattern='^(original|audio)$')
 
+    @app.post('/media/resolve-post')
+    def resolve_post_images(value: ResolveMedia, request: Request):
+        authorize_settings(request)
+        from .public_post import resolve_post
+        from http.client import HTTPException as TransportError
+        try:
+            return resolve_post(value.url)
+        except (OSError, ValueError, TransportError) as exc:
+            raise HTTPException(422, str(exc))
+
+    @app.post('/video/queue')
+    def start_video_queue(value: ResolveMedia, request: Request):
+        authorize_settings(request)
+        try:
+            with lock:
+                return video_queue.start(value.url)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @app.post('/video/queue/{identity}/stop')
+    def stop_video_queue(identity: str, request: Request):
+        authorize_settings(request)
+        try:
+            return video_queue.stop(identity)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+
     @app.post('/media/resolve')
     def resolve_media(value: ResolveMedia, request: Request):
         authorize_settings(request)
-        from .media_resolver import resolve
-        try:return resolve(value.url, value.subtitle_language, value.captions, value.quality,value.output_format)
+        try:return media_jobs.resolve(value)
         except (ValueError, OSError) as exc:raise HTTPException(422, str(exc)) from exc
+
+    from .media_jobs import attach as attach_media_jobs
+    def discover_media(value, *, checkpoint=lambda: None):
+        from .media_resolver import resolve
+        return resolve(value.url, value.subtitle_language, value.captions, value.quality, value.output_format, checkpoint=checkpoint)
+    media_jobs = attach_media_jobs(app, authorize_settings, ResolveMedia, discover_media)
 
 
     class ResolvedProbe(BaseModel):
@@ -471,18 +579,49 @@ def create_app(runtime=None):
             raise HTTPException(400, str(exc)) from exc
 
     def request_stop_all():
+        app.state.browser_bridge.stop_all()
         with lock:
             for job in jobs.values():
                 if job['status'] == 'running':
                     job.update(status='stopping', message='本篇结束后停止，正在收尾', cancel_acknowledged=False)
+        video_queue.stop()
         videos.request_stop_all()
         local_tools_stop()
+        media_jobs.stop_all()
+
+    def busy():
+        return (bool(active_urls) or video_queue.busy() or videos.busy() or local_tools_busy()
+                or media_jobs.busy() or app.state.browser_bridge.busy()
+                or any(item.get('state') in ('pending', 'cancelling') for item in folder_requests.values()))
 
     from types import SimpleNamespace
     app.state.runtime = SimpleNamespace(settings=settings, storage=storage, videos=videos, jobs=jobs, active_urls=active_urls,
-                                        folder_requests=folder_requests, capability_cache=capability_cache, request_stop_all=request_stop_all)
+                                        folder_requests=folder_requests, capability_cache=capability_cache, request_stop_all=request_stop_all, busy=busy)
+    from .browser_bridge import attach as attach_browser
+    def stop_browser_child(child):
+        if not child:
+            return
+        if child.get('kind') == 'resolve':
+            try:
+                media_jobs.stop(child['jobId'])
+            except HTTPException as error:
+                if error.status_code != 404:
+                    raise
+            return
+        with lock:
+            job = jobs.get(child.get('jobId')) if child.get('kind') == 'collect' else None
+            if job and job['status'] == 'running':
+                job.update(status='stopping', message='正在停止', cancel_acknowledged=False)
+        if child.get('kind') == 'video':
+            try:
+                videos.control(child['jobId'], 'stopped')
+            except (ValueError, KeyError):
+                pass
+    attach_browser(app, authorize_settings, origins, catalog, RELEASE, stop_browser_child)
     from .local_tools import attach
     local_tools_busy, local_tools_stop = attach(app, lambda: settings, authorize_settings)
+    from .updates import attach as attach_updates
+    attach_updates(app, settings, RELEASE, authorize_settings, busy)
     return app
 
 

@@ -2,8 +2,19 @@
 import csv,ctypes,hashlib,json,os,re,shutil,subprocess,sys,tempfile,zipfile
 from pathlib import Path
 from build_release import build,ROOT
+import speech_bundle
+import build_help
 PYTHON_SHA256='9e35319bffedab8b36ad44d8f377cb4f1733bcec257a0b6d04d94f01486ddb38'
 MEDIA_SHA256='52416bfdf2fd346ce2f14e0ac922985d6df4701538e5ee9ddba6d52f6c8a2f4a'
+CSHARP_COMPILER=Path(r'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe')
+
+def preflight_compilers(root=None):
+    root=Path(root or ROOT)
+    inno=root/'build-tools/inno/ISCC.exe'
+    for name,path in [('C# compiler',CSHARP_COMPILER),('Inno compiler',inno)]:
+        if not path.is_file():raise ValueError('Build preflight: missing '+name+': '+str(path))
+    subprocess.run([str(CSHARP_COMPILER),'/nologo','/help'],check=True,capture_output=True,timeout=15)
+    subprocess.run([str(inno),'--version'],check=True,capture_output=True,timeout=15)
 
 def pip_environment():
     # Never change the user's pip settings or inherit install-routing defaults.
@@ -84,6 +95,9 @@ def build_windows():
     payload=ROOT/'build-windows/payload'
     if payload.exists():raise SystemExit('Payload already exists; use a new clean reviewed build directory, never merge stale contents.')
     dependency_preflight=preflight_dependencies()
+    preflight_compilers()
+    speech=ROOT/'build-tools/speech-runtime'
+    speech_inputs=speech_bundle.verify(speech)
     media=ROOT/'build-tools/media-minimal'
     required=('ffmpeg.exe','ffprobe.exe','COPYING.LGPLv2.1','LICENSE.md','build-config.txt','ffmpeg-source-611cec792a.zip','MinGW-COPYRIGHT.txt','toolchain-packages.txt')
     if not all((media/name).is_file() for name in required):raise SystemExit('Missing reviewed minimal media build and corresponding source.')
@@ -96,6 +110,10 @@ def build_windows():
     validate_requirements_lock(ROOT/'source/server/requirements.txt',lockfile)
     target_media=payload/'media-tools';target_media.mkdir(parents=True)
     for name in required:shutil.copy2(media/name,target_media/name)
+    speech_bundle.copy_to(speech,payload/'speech-tools')
+    shutil.copy2(ROOT/'tools/build_speech_audio.sh',payload/'speech-tools/build_speech_audio.sh')
+    shutil.copy2(ROOT/'tools/enable_speech_utf8.py',payload/'speech-tools/enable_speech_utf8.py')
+    shutil.copy2(ROOT/'docs/third-party-speech.md',payload/'speech-tools/README.md')
     shutil.copy2(ROOT/'tools/build_media.sh',target_media/'build_media.sh');shutil.copy2(ROOT/'docs/third-party-media.md',target_media/'README.md')
     archive=build('user',ROOT/'dist')
     with zipfile.ZipFile(archive) as z:
@@ -114,24 +132,27 @@ def build_windows():
                         'server.download_public_media', str(package), str(recipe)],
                        cwd=payload, check=True, timeout=20)
     shutil.copy2(yt_license,payload/'licenses/yt-dlp-LICENSE.txt')
-    shutil.copy2(ROOT/'docs/usage.md',payload/'README.md');(payload/'README.txt').write_text((ROOT/'docs/usage.md').read_text('utf-8'),encoding='utf-8-sig')
+    help_folder=payload/'help';help_folder.mkdir()
+    for name,content in build_help.documents(ROOT).items():(help_folder/name).write_text(content,encoding='utf-8')
+    shutil.copy2(ROOT/'docs/usage.md',payload/'README.md')
+    (payload/'README.txt').write_text('双击 help/index.html 可打开完整离线说明。\n\n'+build_help.plain((ROOT/'docs/usage.md').read_text('utf-8'),'docs/usage.md'),encoding='utf-8-sig')
     for name in ('install.md','update.md'):
-        (payload/('首次安装.txt' if name=='install.md' else '更新说明.txt')).write_text((ROOT/'docs'/name).read_text('utf-8'),encoding='utf-8-sig')
+        (payload/('首次安装.txt' if name=='install.md' else '更新说明.txt')).write_text(build_help.plain((ROOT/'docs'/name).read_text('utf-8'),'docs/'+name),encoding='utf-8-sig')
     shutil.copy2(ROOT/'DISCLAIMER.md',payload/'DISCLAIMER.md')
     (payload/'安装后说明.html').write_text("""<!doctype html><meta charset="utf-8"><title>灵感采集安装完成</title><style>body{font:16px system-ui;max-width:760px;margin:60px auto;line-height:1.8;background:#f2f0eb;color:#292824}button{font:inherit;padding:8px 14px}</style><h1>安装完成</h1><p>后台会在安装结束后启动。扩展会实时检查连接；暂时连不上时可重试，无须重复安装。</p><p>Chrome 扩展管理地址：<code id="url">chrome://extensions</code> <button onclick="navigator.clipboard.writeText(document.getElementById('url').textContent).catch(()=>alert('请手动复制地址 chrome://extensions'))">复制地址</button></p><p>首次使用：打开此地址，启用开发者模式，从系统托盘复制固定扩展文件夹地址并加载该目录。</p><p>更新用户：在灵感采集扩展卡片点击 <strong>重新加载 ⟳</strong>。刷新管理网页不会更新扩展。重新打开扩展弹窗；网页仍使用旧脚本时再刷新作品网页。</p><p>固定扩展目录可从托盘菜单“复制扩展文件夹地址”获取；安装器会更新已登记和识别的旧目录，更新后无需重新选择。</p>""",encoding='utf-8')
     metadata=ROOT/'build-windows/AssemblyInfo.cs' ;metadata.write_text('[assembly:System.Reflection.AssemblyFileVersion("'+version+'")]\n',encoding='utf-8')
-    subprocess.run([r'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe','/nologo','/codepage:65001','/target:winexe','/reference:System.Windows.Forms.dll','/reference:System.Drawing.dll','/win32icon:'+str(payload/'extension/reftray-a.ico'),'/out:'+str(payload/'InspirationCollector.exe'),str(ROOT/'installer/Launcher.cs'),str(metadata)],check=True)
-    inputs={'schema_version':1,'release':version,'python_sha256':PYTHON_SHA256,'dependency_preflight':dependency_preflight,
+    subprocess.run([r'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe','/nologo','/codepage:65001','/target:winexe','/reference:System.Windows.Forms.dll','/reference:System.Drawing.dll','/reference:System.Web.Extensions.dll','/reference:System.Management.dll','/win32icon:'+str(payload/'extension/reftray-a.ico'),'/out:'+str(payload/'InspirationCollector.exe'),str(ROOT/'installer/Launcher.cs'),str(ROOT/'installer/Update.cs'),str(ROOT/'installer/Recovery.cs'),str(ROOT/'installer/RuntimeClients.cs'),str(metadata)],check=True)
+    inputs={'schema_version':1,'release':version,'python_sha256':PYTHON_SHA256,'dependency_preflight':dependency_preflight,'speech':speech_inputs,
             'requirements_sha256':hashlib.sha256(lockfile.read_bytes()).hexdigest(),
             'inno_version':subprocess.check_output([str(ROOT/'build-tools/inno/ISCC.exe'),'--version'],text=True).strip(),
             'csharp_compiler_version':executable_version(Path(r'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe')),
             'wheels':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(wheelhouse.glob('*.whl'))},
-            'tools':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [ROOT/'build-tools/inno/ISCC.exe', ROOT/'installer/Launcher.cs', ROOT/'installer/setup.iss']},
+            'tools':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [ROOT/'build-tools/inno/ISCC.exe', ROOT/'installer/Launcher.cs', ROOT/'installer/Update.cs', ROOT/'installer/Recovery.cs', ROOT/'installer/RuntimeClients.cs', ROOT/'installer/setup.iss']},
             'media':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(media.iterdir()) if p.is_file()}}
     (payload/'build-inputs.json').write_text(json.dumps(inputs,sort_keys=True,indent=2),encoding='utf-8')
     files={p.relative_to(payload).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in payload.rglob('*') if p.is_file()}
     if any('live-test.' in p or '.sqlite' in p or 'collector-settings.json' in p or p.startswith('data/') for p in files):raise ValueError('Private/test state found in payload')
-    (payload/'managed-files.json').write_text(json.dumps({'schema_version':1,'release':version,'files':files},sort_keys=True,indent=2),encoding='utf-8')
+    (payload/'managed-files.json').write_text(json.dumps({'schema_version':1,'release':version,'data_schema_version':1,'files':files},sort_keys=True,indent=2),encoding='utf-8')
     (ROOT/'build-windows/payload-sha256.json').write_text(json.dumps(files,indent=2),encoding='utf-8')
     subprocess.run([str(ROOT/'build-tools/inno/ISCC.exe'),'/Q','/DAppVersion='+version,str(ROOT/'installer/setup.iss')],check=True)
     print('Installer built; actual install, startup, upgrade and uninstall verification is still required.')

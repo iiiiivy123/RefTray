@@ -12,7 +12,7 @@ using System.Runtime.InteropServices;
 using System.IO.Pipes;
 using System.Text;
 
-internal static class Launcher {
+internal static partial class Launcher {
  static Process service; static Mutex mutex;
  static string launcherSecret=Guid.NewGuid().ToString("N")+Guid.NewGuid().ToString("N");
  static IntPtr job=IntPtr.Zero;
@@ -29,33 +29,53 @@ internal static class Launcher {
   var limits=new ExtendedLimit();limits.Basic.Flags=0x2000;int size=Marshal.SizeOf(limits);IntPtr data=Marshal.AllocHGlobal(size);
   try{Marshal.StructureToPtr(limits,data,false);if(!SetInformationJobObject(job,9,data,(uint)size)||!AssignProcessToJobObject(job,service.Handle))throw new Exception("无法保护后台子进程，启动已停止。");}finally{Marshal.FreeHGlobal(data);}
  }
- static bool PrepareUpgrade(){
-  try{using(var pipe=new NamedPipeClientStream(".","InspirationCollectorControl",PipeDirection.InOut)){
-   pipe.Connect(3000);using(var writer=new StreamWriter(pipe,Encoding.UTF8,1024,true))using(var reader=new StreamReader(pipe,Encoding.UTF8,false,1024,true)){writer.AutoFlush=true;writer.WriteLine("prepare-upgrade");string result=reader.ReadLine();if(result!="ready")throw new Exception(result??"后台退出未确认");}
+ static bool PrepareUpgrade(string command="prepare-upgrade",bool interactive=true){
+  try{using(var pipe=new NamedPipeClientStream(".","InspirationCollectorControl",PipeDirection.InOut,PipeOptions.Asynchronous)){
+   pipe.Connect(3000);using(var writer=new StreamWriter(pipe,new UTF8Encoding(false),1024,true))using(var reader=new StreamReader(pipe,Encoding.UTF8,false,1024,true)){
+    var reply=reader.ReadLineAsync();writer.WriteLine(command);writer.Flush();
+    if(!reply.Wait(120000))throw new Exception("等待后台更新回执超时，已停止安装。");
+    if(reply.Result!="ready")throw new Exception(reply.Result??"后台退出未确认");
+   }
   }
    for(int i=0;i<50;i++){try{using(var existing=Mutex.OpenExisting("Local\\InspirationCollectorLauncher")){if(existing.WaitOne(100)){existing.ReleaseMutex();return true;}}}catch(WaitHandleCannotBeOpenedException){return true;}catch(AbandonedMutexException){return true;}}
    throw new Exception("后台退出超时，请稍后重试。");
-  }catch(TimeoutException){return true;}catch(Exception error){MessageBox.Show(error.Message,"请先完成后台任务");return false;}
+  }catch(TimeoutException){
+   try{using(var existing=Mutex.OpenExisting("Local\\InspirationCollectorLauncher")){}}
+   catch(WaitHandleCannotBeOpenedException){return true;}
+   if(interactive)MessageBox.Show("后台仍在运行，但更新连接超时。请从托盘退出后重试。","请先退出后台");return false;
+  }catch(Exception error){if(interactive)MessageBox.Show(error.Message,"请先完成后台任务");return false;}
  }
  static void UpgradeListener(Control control){
-  var thread=new Thread(()=>{while(!control.IsDisposed){try{using(var pipe=new NamedPipeServerStream("InspirationCollectorControl",PipeDirection.InOut,1,PipeTransmissionMode.Byte,PipeOptions.None)){
-   pipe.WaitForConnection();using(var reader=new StreamReader(pipe,Encoding.UTF8,false,1024,true))using(var writer=new StreamWriter(pipe,Encoding.UTF8,1024,true)){
-    writer.AutoFlush=true;if(reader.ReadLine()!="prepare-upgrade"){writer.WriteLine("无效更新请求");return;}
+  var thread=new Thread(()=>{while(!control.IsDisposed){try{using(var pipe=new NamedPipeServerStream("InspirationCollectorControl",PipeDirection.InOut,1,PipeTransmissionMode.Byte,PipeOptions.Asynchronous)){
+   pipe.WaitForConnection();using(var reader=new StreamReader(pipe,Encoding.UTF8,false,1024,true)){
+    var request=reader.ReadLineAsync();
+    if(!request.Wait(3000))continue;
+    string command=request.Result;
+    using(var writer=new StreamWriter(pipe,new UTF8Encoding(false),1024,true)){
+    writer.AutoFlush=true;
+    if(command=="install-update "+launcherSecret){try{StartUpdate();writer.WriteLine("accepted");}catch(Exception error){Log(error.Message);writer.WriteLine("failed");}continue;}
+    if(command=="restore-update "+launcherSecret){try{StartRecovery();writer.WriteLine("accepted");}catch(Exception error){Log(error.Message);writer.WriteLine("failed");}continue;}
+    if(command!="prepare-upgrade"&&command!="prepare-update-idle"){writer.WriteLine("无效更新请求");continue;}
     string result="ready";try{try{Stop();}catch{
+     if(command=="prepare-update-idle")throw;
      var choice=MessageBox.Show("后台仍有任务或目录选择。是：停止接单，等待当前任务完成；否：本篇结束后停止；取消：保留运行并退出安装。目录选择窗口请手动完成或取消。","更新灵感采集",MessageBoxButtons.YesNoCancel,MessageBoxIcon.Question);
      if(choice==DialogResult.Cancel)throw new Exception("更新已取消，后台保持运行。");
      Stop(choice==DialogResult.Yes?"wait":"stop");
     }}catch(Exception error){result=error.Message;}writer.WriteLine(result);
     if(result=="ready")control.BeginInvoke((Action)(()=>Application.ExitThread()));
+    }
    }
-  }}catch(IOException){}catch(ObjectDisposedException){return;}}});thread.IsBackground=true;thread.Start();
+  }}catch(IOException){}catch(AggregateException error){error.Handle(e=>e is IOException || e is OperationCanceledException);}catch(ObjectDisposedException){return;}}});thread.IsBackground=true;thread.Start();
  }
  static readonly object logLock=new object();
  static string app=AppDomain.CurrentDomain.BaseDirectory;
  static string ExtensionDirectory(){var saved=Registry.GetValue(@"HKEY_CURRENT_USER\Software\RefTray","ExtensionDirectory",null) as string;return !String.IsNullOrEmpty(saved)&&File.Exists(Path.Combine(saved,"manifest.json"))?saved:Path.Combine(app,"extension");}
  static string state=Environment.GetEnvironmentVariable("LIBLIB_ROOT")??(Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\RefTray","StateRoot",null) as string)??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"InspirationCollector");
  static int port=8766; static bool traySmoke,exitSmoke;
- class LocalClient:WebClient {protected override WebRequest GetWebRequest(Uri uri){var request=base.GetWebRequest(uri);request.Timeout=3000;return request;}}
+ class LocalClient:WebClient {
+  public LocalClient(){Encoding=System.Text.Encoding.UTF8;}
+  protected override WebRequest GetWebRequest(Uri uri){var request=base.GetWebRequest(uri);request.Timeout=3000;return request;}
+ }
  static string Release(){var match=Regex.Match(File.ReadAllText(Path.Combine(app,"extension","manifest.json")),"\"version\"\\s*:\\s*\"([0-9.]+)\"");if(!match.Success)throw new Exception("扩展版本信息缺失，请重新安装完整安装包。");return match.Groups[1].Value;}
  static string Health(){using(var w=new LocalClient()){w.Proxy=null;return w.DownloadString("http://127.0.0.1:"+port+"/health");}}
  static void Log(string value){
@@ -98,23 +118,46 @@ internal static class Launcher {
  }
  static void ForceCleanup(){if(job!=IntPtr.Zero){CloseTree();}else if(service!=null&&!service.HasExited){service.Kill();service.WaitForExit(5000);}}
  [STAThread] static int Main(string[] args){
+  if(args.Length==3&&args[0]=="--apply-update")return RunUpdate(args[1],args[2]);
+  if(args.Length==3&&args[0]=="--restore-update")return RunRecovery(args[1],args[2],false);
+  if(args.Length==3&&args[0]=="--finish-installer")return FinishInstaller(args[1],args[2]);
+  if(args.Length==3&&args[0]=="--restore-after-setup")return RestoreAfterSetup(args[1],args[2]);
+  if(args.Length==0&&Path.GetFileName(Application.ExecutablePath).Equals("RefTrayRestore.exe",StringComparison.OrdinalIgnoreCase))return RestoreFromShortcut();
+  bool updateStart=(args.Length==1&&args[0]=="--update-start")||(args.Length==0&&QuietUpdateRestart());
   if(args.Length==1&&args[0]=="--prepare-upgrade")return PrepareUpgrade()?0:3;
   bool smoke=args.Length==3&&(args[0]=="--smoke"||args[0]=="--tray-smoke"||args[0]=="--exit-smoke");exitSmoke=smoke&&args[0]=="--exit-smoke";traySmoke=smoke&&(args[0]=="--tray-smoke"||exitSmoke);
   try{
    if(smoke){port=int.Parse(args[1]);state=Path.GetFullPath(args[2]);Start();var result=Health();if(traySmoke){Application.EnableVisualStyles();RunTray();}else Stop();bool versionOk=result.Contains("\"release\":\""+Release()+"\"");File.WriteAllText(Path.Combine(state,"smoke-result.json"),"{\"release_ok\":"+versionOk.ToString().ToLowerInvariant()+",\"service_stopped\":"+Available().ToString().ToLowerInvariant()+"}");return versionOk&&Available()?0:2;}
    bool created;mutex=new Mutex(true,"Local\\InspirationCollectorLauncher",out created);
-   if(!created){MessageBox.Show("灵感采集已在后台运行。请查看 Windows 右下角托盘图标（可能收在向上的小箭头里）；右键可打开使用说明或退出。");return 0;}
+   if(!created){if(!updateStart)MessageBox.Show("灵感采集已在后台运行。请查看 Windows 右下角托盘图标（可能收在向上的小箭头里）；右键可打开使用说明或退出。");return 0;}
    Application.EnableVisualStyles();Start();RunTray();return 0;
-  }catch(Exception e){ForceCleanup();Log(e.ToString());if(smoke){Directory.CreateDirectory(state);File.WriteAllText(Path.Combine(state,"smoke-error.txt"),e.ToString());}else MessageBox.Show(e.Message,"灵感采集启动失败",MessageBoxButtons.OK,MessageBoxIcon.Error);return 1;}
+  }catch(Exception e){ForceCleanup();Log(e.ToString());if(smoke){Directory.CreateDirectory(state);File.WriteAllText(Path.Combine(state,"smoke-error.txt"),e.ToString());}else if(!updateStart)MessageBox.Show(e.Message,"灵感采集启动失败",MessageBoxButtons.OK,MessageBoxIcon.Error);return 1;}
   finally{ForceCleanup();if(mutex!=null)mutex.Dispose();}
  }
- static void OpenReadme(){Process.Start(new ProcessStartInfo("notepad.exe","\""+Path.Combine(app,"README.txt")+"\""){UseShellExecute=true});}
+ static void OpenReadme(){Process.Start(new ProcessStartInfo(Path.Combine(app,"help","index.html")){UseShellExecute=true});}
+ static string ManagementUrl(){
+  var path=Path.GetFullPath(ExtensionDirectory());if(path.Length>1&&path[1]==':')path=Char.ToUpperInvariant(path[0])+path.Substring(1);
+  using(var hash=System.Security.Cryptography.SHA256.Create()){
+   var bytes=hash.ComputeHash(Encoding.Unicode.GetBytes(path));var id=new StringBuilder();
+   for(int i=0;i<16;i++){id.Append((char)('a'+(bytes[i]>>4)));id.Append((char)('a'+(bytes[i]&15)));}
+   return "chrome-extension://"+id+"/manage.html#about";
+  }
+ }
+ static void OpenUpdates(){
+  try{
+   var browser=Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe","",null) as string
+    ?? Registry.GetValue(@"HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe","",null) as string;
+   if(String.IsNullOrEmpty(browser)||!File.Exists(browser))throw new Exception("请从 Chrome 的 RefTray 设置打开“关于与更新”。");
+   Process.Start(new ProcessStartInfo(browser,"\""+ManagementUrl()+"\""){UseShellExecute=true});
+  }catch(Exception error){MessageBox.Show(error.Message,"打开程序更新");}
+ }
  static Icon TrayIcon(){bool dark=false;using(var key=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")){dark=key!=null&&Convert.ToInt32(key.GetValue("SystemUsesLightTheme",1))==0;}return new Icon(Path.Combine(app,"extension",dark?"reftray-a-dark.ico":"reftray-a.ico"));}
  static void RunTray(){
   IDataObject private_clipboard=null;
   using(var icon=TrayIcon())using(var tray=new NotifyIcon())using(var menu=new ContextMenuStrip())using(var check=new System.Windows.Forms.Timer()){
    tray.Icon=icon;tray.Text="灵感采集 · 后台运行";tray.ContextMenuStrip=menu;tray.Visible=true;
    menu.Items.Add("使用说明（安装、保存与更新）",null,(s,e)=>OpenReadme());
+   menu.Items.Add("程序更新",null,(s,e)=>OpenUpdates());
     menu.Items.Add("打开扩展文件夹",null,(s,e)=>Process.Start(new ProcessStartInfo("explorer.exe","\""+ExtensionDirectory()+"\""){UseShellExecute=true}));
    EventHandler copy=(s,e)=>{var data=new DataObject();data.SetData(DataFormats.UnicodeText,false,ExtensionDirectory());Clipboard.SetDataObject(data,true,5,100);};
    menu.Items.Add("复制扩展文件夹地址",null,copy);menu.Items.Add(new ToolStripSeparator());

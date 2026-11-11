@@ -1,7 +1,7 @@
 const Hub = (() => {
   let health;
   async function handshake(){
-    const response=await localFetch('http://127.0.0.1:8766/health',{signal:AbortSignal.timeout(5000)});
+    const response=await reftrayHealth('http://127.0.0.1:8766/health',localFetch);
     if(!response.ok)throw new Error('保存服务不可用');
     return response.json();
   }
@@ -17,7 +17,9 @@ const Hub = (() => {
   async function api(path, value) {
     health ||= await handshake();
     const release=chrome.runtime.getManifest().version;
-    if(health.release&&health.release!==release)throw new Error(`扩展版本 ${release} 与后台版本 ${health.release} 不一致。请打开 chrome://extensions，找到「灵感采集」点重新加载，然后刷新作品网页；若仍不一致，请确认加载的是本次安装目录中的 extension 文件夹。`);
+    // The old UI must read the new backend's completion receipt before it can reload.
+    const updateStatus=path==='/updates/status'&&value===undefined;
+    if(!updateStatus&&health.release&&health.release!==release)throw new Error(`扩展版本 ${release} 与后台版本 ${health.release} 不一致。请打开 chrome://extensions，找到「灵感采集」点重新加载，然后刷新作品网页；若仍不一致，请确认加载的是本次安装目录中的 extension 文件夹。`);
     if(path==='/health')return health;
     for(let attempt=0;attempt<2;attempt++){
       const response=await localFetch('http://127.0.0.1:8766'+path,{method:value===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Collector-Token':health.settings_token},...(value===undefined?{}:{body:JSON.stringify(value)}),signal:AbortSignal.timeout(15000)});
@@ -26,15 +28,15 @@ const Hub = (() => {
       const notExecuted=typeof body.detail==='string'&&body.detail.startsWith('扩展未通过后台校验。');
       if(response.status===403&&attempt===0&&(value===undefined||notExecuted)){
         health=undefined;health=await handshake();
-        if(health.release&&health.release!==release)throw new Error('扩展与后台版本不一致，请重新加载扩展。');
+        if(!updateStatus&&health.release&&health.release!==release)throw new Error('扩展与后台版本不一致，请重新加载扩展。');
         continue;
       }
-      if(!response.ok)throw new Error(typeof body.detail==='string'?body.detail:'本地服务请求失败');
+      if(!response.ok)throw new Error(reftrayApiError(response,body,path));
       if(path==='/settings/directory')health=body;
       return body;
     }
   }
-  function options(d) {return {...d,...(d.md_only?{collection_mode:'text',include_images:false,ocr_enabled:false,video_action:'skip'}:{}),layout:d.layout==='organized_flat'?'organized_flat':'organized',include_videos:!d.md_only&&d.video_action!=='skip',extract_frames:!d.md_only&&d.video_action==='frames',directory_schema:'function-platform-v2'};}
+  function options(d) {return CaptureOptions.normalize(d);}
   async function defaults(){
     let d=await api('/settings/defaults');
     if(!d._configured){

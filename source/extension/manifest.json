@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
+  "minimum_chrome_version": "120",
   "options_ui": {
     "page": "manage.html",
     "open_in_tab": true
   },
   "name": "灵感采集",
-  "version": "0.5.37",
+  "version": "0.5.55",
   "icons": {
     "16": "icon-16.png",
     "32": "icon-32.png",
@@ -17,7 +18,8 @@
     "activeTab",
     "scripting",
     "tabs",
-    "storage"
+    "storage",
+    "alarms"
   ],
   "host_permissions": [
     "https://*.artstation.com/*",
@@ -51,5 +53,19 @@
       "32": "icon-32.png",
       "48": "icon-48.png"
     }
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.x.com/*",
+        "https://*.twitter.com/*"
+      ],
+      "js": [
+        "cat-media.js",
+        "x-session.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ]
 }

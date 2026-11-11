@@ -27,8 +27,8 @@ class Settings:
 
 
 def initialize_folders(root):
-    for name in ('图文', '图片', '视频', '批量'):
-        (Path(root) / name).mkdir(parents=True, exist_ok=True)
+    # Categories appear only when a capture has content to write.
+    Path(root).mkdir(parents=True, exist_ok=True)
 
 
 def save_directory(settings: Settings, value: str) -> Settings:

@@ -50,6 +50,81 @@ class LocalToolTests(unittest.TestCase):
         with cls.opener.open(Request(cls.base + path, data=data, headers=headers), timeout=15) as response:
             return json.load(response)
 
+    def test_local_host_guard_and_missing_history_status(self):
+        with self.assertRaises(HTTPError) as bad_host:
+            self.opener.open(Request(self.base + '/health', headers={'Host': 'rebinding.invalid'}), timeout=5)
+        self.assertEqual(bad_host.exception.code, 400)
+        with self.opener.open(Request(self.base + '/health', headers={'Host': 'localhost'}), timeout=5) as response:
+            self.assertEqual(response.status, 200)
+        with self.assertRaises(HTTPError) as missing:
+            self.api('/history/2147483647/open', b'{}')
+        self.assertEqual(missing.exception.code, 404)
+
+    def test_health_pairs_browser_origin_and_keeps_native_clients(self):
+        from server.extension_origin import paired_origins
+        origin = next(iter(paired_origins()))
+        for method,headers,code in [
+                ('GET', {}, 200),
+                ('POST', {'Origin':origin, 'Sec-Fetch-Mode':'cors'}, 200),
+                ('GET', {'Sec-Fetch-Site':'none'}, 403),
+                ('POST', {'Origin':'chrome-extension://'+'z'*32}, 403),
+                ('POST', {'Origin':'https://example.org'}, 403)]:
+            req=Request(self.base+'/health', method=method, headers=headers)
+            if code==200:
+                with self.opener.open(req,timeout=5) as response:
+                    self.assertTrue(json.load(response).get('settings_token'))
+            else:
+                with self.assertRaises(HTTPError) as rejected:
+                    self.opener.open(req,timeout=5)
+                self.assertEqual(rejected.exception.code,code)
+                self.assertNotIn(b'settings_token',rejected.exception.read())
+
+    def test_last_extension_version_requires_a_paired_post(self):
+        from server.extension_origin import paired_origins
+        origin = next(iter(paired_origins()))
+        for method, headers, version, expected in [
+                ('POST', {'Origin': origin}, '0.5.40', '0.5.40'),
+                ('GET', {}, '9.9.9', '0.5.40'),
+                ('POST', {}, '9.9.9', '0.5.40'),
+                ('POST', {'Origin': origin}, 'invalid', '0.5.40')]:
+            req = Request(self.base+'/health?extension_version='+version, method=method, headers=headers)
+            with self.opener.open(req, timeout=5) as response:
+                last = json.load(response)['last_paired_extension']
+                self.assertEqual(last['release'], expected)
+                self.assertGreater(last['seen_at'], 0)
+
+    def test_browser_request_requires_paired_claim_and_persists_result(self):
+        from server.extension_origin import paired_origins
+        origin = next(iter(paired_origins()))
+        def request(path, body, browser=None):
+            headers = {'Content-Type': 'application/json', 'X-Collector-Token': self.token}
+            if browser: headers['Origin'] = browser
+            with self.opener.open(Request(self.base+path, data=json.dumps(body).encode(), headers=headers), timeout=5) as response:
+                return json.load(response)
+        job = request('/browser/capture', {'url':'https://example.org/article?xsec_token=private', 'mode':'text'})
+        client = {'client_id':'http-test', 'release':self.api('/health')['release']}
+        with self.assertRaises(HTTPError) as rejected:
+            request('/browser/claim', client)
+        self.assertEqual(rejected.exception.code, 403)
+        item = request('/browser/claim', client, origin)['item']
+        self.assertEqual(item['id'], job['job_id'])
+        self.assertIsNone(request('/browser/claim', client, origin)['item'])
+        with self.assertRaises(HTTPError):
+            request('/browser/result/'+item['id'], {**client,'status':'completed','message':'saved'}, 'https://example.org')
+        request('/browser/result/'+item['id'], {**client,'status':'completed','message':'saved','result':{'files':['a.md']}}, origin)
+        saved = self.api('/tasks/'+item['id'])['item']
+        self.assertEqual(saved['status'], 'completed')
+        self.assertNotIn('private', json.dumps(saved))
+
+    def test_conversion_progress_reports_processed_media_time(self):
+        from server.bilibili_media import run_local
+        seen = []
+        run_local([shutil.which('ffmpeg'), '-v', 'error', '-re', '-f', 'lavfi',
+                   '-i', 'color=red:s=64x64:r=10', '-t', '1', '-f', 'null', '-'],
+                  lambda: None, timeout=5, progress=seen.append)
+        self.assertTrue(any(value > 0 for value in seen), seen)
+        self.assertTrue(all(value <= 1.1 for value in seen), seen)
+
     def test_real_gif_and_audio_preserve_source(self):
         original = hashlib.sha256(self.sample.read_bytes()).hexdigest()
         for format in ('gif', 'audio'):
@@ -72,3 +147,21 @@ class LocalToolTests(unittest.TestCase):
             with self.assertRaises(HTTPError) as error:
                 self.api(path, b'invalid', token=token)
             self.assertEqual(error.exception.code, expected)
+
+    def test_stop_is_scoped_to_one_job_and_preserves_input(self):
+        longer = Path(self.temp.name) / 'cancel-input.mp4'
+        subprocess.run([shutil.which('ffmpeg'), '-v','error','-stream_loop','15','-i',str(self.sample),'-c','copy',str(longer)],check=True)
+        original = longer.read_bytes()
+        job = self.api('/tools/media?format=gif&name=cancel-input.mp4', original)['job_id']
+        with self.assertRaises(HTTPError) as denied:
+            self.api('/tools/media/' + job + '/stop', b'{}', token='bad')
+        self.assertEqual(denied.exception.code,403)
+        self.api('/tools/media/' + job + '/stop', b'{}')
+        for _ in range(100):
+            result = self.api('/tools/media/' + job)
+            if result['status'] in ('stopped','completed','failed'): break
+            time.sleep(.1)
+        self.assertEqual(result['status'],'stopped',result)
+        self.assertFalse(list(Path(self.temp.name).rglob('cancel-input_*.gif')))
+        self.assertEqual(original,longer.read_bytes())
+        self.assertEqual(self.api('/tools/media/' + job + '/stop', b'{}')['status'],'stopped')

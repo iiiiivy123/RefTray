@@ -12,7 +12,7 @@
     return 'generic';
   }
   const configs = {
-    xhs: {post: /\/(explore|discovery\/item)\/[a-f0-9]{24}|\/user\/profile\/[a-f0-9]{24}\/[a-f0-9]{24}/i,
+    xhs: {post: /^\/(?:explore|discovery\/item)\/[a-f0-9]{24}\/?$|^\/(?:user\/profile|board)\/[a-f0-9]{24}\/[a-f0-9]{24}\/?$/i,
       root: '.note-detail-mask,.note-container', gallery: '.media-container,.swiper',
       body: '#detail-desc .note-text,#detail-desc,.note-content .desc', author: '.author-container .username,.author-wrapper .name', comments: '.comment-item', commentBody: '.content,.note-text', time: '.publish-date,time'},
     x: {post: /\/status\/\d+/, root: 'article[data-testid="tweet"]', gallery: '[data-testid="tweetPhoto"]',
@@ -130,6 +130,16 @@
     if (candidates[1] && area(candidates[0]) < area(candidates[1]) * 1.8) return {images: [], inferred: false};
     return {images: toImages([candidates[0].img]), inferred: true};
   }
+  function replyStep(expected, options, state){
+    const kind=platform(location.hostname),cfg=configs[kind];
+    if(!['xhs','instagram'].includes(kind)||!cfg.post.test(location.pathname))throw new Error('当前页面不是可展开回复的帖子详情');
+    const original=new URL(expected);
+    if(original.origin!==location.origin||original.pathname.replace(/\/$/,'')!==location.pathname.replace(/\/$/,''))throw new Error('页面已切换，已停止展开回复');
+    let roots=[...document.querySelectorAll(cfg.root)].filter(node=>node.getBoundingClientRect().width>0&&getComputedStyle(node).display!=='none'&&getComputedStyle(node).visibility!=='hidden');
+    roots=roots.filter(node=>!roots.some(other=>other!==node&&other.contains(node)));
+    if(roots.length!==1)throw new Error('未确认唯一的帖子区域，已停止展开回复');
+    return CollectorReplies.step(roots[0],kind,options,state);
+  }
   function extract(options = {}) {
     const kind = platform(location.hostname), cfg = configs[kind];
     if(kind==='bilibili')throw new Error('B站必须通过专用稿件提取器读取，不采集整页广告或推荐图');
@@ -145,7 +155,26 @@
     // Nested wrappers are one post; unrelated multiple roots are not.
     roots = roots.filter(node => !roots.some(other => other !== node && other.contains(node)));
     let root = roots.length === 1 ? roots[0] : null;
-    if(kind==='generic')root=document.querySelector('#mw-content-text .mw-parser-output,#mw-content-text,.mw-parser-output')||root||document.body;
+    if(kind==='generic'){
+      const articles=[...document.querySelectorAll('article')].filter(visible);
+      const topArticles=articles.filter(node=>!articles.some(other=>other!==node&&other.contains(node)));
+      if(topArticles.length>1)throw new Error('当前页包含多篇文章，请打开其中一篇详情后采集。');
+      root=document.querySelector('#mw-content-text .mw-parser-output,#mw-content-text,.mw-parser-output')||topArticles[0]||root;
+      if(!root || root===document.body)throw new Error('未找到明确的文章正文，请打开文章详情页后重试。');
+      const originalImages=[...root.querySelectorAll('img')];
+      const copy=root.cloneNode(true);
+      [...copy.querySelectorAll('img')].forEach((image,index)=>{
+        const original=originalImages[index];
+        if(!original || !visible(original))image.remove();
+        else {
+          image.setAttribute('data-src',original.currentSrc||original.src);
+          image.setAttribute('width',String(original.naturalWidth||original.width||0));
+          image.setAttribute('height',String(original.naturalHeight||original.height||0));
+        }
+      });
+      root=copy;
+      for(const node of root.querySelectorAll('script,style,noscript,template,[hidden],[aria-hidden="true"],nav,aside,footer,[role="navigation"],[role="complementary"],[role="banner"],.related-posts,.related-articles,.recommendations,.recommended,.advertisement,.adsbygoogle,[data-ad],[data-ad-slot]'))node.remove();
+    }
     const warnings = [];
     if (!root && kind !== 'pinterest') warnings.push('未定位到单帖正文区域，仅读取本页明确的分享元数据；不会抓取推荐流。');
     const text = node => (node?.innerText || node?.textContent || '').trim().slice(0, 100000);
@@ -170,6 +199,7 @@
       const galleries = cfg.gallery ? [...root.querySelectorAll(cfg.gallery)] : [root];
       const nodes = [...new Set(galleries.flatMap(node => node.tagName === 'IMG' ? [node] : [...node.querySelectorAll('img')]))];
       for (const img of nodes) {
+        if(kind==='x' && img.closest('[data-testid="videoPlayer"],[data-testid="videoComponent"]'))continue;
         if (img.closest('.comment-item,header,[data-testid="User-Name"],[data-testid="quoteTweet"]') || kind==='instagram'&&img.closest('ul ul li')) continue;
         if(kind==='generic'&&img.closest('nav,footer,aside,[role="banner"],[data-ad],[data-ad-slot],.advertisement,.ad-container,.ad-slot,.adsbygoogle,[id^="google_ads"],[id^="ad-"],[class*="ad-slot"],.mw-editsection,.navbox'))continue;
         const url = imageUrl(img, kind);
@@ -179,7 +209,7 @@
         if (/avatar|profile_images|emoji|sticker|qrcode/i.test(url)) continue;
         const wikiAsset=kind==='generic'&&/(^|\.)(wiki\.gg|stardewvalleywiki\.com)$/.test(location.hostname)&&Boolean(img.closest('a[href*="File:"],a.image,a.mw-file-description'))&&/\/images\//.test(new URL(url,location.href).pathname);
         if (!wikiAsset && Math.max(img.naturalWidth || 0, img.width || 0) < (kind==='generic'?48:180)) continue;
-        if(kind==='generic'&&(!visible(img)||/doubleclick\.net|googlesyndication\.com|googleadservices\.com/i.test(url)))continue;
+        if(kind==='generic'&&(/doubleclick\.net|googlesyndication\.com|googleadservices\.com/i.test(url)))continue;
         if (kind === 'instagram' && !/\.(cdninstagram\.com|fbcdn\.net)$/.test(new URL(url || location.href).hostname)) continue;
         add(url, img.alt || '');
       }
@@ -249,15 +279,36 @@
       payload.comments_requested = options.include_comments === true;
       payload.ocr_enabled = options.ocr_enabled !== false;
       if (payload.comments_requested && cfg.comments && root) {
-        const unique = new Set();
-        for (const node of root.querySelectorAll(cfg.comments)) {
-          const body = text(node.querySelector(kind==='xhs' ? '.content .note-text,.content,.comment-content,.note-text' : cfg.commentBody));
-          if (!body || unique.has(body) || payload.comments.length >= 100) continue;
-          unique.add(body);
-          payload.comments.push({text: body.slice(0, 10000), author: text(node.querySelector('[class*="author"],[class*="name"],a')) || null});
+        const nodes=[...root.querySelectorAll(cfg.comments)];
+        const parents=nodes.filter(n=>!n.parentElement?.closest(cfg.comments));
+        const limit=Math.max(1,Math.min(100,Number(options.comment_limit)||10));
+        const replyLimit=Math.max(1,Math.min(10,Number(options.replies_per_comment)||2));
+        let parentCount=0,replyCount=0;
+        const read=(node,parentId=null)=>{
+          const own=node.cloneNode(true);for(const child of own.querySelectorAll(cfg.comments))child.remove();
+          const body=text(own.querySelector(kind==='xhs'?'.content .note-text,.content,.comment-content,.note-text':cfg.commentBody));
+          if(!body)return null;
+          // Prefer platform IDs. Anonymous comments retain the existing author/text dedupe.
+          const id=node.getAttribute('data-comment-id')||node.id||null;
+          return {id,parent_id:parentId,text:body.slice(0,10000),author:text(own.querySelector('[class*="author"],[class*="name"],a'))||null};
+        };
+        for(const node of parents){
+          if(parentCount>=limit)break;
+          const parent=read(node);if(!parent)continue;
+          if(options.include_replies&&!parent.id)parent.id='loaded-parent-'+(parentCount+1);
+          payload.comments.push(parent);parentCount++;
+          if(options.include_replies&&['xhs','instagram'].includes(kind)){
+            let count=0;
+            for(const child of node.querySelectorAll(cfg.comments)){
+              if(count>=replyLimit)break;
+              const reply=read(child,parent.id||('loaded-parent-'+parentCount));if(!reply)continue;
+              payload.comments.push(reply);count++;replyCount++;
+            }
+          }
         }
+        payload.comments_status=`已读取 ${parentCount} 条一级评论、${replyCount} 条回复（仅已加载）`;
       }
-      payload.comments_status = !payload.comments_requested ? '未开启' : payload.comments.length ? `已读取 ${payload.comments.length} 条（仅已加载）` : !cfg.comments ? '当前平台未支持评论' : '未读取到评论（可能未加载、没有评论或页面结构不匹配）';
+      payload.comments_status = !payload.comments_requested ? '未开启' : payload.comments.length ? payload.comments_status||`已读取 ${payload.comments.length} 条（仅已加载）` : !cfg.comments ? '当前平台未支持评论' : '未读取到评论（可能未加载、没有评论或页面结构不匹配）';
       if (payload.comments_requested) warnings.push(cfg.comments ? '评论只包含当前已加载且能识别的部分，不代表全部评论。' : '当前站点尚未适配评论提取，没有把其他帖子当成评论。');
       payload.include_images = options.include_images !== false;
       if (!payload.include_images && !payload.ocr_enabled) payload.images = [];
@@ -265,6 +316,6 @@
     }
     return payload;
   }
-  globalThis.InspirationPlatforms = {platform, imageUrl, pinterestImages, extract};
-  if (typeof module !== 'undefined') module.exports = {platform, imageUrl, pinterestImages, extract};
+  globalThis.InspirationPlatforms = {platform, imageUrl, pinterestImages, extract, replyStep};
+  if (typeof module !== 'undefined') module.exports = {platform, imageUrl, pinterestImages, extract, replyStep};
 })();

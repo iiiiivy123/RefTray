@@ -1,9 +1,16 @@
 /* Batch counters and current-media percentages are separate contracts. */
 (() => {
- function counters(job){const rows=Object.values(job.records||{}).filter(r=>!['pending','planned'].includes(r.status)),sum=k=>rows.reduce((n,r)=>n+(Number(r[k])||0),0);return {processed:rows.length,saved:rows.filter(r=>['saved','partial'].includes(r.status)).length,failed:rows.filter(r=>['failed','partial'].includes(r.status)).length,skipped:rows.filter(r=>r.status==='skipped').length,limit:job.limit,total:job.queue_complete?job.queue.length:null,videoOnly:Boolean(job.options?.video_only),handledVideos:sum('video_count'),savedVideos:sum('videos'),existingVideos:sum('existingVideos')};}
- function overall(batch){return batch.videoOnly?(batch.limit?Math.min(100,batch.handledVideos/batch.limit*100):null):batch.total?Math.min(100,batch.processed/batch.total*100):null;}
- function reduce(previous={},value={},job){const batch=job?counters(job):previous.batch;const percent=typeof value.percent==='number'&&Number.isFinite(value.percent)?value.percent:null;return {...previous,...value,stage:value.stage||null,batch,current:{message:value.message||previous.current?.message||'',percent,stage:value.stage||null},percent:batch?overall(batch):percent};}
+ function resultStatus(result={}){
+  if(['failed','partial','stopped','paused'].includes(result.status))return result.status;
+  if(result.partial)return 'partial';
+  if(result.failed_images)return result.new_images||result.duplicate_images||result.videos?'partial':'failed';
+  return 'completed';
+ }
+ function counters(job){const rows=Object.values(job.records||{}).filter(r=>!['pending','planned'].includes(r.status)),sum=k=>rows.reduce((n,r)=>n+(Number(r[k])||0),0);return {processed:rows.length,eligibleProcessed:rows.filter(r=>!r.quota_exempt).length,saved:rows.filter(r=>['saved','partial'].includes(r.status)).length,failed:rows.filter(r=>['failed','partial'].includes(r.status)).length,skipped:rows.filter(r=>r.status==='skipped').length,limit:job.limit,total:job.queue_complete?Math.min(job.limit,job.queue.filter(k=>!job.records?.[k]?.quota_exempt).length):job.limit,videoOnly:Boolean(job.options?.video_only),handledVideos:sum('video_count'),savedVideos:sum('videos'),existingVideos:sum('existingVideos')};}
+ function overall(batch){return batch.videoOnly?(batch.limit?Math.min(100,batch.handledVideos/batch.limit*100):null):batch.total?Math.min(100,(batch.eligibleProcessed??batch.processed)/batch.total*100):null;}
+ function reduce(previous={},value={},job){const batch=job?counters(job):previous.batch;const percent=Object.hasOwn(value,'percent')?(typeof value.percent==='number'&&Number.isFinite(value.percent)?value.percent:null):(previous.current?.percent??previous.percent??null);return {...previous,...value,stage:value.stage??previous.stage??null,batch,current:{message:value.message||previous.current?.message||'',percent,stage:value.stage??previous.stage??null},percent:batch?overall(batch):percent};}
  function ring(value={},active=false){
+  if(value.status==='awaiting_approval')return {text:'Ⅱ',label:'等待确认',percent:0,indeterminate:false};
   const percent=value.batch?overall(value.batch):value.percent;
   const known=typeof percent==='number'&&Number.isFinite(percent),n=known?Math.min(100,Math.max(0,percent)):0;
   const terminal={completed:['✓','本轮完成'],partial:['!','部分完成'],failed:['!','保存失败'],stopped:['■','已停止'],paused:['Ⅱ','已暂停']};
@@ -12,7 +19,7 @@
  }
  function labels(p={},active=false,en=false){
   const b=p.batch,c=p.current||{},percent=typeof c.percent==='number'&&Number.isFinite(c.percent)?' · '+Math.round(c.percent)+'%':'';
-  const aggregate=!b?'':b.videoOnly?(en?`Checked ${b.processed} posts · Videos ${b.handledVideos} / target ${b.limit}`:`已检查 ${b.processed} 帖 · 已处理视频 ${b.handledVideos} / 本轮目标 ${b.limit} 个`):(en?`Processed ${b.processed}${b.total?' / '+b.total:''} · Limit ${b.limit}`:`已处理 ${b.processed}${b.total?' / '+b.total:''} 篇${b.total?'':' · 本轮最多 '+b.limit+' 篇'}`);
+  const aggregate=!b?'':b.videoOnly?(en?`Checked ${b.processed} posts · Videos ${b.handledVideos} / target ${b.limit}`:`已检查 ${b.processed} 帖 · 已处理视频 ${b.handledVideos} / 本轮目标 ${b.limit} 个`):(en?`Processed ${b.eligibleProcessed??b.processed}${b.total?' / '+b.total:''} · Limit ${b.limit}`:`已处理 ${b.eligibleProcessed??b.processed}${b.total?' / '+b.total:''} 篇${b.total?'':' · 本轮最多 '+b.limit+' 篇'}`);
   const counts=!b?'':b.videoOnly?(en?`New ${b.savedVideos} · Existing ${b.existingVideos} · Failed ${b.failed} posts · Skipped ${b.skipped} posts`:`新保存 ${b.savedVideos} 个 · 已有 ${b.existingVideos} 个 · 失败 ${b.failed} 帖 · 跳过 ${b.skipped} 帖`):[b.saved?(en?`Saved ${b.saved}`:`保存 ${b.saved} 篇`):'',b.skipped?(en?`Skipped ${b.skipped}`:`跳过 ${b.skipped} 篇`):'',b.failed?(en?`Failed ${b.failed}`:`失败 ${b.failed} 篇`):''].filter(Boolean).join(' · ');
   const item=b?(en?'Current item: ':'当前项：')+(c.index?(en?`video ${c.index}/${c.total} · `:`本帖视频 ${c.index}/${c.total} · `):'')+(c.title?c.title.slice(0,42)+' · ':''):'';
   const current=active?item+(c.message||p.message||(en?'Preparing':'正在准备')).split('\n')[0]+percent:'';
@@ -20,5 +27,5 @@
   const phase=stage==='connecting'||stage==='checking'?0:stage==='verifying'?2:phases.indexOf(stage);
   return {aggregate,counts,current,phase};
  }
- globalThis.TaskProgress={counters,reduce,ring,labels};
+ globalThis.TaskProgress={resultStatus,counters,reduce,ring,labels};
 })();

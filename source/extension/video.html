@@ -1,30 +1,26 @@
 <!doctype html>
 <html lang="zh-CN">
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>灵感采集 · 本地视频抽帧</title>
-<style>
-body{font:15px system-ui,sans-serif;max-width:850px;margin:40px auto;padding:0 24px;background:#fafafa;color:#202124}
-h1{font-size:24px}p{color:#686b70;line-height:1.7}section{background:white;border:1px solid #e3e5e8;border-radius:16px;padding:24px;margin:20px 0}
-video{width:100%;max-height:420px;background:#111;border-radius:10px;margin:16px 0}button,select,input{font:inherit;padding:8px;border-radius:7px;border:1px solid #dfe1e5}button{cursor:pointer;background:white}button:disabled{opacity:.5;cursor:default}
-#start{background:#4169c1;color:white;border:0}#status{white-space:pre-wrap}#interval{width:65px}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}progress{width:100%;margin-top:20px}
-</style>
-<div class="row"><h1>本地视频抽帧</h1><select id="ui-language" aria-label="Language / 语言"><option value="zh">中文</option><option value="en">English</option></select></div>
-<p>视频只在你的电脑上处理，不上传云端。图片保存到当前总目录下的「普通采集」。</p>
-<section>
-  <label>选择视频 <input id="file" type="file" accept="video/*"></label>
+<link rel="stylesheet" href="tool-page.css">
+<header class="tool-header"><h1>本地视频抽帧</h1><select id="ui-language" aria-label="Language / 语言"><option value="zh">中文</option><option value="en">English</option></select></header>
+<p class="tool-intro">从本地视频保存画面，保留原视频。</p>
+<section class="tool-form">
+  <div class="tool-field"><label for="file">选择视频</label><input id="file" type="file" accept="video/*"></div>
   <video id="video" controls preload="auto"></video>
-  <div class="row">
-    <label>方式 <select id="strategy"><option value="slides">分段图文 · 合并相近画面</option><option value="interval">普通视频 · 定时取图</option></select></label>
+  <div class="tool-options">
+    <label>取图方式 <select id="strategy"><option value="slides">合并相近画面</option><option value="interval">按固定间隔取图</option></select></label>
     <label>间隔 <input id="interval" type="number" min="0.5" max="60" step="0.5" value="1"> 秒</label>
   </div>
-  <p>分段模式按画面相似度合并，不能保证一段恰好一张；短于采样间隔的画面可能遗漏。最长边超过 2560 像素会缩小。每次最多 600 个采样点。</p>
-  <div class="row"><button id="start" disabled>开始抽帧</button><button id="pause" disabled>暂停</button><button id="stop" disabled>停止</button></div>
+  <p class="tool-note">每次最多 600 个采样点，图片最长边 2560 像素。减小间隔可保留更多短暂画面。</p>
+  <div class="tool-actions"><button id="start" class="primary" disabled>开始抽帧</button><button id="pause" disabled>暂停</button><button id="stop" disabled>停止</button></div>
   <progress id="progress" max="100" value="0"></progress>
-  <p id="status">请选择已下载的视频。</p>
+  <p id="status" role="status">请选择本地视频。</p>
   <details><summary>结果详情</summary><pre id="diagnostic-text"></pre></details>
 </section>
 <script src="frame-engine.js"></script>
-<script src="hub-api.js"></script>
+<script src="health-client.js"></script><script src="hub-api.js"></script>
 <script src="i18n.js"></script>
 <script src="video-content.js"></script>
 <script src="video.js"></script>

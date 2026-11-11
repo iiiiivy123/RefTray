@@ -1,9 +1,10 @@
 const BUILD=Hub.BUILD,q=s=>document.querySelector(s),t=s=>globalThis.UI?.t(s)||s;
-let defaults,site,currentTab,defaultPath='',active=false,ready=false,videoMode='download',control='running',resumeOptions=null,checkpoint=null,secondary=false,approval=false,picking=false,folderBefore='',requestedPolicy=null;
+let defaults,site,currentTab,defaultPath='',active=false,ready=false,videoMode='download',control='running',resumeOptions=null,checkpoint=null,secondary=false,approval=false,picking=false,folderBefore='',folderRequestId=null,requestedPolicy=null;
 const error=e=>{if(!ready)q('#version').textContent=t('后台核验未完成');UI.feedback(q('#status'),e.message||String(e));q('#status').dataset.state='failed';q('#diagnostic-text').textContent=e.message||String(e);if(q('#task-result-summary'))q('#task-result-summary').textContent=e.message||String(e);globalThis.PopupPresentation?.paint({status:'failed',message:e.message||String(e)},false);};
 const guarded=fn=>async(...args)=>{try{await fn(...args);}catch(e){error(e);}};
 const isVideo=()=>['video','audio'].includes(q('#collection-mode').value);
-const isAudio=()=>q('#collection-mode').value==='audio';
+const isAudio=()=>isVideo()&&(q('#subtitle-mode').value==='audio');
+const isCover=()=>isVideo()&&q('#subtitle-mode').value==='cover';
 let modePreferences={},defaultsGeneration=0,manualSelection=0;
 function showSecondary(value){secondary=false;q('#advanced-options').open=value;render();if(value)q('#frame-options').scrollIntoView({block:'nearest'});}
 function render(){
@@ -12,7 +13,6 @@ function render(){
  if(!resumeOptions&&site.mode==='text'&&isVideo())q('#collection-mode').value='text';
  for(const option of q('#collection-mode').options){option.disabled=site.mode==='video'?!['video','audio'].includes(option.value):site.mode==='text'&&['video','audio'].includes(option.value);option.hidden=option.disabled;}
  const video=isVideo(),plain=q('#collection-mode').value==='plain',text=plain||q('#collection-mode').value==='text';
- q('#quality-row').hidden=q('#quality-help').hidden=!video||isAudio()||!['B站','YouTube'].includes(site.site);q('#subtitle-row').hidden=!video||isAudio();q('#trim-options').hidden=!video;
  if(isAudio())videoMode='download';
  if(video&&q('#subtitle-mode').value==='only')videoMode='download';
  const allowed=Boolean(site.bulk)&&(!text||['小红书','X','Instagram','B站','ArtStation'].includes(site.site))&&(!video||['小红书','X','Instagram','Pinterest','B站','YouTube'].includes(site.site));
@@ -21,7 +21,10 @@ function render(){
    else if(site.single===false)q('#scope').value='bulk';
  }
  const bulk=q('#scope').value==='bulk';
- for(const option of q('#collection-mode').options)if(['video','audio'].includes(option.value))option.textContent=t((bulk?'仅':'')+(option.value==='video'?'视频':'音频'));
+ const preview=q('#identify-status');if(preview)preview.hidden=bulk;
+ const coverOption=q('#subtitle-mode option[value=cover]');coverOption.hidden=coverOption.disabled=bulk||site.site!=='B站'||!site.single;
+ if(coverOption.disabled&&isCover())q('#subtitle-mode').value='none';
+ q('#quality-row').hidden=q('#quality-help').hidden=!video||isAudio()||isCover()||q('#subtitle-mode').value==='only'||!['B站','YouTube'].includes(site.site);q('#trim-options').hidden=!video||isCover();
  q('#subtitle-help').hidden=!video||isAudio()||q('#subtitle-mode').value==='none';
  q('#subtitle-language-row').hidden=site.site!=='YouTube';
  q('#scope-bulk').disabled=!allowed||Boolean(resumeOptions);q('#scope-current').disabled=site.single===false||Boolean(resumeOptions);
@@ -29,20 +32,23 @@ function render(){
  q('#main-options').hidden=false;q('#secondary-options').hidden=false;
  q('#quota-help').textContent=site.site==='YouTube'?t('按当前列表顺序处理；重复和失败条目也计入本次数量。'):t('按视频计数；图片帖跳过。重复和失败的视频占额度；最多扫描500篇。');
  q('#video-tools').hidden=!video||isAudio();q('#limit-row').hidden=!bulk;q('#quota-help').hidden=!video||!bulk;
- q('#text-options').hidden=!text;q('#skip-gifs-option').hidden=video||plain;q('#filters-row').hidden=video||plain;q('#text-attachments-row').hidden=!text||plain;q('#attachment-row').hidden=(!bulk&&site.site!=='Instagram')||video||plain||(site.site==='B站'&&site.mode==='text');
- q('#skip-video-option').hidden=q('#attachment-row').hidden; q('#skip-video').checked=q('#video-action').value==='skip';
- q('#include-comments').parentElement.hidden=plain;q('#ocr-enabled').parentElement.hidden=plain;q('#plain-comments-option').hidden=!plain;
- q('#frame-options').hidden=plain|| (video?videoMode==='download':q('#video-action').value!=='frames');
- q('#more-options').hidden=q('#frame-options').hidden;
- q('#batch-range').hidden=!bulk;q('#duration-filter').hidden=!bulk||!video;q('#download-limit-row').hidden=plain;
+ q('#text-options').hidden=!text;q('#skip-gifs-option').hidden=video||plain;
+ q('#skip-video').checked=q('#video-action').value==='skip';
+ q('#include-comments').parentElement.hidden=plain;q('#plain-comments-option').hidden=!plain;
+ q('#batch-range').hidden=!bulk;q('#duration-filter').hidden=!bulk||!video;
  q('#include-images-option').hidden=!text||plain;
  q('#collect-video').hidden=!video||isAudio()||bulk||site.site==='B站';
- q('#limit-label').textContent=t(video?'视频数量上限':'本次最多处理');
+ q('#limit-label').textContent=t(site.parts?'选集数量上限':video?'视频数量上限':'本次最多处理');
+ const indexed=site.parts||site.collection;
+ q('#skip-posts').closest('label').querySelector('span').textContent=t(site.parts?'从第几 P 开始':site.collection?'从第几个视频开始':'跳过前几篇');
+ q('#skip-posts').min=indexed?'1':'0';q('#skip-posts').max=indexed?'500':'499';
+ const first=Number(q('#skip-posts').value),count=Number(q('#batch-limit').value),last=Math.min(first+count-1,site.partCount||site.collectionCount||500);
+ q('#batch-range-help').textContent=t(indexed?(resumeOptions?'继续上次未完成的列表；起点和数量沿用原任务。':Number.isInteger(first)&&first>=1&&first<=last?(site.parts?`本次范围 P${first}–P${last}${site.partCount?'（共 '+site.partCount+' P）':''}；已保存项仍按重复保存设置处理。`:`本次范围：第${first}–${last}个视频（合集共${site.collectionCount}个）；按合集顺序采集。`):(site.parts?'起始 P 超出当前选集范围。':'起始视频超出当前合集范围。')):'按当前列表顺序，0 从第一篇开始；跳过项不占采集额度。');
  q('#mode-help').textContent=bulk?site.site+' · '+t(site.hint||''):t(text?'正文与图片文字整理为 Markdown':video?'只处理视频，不保存图片帖':'保存当前作品图片');
  q('#task-options').disabled=!ready||active;
  for(const input of q('#task-options').querySelectorAll('input,select'))input.disabled=Boolean(resumeOptions);
  q('#save-video').disabled=Boolean(resumeOptions);q('#download-frames').disabled=Boolean(resumeOptions)||q('#subtitle-mode').value==='only';
- q('#choose-folder').disabled=Boolean(resumeOptions);q('#choose-folder-more').disabled=Boolean(resumeOptions)||picking;
+ q('#choose-folder').disabled=Boolean(resumeOptions);q('#choose-folder-more').disabled=Boolean(resumeOptions)||picking;q('#folder-apply').disabled=picking;
  q('#default-path').disabled=q('#collect-video').disabled=Boolean(resumeOptions);
  q('#save-video').setAttribute('aria-pressed',String(videoMode==='download'));
  q('#download-frames').setAttribute('aria-pressed',String(videoMode==='download-frames'));
@@ -51,9 +57,9 @@ function render(){
  q('#reset').hidden=!active;q('#start').hidden=active||approval;
  const unsupported=bulk?!site.bulk:site.single===false;
  q('#start').disabled=!ready||active||picking||unsupported;
- q('#only-cover').hidden=site.site!=='B站'||site.mode!=='video'||!site.single||bulk;q('#only-cover').disabled=!ready||active||picking||Boolean(resumeOptions);
  if(unsupported)q('#mode-help').textContent=t(site.reason||'此处无法采集，请打开作品详情页或作者列表。');
  q('#start').textContent=t(secondary?'返回采集':resumeOptions?'继续未完成任务':video?(bulk?'扫描视频并估算大小':videoMode==='video'?'仅抽帧':'检查视频并估算大小'):'开始采集');
+ if(isCover()&&!active)q('#start').textContent=t('保存封面');
  if(plain)q('#mode-help').textContent=t('只保存 MD；不下载图片、视频或识别图片文字');
  if(isAudio())q('#mode-help').textContent='只提取音频（M4A），不生成字幕或 MD。';
  if(isAudio()&&!active)q('#start').textContent=secondary?'返回采集':resumeOptions?'继续未完成任务':'检查音轨并估算大小';
@@ -68,32 +74,36 @@ function render(){
  q('#default-path').hidden=!q('#task-destination').value.trim();
  q('#destination-label').textContent=t(q('#task-destination').value.trim()?'仅本次另存':'使用默认目录');
  q('#recovery').hidden=active||!checkpoint||checkpoint.completed;q('#resume-help').hidden=!resumeOptions;q('#resume-task').disabled=active;
+ CaptureLayout.paint({video,plain,text,bulk,audio:isAudio(),cover:isCover(),frames:videoMode==='download-frames',site:site.site});
  globalThis.refreshSelects?.();
 }
+function textModeComments(video,plain){return !video&&(plain?q('#plain-comments').checked:q('#collection-mode').value==='text'&&q('#include-comments').checked);}
 function effectiveFolder(){
  const root=q('#task-destination').value.trim()||defaultPath;
- const category=q('#scope').value==='bulk'?'批量':isVideo()?'视频':['text','plain'].includes(q('#collection-mode').value)?'图文':'图片';
+ const category=q('#scope').value==='bulk'?'批量':isVideo()&&!isCover()?'视频':['text','plain'].includes(q('#collection-mode').value)?'图文':'图片';
  const flat=q('#scope').value!=='bulk'&&defaults?.layout==='organized_flat';
  return root.replace(/[\\/]+$/,'')+'\\'+category+(flat?'':'\\'+(site?.site==='网页'?'其他网页':site?.site||'其他网页'));
 }
 function options(){
  if(resumeOptions)return {...resumeOptions,resume:true};
  const video=isVideo(),plain=q('#collection-mode').value==='plain',bulk=q('#scope').value==='bulk',frames=!plain&&(video?videoMode!=='download':q('#video-action').value==='frames');
- const attachment=(bulk||site.site==='Instagram')&&!(site.site==='B站'&&site.mode==='text')?q('#video-action').value:'skip';
+ const attachment=plain?'skip':q('#video-action').value;
  const limit=bulk?Number(q('#batch-limit').value):defaults.limit,interval=frames?Number(q('#video-interval').value):defaults.interval;
  if(bulk&&(!Number.isInteger(limit)||limit<1||limit>500)){showSecondary(false);q('#batch-limit').focus();throw new Error('数量请填写 1–500。');}
  if(frames&&(!Number.isFinite(interval)||interval<0.5||interval>60)){showSecondary(true);q('#video-interval').focus();throw new Error('采样间隔应为 0.5–60 秒');}
  const trim_start=video?Number(q('#trim-start').value):0,trim_end=video?Number(q('#trim-end').value):0;
  if([trim_start,trim_end].some(n=>!Number.isFinite(n)||n<0||n>86400))throw new Error('剪裁时间请填写0–86400秒');
- const max_video_mb=Math.ceil(Number(q('#download-limit').value)*(q('#download-unit').value==='GB'?1024:1));
- const skip_posts=bulk?Number(q('#skip-posts').value):0,min_duration=bulk&&video?Number(q('#min-duration').value):0,max_duration=bulk&&video?Number(q('#max-duration').value):0;
+ const max_video_mb=Number(defaults.max_video_mb||512);
+ const skip_posts=bulk?Number(q('#skip-posts').value)-(site.parts||site.collection?1:0):0,min_duration=bulk&&video?Number(defaults.min_duration||0):0,max_duration=bulk&&video?Number(defaults.max_duration||0):0;
  if(!Number.isFinite(max_video_mb)||max_video_mb<1||max_video_mb>1048576)throw new Error('单个下载上限应为1 MB–1024 GB');
- if(!Number.isInteger(skip_posts)||skip_posts<0||skip_posts>499)throw new Error('跳过篇数请填写0–499');
+ if(!Number.isInteger(skip_posts)||skip_posts<0||skip_posts>499)throw new Error(site.parts?'起始 P 请填写1–500':site.collection?'起始视频请填写1–500':'跳过篇数请填写0–499');
+ if(bulk&&site.parts&&site.partCount&&skip_posts>=site.partCount)throw new Error('起始 P 超出当前选集范围');
+ if(bulk&&site.collection&&skip_posts>=site.collectionCount)throw new Error('起始视频超出当前合集范围');
  if([min_duration,max_duration].some(n=>!Number.isFinite(n)||n<0||n>86400)||max_duration&&min_duration>max_duration)throw new Error('时长范围请填写0–86400秒，最短不能大于最长');
  const comment_limit=Number(q('#comment-limit').value);if(!Number.isInteger(comment_limit)||comment_limit<1||comment_limit>100)throw new Error('评论条数请填写1–100');
- return Hub.options({...defaults,comment_limit,max_video_mb,min_free_mb:0,skip_posts,min_duration,max_duration,max_images:defaults.max_images||0,output_format:isAudio()?'audio':'original',trim_start,trim_end,skip_gifs:q('#skip-gifs').checked,video_quality:['B站','YouTube'].includes(site.site)?q('#video-quality').value:'best',subtitle_language:'auto',subtitle_mode:isAudio()?'none':video?q('#subtitle-mode').value:attachment==='skip'?'none':'with_video',md_only:plain,collection_mode:plain?'text':video?'images':q('#collection-mode').value,video_only:video&&bulk,limit,video_action:video?(videoMode==='download'?'save':'frames'):attachment,capture_scope:bulk?'batch':'single',capture_kind:plain?'text':video?'video':q('#collection-mode').value,duplicate_policy:requestedPolicy||q('#duplicate-policy').value,include_images:!video&&!plain&&(q('#collection-mode').value!=='text'||q('#include-images').checked),include_comments:plain?q('#plain-comments').checked:!video&&q('#include-comments').checked,plain_comments:q('#plain-comments').checked,ocr_enabled:!plain&&q('#ocr-enabled').checked,strategy:q('#video-strategy').value,interval,destination:q('#task-destination').value.trim()||null,resume:false});
+ return Hub.options({...defaults,include_replies:q('#include-replies').checked&&['小红书','Instagram'].includes(site.site),comment_limit,max_video_mb,min_free_mb:0,skip_posts,min_duration,max_duration,max_images:defaults.max_images||0,output_format:isAudio()?'audio':'original',trim_start,trim_end,skip_gifs:q('#skip-gifs').checked,video_quality:['B站','YouTube'].includes(site.site)?q('#video-quality').value:'best',subtitle_language:'auto',subtitle_mode:isAudio()||isCover()?'none':video?q('#subtitle-mode').value:attachment==='skip'?'none':'with_video',md_only:plain,collection_mode:plain?'text':video?'images':q('#collection-mode').value,video_only:video&&bulk,limit,video_action:video?(videoMode==='download'?'save':'frames'):attachment,capture_scope:bulk?'batch':'single',capture_kind:plain?'text':video?'video':q('#collection-mode').value,duplicate_policy:requestedPolicy||defaults.duplicate_policy||'fill',include_images:!video&&!plain,include_comments:textModeComments(video,plain),plain_comments:q('#plain-comments').checked,ocr_enabled:q('#collection-mode').value==='text'&&q('#ocr-enabled').checked,strategy:q('#video-strategy').value,interval,destination:q('#task-destination').value.trim()||null,resume:false});
 }
-async function start(coverOnly=false){
+async function start(coverOnly=isCover()){
  if(!ready||active||q('#start').disabled)return;const now=await chrome.tabs.get(currentTab.id);if(now.url!==currentTab.url)throw new Error('页面已切换，请重新打开采集弹窗后开始');const value=options();if(secondary){await remember();showSecondary(false);return;}
  const mode=coverOnly?'current':q('#scope').value==='bulk'?site.bulk:isVideo()?videoMode:'current';
  if(coverOnly)Object.assign(value,{capture_scope:'single',capture_kind:'images',collection_mode:'images',include_images:true,include_videos:false,video_action:'skip',video_only:false,subtitle_mode:'none',extract_frames:false});
@@ -112,8 +122,8 @@ async function update(){
  q('#result-context').hidden=!p;
  globalThis.PopupPresentation?.paint(p,active);
  if(p&&['completed','partial'].includes(p.status))await chrome.storage.local.set({collectorFirstSave:{taskId:p.context?.id,at:Date.now(),status:p.status}});
- if(p){const source=p.context?.title||p.context?.url?.split('?')[0]||t('来源未记录');UI.message(q('#result-context'),active?'正在执行 · {source}':'上次任务 · {source} · {time}',{source,time:p.updatedAt?new Date(p.updatedAt).toLocaleString():t('时间未记录')});UI.feedback(q('#status'),(p.message||'').split('\n')[0],'任务状态已更新，请查看详情。');q('#diagnostic-text').textContent=[...new Set([p.message,p.details].filter(Boolean))].join('\n');}
- else{UI.message(q('#status'),'等待开始');q('#diagnostic-text').textContent='';}
+ if(p){const source=p.context?.title||p.context?.url?.split('?')[0]||t('来源未记录');UI.message(q('#result-context'),active?'正在执行 · {source}':'上次任务 · {source} · {time}',{source,time:p.updatedAt?new Date(p.updatedAt).toLocaleString():t('时间未记录')});UI.feedback(q('#status'),(p.message||'').split('\n')[0],'任务状态已更新，请查看详情。');if(!q('#task-dialog').open)q('#diagnostic-text').textContent=PopupPresentation.rawDetails(p);}
+ else{UI.message(q('#status'),'等待开始');if(!q('#task-dialog').open)q('#diagnostic-text').textContent=PopupPresentation.rawDetails(checkpoint);}
  q('#progress').hidden=!active;q('#progress').value=p?.percent||0;
  q('#status').dataset.state=p?.status||'';
  approval=s.collectorApproval?.state==='pending';q('#approval').hidden=!approval;if(approval)UI.feedback(q('#approval-text'),s.collectorApproval.message,'等待下载确认');render();await recentTasks();
@@ -135,14 +145,14 @@ function showOptions(d){
  q('#subtitle-mode').value=resumeOptions||d.subtitle_output_schema==='video-srt-md-v1'?(d.subtitle_mode||'with_video'):'with_video';
  q('#trim-start').value=d.trim_start||0;q('#trim-end').value=d.trim_end||0;
  q('#include-images').checked=d.include_images!==false;
- q('#skip-posts').value=d.skip_posts||0;q('#min-duration').value=d.min_duration||0;q('#max-duration').value=d.max_duration||0;
+ q('#skip-posts').value=Number(d.skip_posts||0)+(site?.parts||site?.collection?1:0);q('#min-duration').value=d.min_duration||0;q('#max-duration').value=d.max_duration||0;
  const mb=d.max_video_mb||512;q('#download-unit').value=mb>=1024?'GB':'MB';q('#download-limit').value=mb>=1024?mb/1024:mb;
  q('#subtitle-language').value='auto';q('#skip-gifs').checked=Boolean(d.skip_gifs);q('#video-quality').value=d.video_quality||'best';
  for(const [id,key]of [['collection-mode','collection_mode'],['batch-limit','limit'],['duplicate-policy','duplicate_policy'],['video-strategy','strategy'],['video-interval','interval']])q('#'+id).value=(key==='duplicate_policy'&&d[key]==='skip'&&!resumeOptions)?'fill':d[key]??defaults[key];
  if(d.video_only)q('#collection-mode').value='video';
- if(d.output_format==='audio')q('#collection-mode').value='audio';
+ if(d.output_format==='audio'){q('#subtitle-mode').value='audio';q('#collection-mode').value='video';}
  if(d.md_only)q('#collection-mode').value='plain';
- q('#comment-limit').value=d.comment_limit??defaults.comment_limit??10;
+ q('#comment-limit').value=(resumeOptions?d.comment_limit:defaults.comment_limit)??10;q('#include-replies').checked=Boolean(resumeOptions?d.include_replies:defaults.include_replies);
  q('#plain-comments').checked=Boolean(d.plain_comments??(d.md_only&&d.include_comments));
  q('#video-action').value=d.batch_video_action||d.video_action||(d.include_videos?'save':'skip');
  if(!['skip','save','frames'].includes(q('#video-action').value))q('#video-action').value='skip';
@@ -153,9 +163,10 @@ q('#task-options').addEventListener('change',guarded(async event=>{
  if(event.target.id==='collection-mode'){manualSelection++;
    const kind=event.target.value;showOptions({...CaptureOptions.resolve({defaults,modePreferences,mode:kind,generation:defaultsGeneration}),destination:q('#task-destination').value});q('#collection-mode').value=kind;
  }
+ if(event.target.id==='subtitle-mode'&&isAudio())videoMode='download';
+ if(event.target.id==='auto-frames')videoMode=event.target.checked?'download-frames':'download';
  render();if(ready&&!resumeOptions)await remember();
 }));q('#start').onclick=guarded(()=>start());
-const coverButton=document.createElement('button');coverButton.type='button';coverButton.className='text-button';coverButton.id='only-cover';coverButton.hidden=true;coverButton.textContent='仅保存本视频封面';q('#video-tools').after(coverButton);coverButton.onclick=guarded(()=>start(true));
 for(const s of ['current','bulk'])q('#scope-'+s).onclick=guarded(async()=>{q('#scope').value=s;if(s==='bulk'&&videoMode==='video')videoMode='download';render();await remember();await identify();});
 q('#save-video').onclick=guarded(async()=>{videoMode='download';render();await remember();});q('#download-frames').onclick=guarded(async()=>{videoMode='download-frames';render();await remember();});
 q('#collect-video').onclick=()=>{videoMode='video';render();};
@@ -181,18 +192,22 @@ q('#restore-defaults').onclick=guarded(async()=>{await chrome.storage.local.remo
 async function chooseFolder(){
  if(picking)return;
  const value=options();
- picking=true;render();UI.message(q('#folder-status'),'正在打开系统窗口；若未出现，可直接输入路径。');
- const requestId=crypto.randomUUID();
- await chrome.storage.local.set({collectorPopupDraft:{generation:defaultsGeneration,defaultsSignature:CaptureOptions.signature(defaults),source:currentTab.url,requestId,tabId:currentTab.id,picking:true,options:value,scope:q('#scope').value,kind:q('#collection-mode').value,videoMode,expires:Date.now()+15*60000}});
- try{const r=await chrome.runtime.sendMessage({type:'CHOOSE_TASK_FOLDER',requestId});if(!r?.ok)throw new Error(r?.error||'无法选择文件夹');const state=await chrome.storage.local.get(['collectorPopupDraft']);if(state.collectorPopupDraft?.requestId!==requestId)return;if(!r.cancelled){q('#task-destination').value=r.directory;}q('#folder-dialog').close();}
+ picking=true;render();UI.message(q('#folder-status'),'正在选择文件夹；取消会关闭系统窗口并保留原目录。');
+ const requestId=folderRequestId=crypto.randomUUID();
+ await chrome.storage.local.set({collectorPopupDraft:{generation:defaultsGeneration,defaultsSignature:CaptureOptions.signature(defaults),source:currentTab.url,requestId,tabId:currentTab.id,picking:true,options:value,folderBefore,scope:q('#scope').value,kind:q('#collection-mode').value,videoMode,expires:Date.now()+15*60000}});
+ try{const r=await chrome.runtime.sendMessage({type:'CHOOSE_TASK_FOLDER',requestId});if(!r?.ok)throw new Error(r?.error||'无法选择文件夹');const state=await chrome.storage.local.get(['collectorPopupDraft']);if(state.collectorPopupDraft?.requestId!==requestId)return;if(!r.cancelled)q('#task-destination').value=r.directory;UI.message(q('#folder-status'),r.cancelled?'已取消系统选择；可以直接输入路径。':'已选好文件夹，点击“使用此目录”确认。');}
  catch(e){UI.message(q('#folder-status'),'系统选择未完成，请直接输入路径后使用。');q('#diagnostic-text').textContent=e.message;}
  finally{picking=false;render();}
 }
-q('#choose-folder').onclick=guarded(async()=>{folderBefore=q('#task-destination').value;q('#folder-dialog').showModal();await chooseFolder();});
+q('#choose-folder').onclick=guarded(async()=>{folderBefore=q('#task-destination').value;folderRequestId=null;UI.message(q('#folder-status'),'输入路径，或点击“选择系统文件夹”。');q('#folder-dialog').showModal();});
 q('#choose-folder-more').onclick=guarded(chooseFolder);
 q('#folder-apply').onclick=guarded(async()=>{const path=q('#task-destination').value.trim();if(path&&!/^(?:[a-z]:[\\/]|\\\\)/i.test(path))throw new Error('请填写完整的绝对路径');await chrome.storage.local.set({collectorPopupDraft:{generation:defaultsGeneration,defaultsSignature:CaptureOptions.signature(defaults),source:currentTab.url,tabId:currentTab.id,picking:false,options:options(),scope:q('#scope').value,kind:q('#collection-mode').value,videoMode,expires:Date.now()+15*60000}});picking=false;await remember();q('#folder-dialog').close();render();});
-q('#folder-cancel').onclick=guarded(async()=>{q('#task-destination').value=folderBefore;await chrome.storage.local.remove('collectorPopupDraft');picking=false;q('#folder-dialog').close();render();});
-q('#folder-dialog').addEventListener('cancel',guarded(async()=>{q('#task-destination').value=folderBefore;await chrome.storage.local.remove('collectorPopupDraft');picking=false;render();}));
+async function cancelFolder(){
+ if(folderRequestId){UI.message(q('#folder-status'),'正在关闭系统窗口…');const r=await chrome.runtime.sendMessage({type:'CANCEL_TASK_FOLDER',requestId:folderRequestId});if(!r?.ok)throw Error(r?.error||'关闭系统窗口失败，请再点一次取消');}
+ await chrome.storage.local.remove('collectorPopupDraft');q('#task-destination').value=folderBefore;folderRequestId=null;picking=false;q('#folder-dialog').close();render();
+}
+q('#folder-cancel').onclick=guarded(cancelFolder);
+q('#folder-dialog').addEventListener('cancel',event=>{event.preventDefault();guarded(cancelFolder)();});
 q('#pause').onclick=guarded(async()=>{await chrome.runtime.sendMessage({type:'CONTROL_COLLECTOR',action:control==='paused'?'running':'paused'});await update();});
 q('#stop').onclick=guarded(async()=>{await chrome.runtime.sendMessage({type:'CONTROL_COLLECTOR',action:'stopped'});await update();});
 q('#approve').onclick=()=>chrome.runtime.sendMessage({type:'APPROVE_DOWNLOAD',approve:true});q('#reject').onclick=()=>chrome.runtime.sendMessage({type:'APPROVE_DOWNLOAD',approve:false});
@@ -203,6 +218,11 @@ document.addEventListener('uilanguage',render);
 chrome.storage.onChanged.addListener((changes,area)=>{if(area!=='local')return;const d=changes.collectorPopupDraft?.newValue;if(d?.tabId===currentTab?.id&&d.expires>Date.now()){picking=Boolean(d.picking);q('#task-destination').value=d.options.destination||'';render();if(d.error)error(new Error(d.error));}if(['liblibActiveJob','liblibProgress','collectorApproval','liblibControl','collectorCheckpoint'].some(k=>k in changes))update().catch(error);});
 guarded(async()=>{
  [currentTab]=await chrome.tabs.query({active:true,currentWindow:true});site=CollectorSite.context(currentTab?.url||'');
+ if(site.parts){
+   const [{result}={}]=await chrome.scripting.executeScript({target:{tabId:currentTab.id},world:'MAIN',files:['bilibili-parts.js']}).catch(()=>[]);
+   if(result?.error||!result?.urls?.length)site={...site,bulk:null,reason:result?.error||'视频列表尚未加载'};
+   else site=result.view==='collection'?{...site,parts:false,collection:true,collectionCount:result.urls.length,hint:'仅按当前合集目录顺序采集，不包含推荐视频'}:{...site,partCount:result.urls.length};
+ }
  if(site.site==='ArtStation'&&site.bulk){
    const [{result}]=await chrome.scripting.executeScript({target:{tabId:currentTab.id},files:['artstation-list.js']});
    if(result?.error||!result?.urls?.length)site={...site,bulk:null,reason:result?.error||'请进入明确的作品图片列表'};
@@ -235,25 +255,33 @@ guarded(async()=>{
  }
  const library=await Hub.api('/settings/library/check');if(!library.writable)throw new Error('素材目录不可写，请在设置中重新选择');
  await chrome.storage.local.set({collectorOnboarding:{connected:true,directory:library.directory,writable:true,checkedAt:Date.now(),firstSave:'optional'}});
- ready=true;await update();identify().catch(()=>{});if(d?.tabId===currentTab.id&&d.expires>Date.now()&&d.error)error(new Error(d.error));
+ ready=true;await update();if(currentDraft&&d.requestId){folderRequestId=d.requestId;folderBefore=d.folderBefore||'';q('#folder-dialog').showModal();}identify().catch(()=>{});if(d?.tabId===currentTab.id&&d.expires>Date.now()&&d.error)error(new Error(d.error));
+ if(!active&&!health.busy)RefTrayUpdates.notify(chrome.runtime.getManifest().version,()=>active||Boolean(resumeOptions)).catch(console.warn);
 })();
 
 q('#skip-video').onchange=guarded(async()=>{q('#video-action').value=q('#skip-video').checked?'skip':'save';render();await remember();});
-const identifyButton=document.createElement('button');identifyButton.type='button';identifyButton.className='text-button';identifyButton.textContent='重新识别当前页';q('#advanced-options .advanced-body').append(identifyButton);
 const identifyStatus=document.createElement('p');identifyStatus.id='identify-status';identifyStatus.className='hint';identifyStatus.setAttribute('role','status');q('#collection-mode').closest('label').after(identifyStatus);
 async function identify(){
- if(q('#scope').value==='bulk'){UI.message(identifyStatus,'批量只扫描画板链接，开始后显示本轮数量；不逐个预读媒体。');return;}
+ if(q('#scope').value==='bulk'){identifyStatus.textContent='';return;}
  if(active||resumeOptions)return;
  const token=manualSelection;UI.message(identifyStatus,'正在识别已加载正文…');
- try{const [{result}]=await chrome.scripting.executeScript({target:{tabId:currentTab.id},files:['page-identify.js']});
+ try{const result=await previewCurrentTab(currentTab);
  if(result?.url!==currentTab.url||token!==manualSelection||q('#scope').value==='bulk'||active||resumeOptions)return;
  if(result?.state==='ready'){
- UI.message(identifyStatus,'已确认图片 {images} · GIF {gifs} · 视频 {videos}',{images:result.images,gifs:result.gifs||0,videos:result.videos});
+ const found=[];
+ for(const [key,label] of [['images','图片'],['gifs','GIF'],['videos','视频']])if(result[key]>0)found.push(UI.t(label)+' '+result[key]);
+ if(result.has_video&&result.videos==null)found.push(UI.t('发现视频'));
+ UI.message(identifyStatus,found.length?'已识别：{items}':'当前页未发现可采集内容',{items:found.join(' · ')});
+ if(result.warning){identifyStatus.title=result.warning;identifyStatus.textContent+=' · '+UI.t('部分媒体读取失败');}else identifyStatus.removeAttribute('title');
  if(!site.mode&&result.kind&&!manualSelection){q('#collection-mode').value=result.kind;render();}
- }else UI.message(identifyStatus,result?.reason||'正文仍在加载，可重新识别或手动选择。');
- }catch(error){UI.message(identifyStatus,'未能识别，可手动选择采集内容。');}
+ }else UI.message(identifyStatus,result?.reason||'正文仍在加载，保存时会再次读取。');
+ }catch(error){UI.message(identifyStatus,'识别失败：'+error.message);}
 }
-identifyButton.onclick=guarded(identify);
+async function previewCurrentTab(tab){
+ const response=await chrome.runtime.sendMessage({type:'PREVIEW_COLLECTOR',tabId:tab.id,url:tab.url});
+ if(!response?.ok)throw new Error(response?.error||'读取预扫描失败');
+ return response.preview;
+}
 
 q('#retry-failed').onclick=guarded(async()=>{
  if(checkpoint?.mode&&checkpoint.mode!=='current'){

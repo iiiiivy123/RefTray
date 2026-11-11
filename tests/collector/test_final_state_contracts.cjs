@@ -53,3 +53,14 @@ test('higher local revision wins stale remote and non-checkpoint journal saves r
   store.recover();await store.api.save({id:'single',records:{}},{checkpoint:false});
   assert.deepEqual(store.state.collectorCheckpoint,checkpoint);
 });
+
+test('ending a batch offline is durable and syncs once connectivity returns',async()=>{
+ const store=outbox();
+ await store.api.save({id:'batch',records:{},queue:['one']});
+ await store.api.endBatch();
+ assert.equal(store.state.collectorCheckpoint.revision,2);
+ assert.equal(store.state.collectorTaskOutbox.batch.endedByUser,true);
+ store.recover();await store.api.reconcile();
+ assert.equal(store.remote().completed,true);
+ assert.deepEqual(store.writes,[2]);
+});

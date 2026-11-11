@@ -1,159 +1,78 @@
-<p align="center">
-  <img src="docs/assets/hero.svg" alt="RefTray · 灵感采集 — 把网页素材，存进自己的文件夹。" width="100%">
-</p>
+# RefTray · 灵感采集
 
-<p align="center">
-  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.48"><img src="docs/assets/download-preview.svg" alt="下载 0.5.48 预发布版" height="40"></a>
-  &nbsp;
-  <a href="https://github.com/iiiiivy123/inspiration-collector/releases/latest"><img src="docs/assets/download.svg" alt="下载 Windows 安装包" height="40"></a>
-  &nbsp;
-  <a href="docs/README.md"><img src="docs/assets/docs.svg" alt="项目文档" height="40"></a>
-</p>
+把网页里的图片、图文、视频，保存到自己的文件夹。
 
-<p align="center">
-  <a href="#能收集什么">功能介绍</a> · <a href="#开始使用">快速开始</a> · <a href="docs/use-cases.md">实际使用问题</a> · <a href="https://github.com/iiiiivy123/inspiration-collector/issues">问题反馈</a> · <a href="README_EN.md">English</a>
-</p>
+RefTray 是 Windows + Chrome 本地素材采集工具。素材保存在你选的目录，图文保存为 Markdown，视频可以提取字幕、文字稿、音频或参考画面。
 
-**RefTray · 灵感采集** 是面向设计师、插画师与内容创作者的 **Windows + Chrome 本地素材采集工具**。从支持的网页保存图片、Markdown 图文、纯文字与视频，部分作者页和画板支持批量采集，视频还可按需提取参考画面。
+[下载安装包](https://github.com/iiiiivy123/inspiration-collector/releases) · [使用说明](docs/usage.md) · [首次安装](docs/install.md) · [更新与恢复](docs/update.md) · [English](README_EN.md)
 
-**你选择文件夹，素材就保存在那里。**
+当前正式版为 **0.5.55**。[下载 Windows 安装包](https://github.com/iiiiivy123/inspiration-collector/releases/download/v0.5.55/InspirationCollector-0.5.55-Windows-x64-Setup.exe) · [版本说明](docs/release-0.5.55.md)
 
-## 能收集什么
+## 能做什么
 
-<table>
-<tr>
-<td width="50%" valign="top"><h3>图片与视觉参考</h3><p>从适配的作品页保存图片，收集构图、服装、场景与设计参考。</p></td>
-<td width="50%" valign="top"><h3>图文与纯文字</h3><p>整理为 Markdown；图文包含正文图片，可选择附带评论和识别图片文字。</p></td>
-</tr>
-<tr>
-<td width="50%" valign="top"><h3>视频与参考画面</h3><p>保存支持的视频，按需抽帧；也支持对本地视频提取参考画面。</p></td>
-<td width="50%" valign="top"><h3>批量与任务恢复</h3><p>处理支持的作者页或画板，查看采集记录、去重结果，并继续或重试部分未完成任务。</p></td>
-</tr>
-</table>
-
-## 从网页，到自己的文件夹
-
-<img src="docs/assets/workflow.svg" alt="打开支持的页面 → 选择采集内容 → 保存到本地文件夹" width="100%">
-
-图片、图文、视频和批量内容按类型与来源整理。更改素材库位置不会自动搬迁旧文件；历史记录可帮助打开此前的保存目录。
+- 保存图片和 GIF，优先读取站点提供的高清源。
+- 保存正文和配图，按需加入评论、识别图片文字；也可以只保存文字。
+- 保存视频、字幕与文字稿，或只提取音频。没有网站字幕时使用本地语音识别。
+- 批量采集支持的作者主页、画板、收藏夹和视频列表，设置起点与数量。
+- 查看任务和采集记录，暂停、继续或重试失败项，按设置去重补齐。
+- 通过 MCP 让 AI 调用同一套采集功能。
 
 ## 开始使用
 
-**需要 Windows 10/11 64 位 + Chrome。** 安装包内置 Python 与媒体组件，不用自己配置开发环境。
+需要 Windows 10/11 64 位和 Chrome。完整安装包内置运行环境与媒体组件。
 
-1. **下载安装。** 试用新版请下载 [0.5.48 预发布版](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.48)；稳定版前往 [Releases](https://github.com/iiiiivy123/inspiration-collector/releases/latest)，在 **Assets** 下载 Windows 安装包，不要下载源码 ZIP。
-2. **启动本地程序。** 打开「灵感采集」，程序会在 Windows 右下角系统托盘运行。
-3. **加载 Chrome 扩展。** 打开 `chrome://extensions` → 开启「开发者模式」→「加载已解压的扩展程序」。从托盘菜单复制 `extension` 文件夹的实际地址，选择该文件夹。
-4. **保存第一份素材。** 固定工具栏扩展，选择本地素材库，打开支持的作品页并选择采集内容。
+1. 在 Releases 的 Assets 下载 Windows 安装包（文件名以 `Windows-x64-Setup.exe` 结尾）。
+2. 安装并启动「灵感采集」，Windows 右下角会出现托盘图标。
+3. 从托盘复制扩展文件夹地址，到 `chrome://extensions` 开启开发者模式，加载该文件夹。
+4. 固定 Chrome 工具栏里的扩展，选择素材库，打开作品页开始采集。
 
-[首次安装 →](docs/install.md) · [旧版更新 →](docs/update.md) · [完整教程与故障排查 →](docs/usage.md)
+首次加载扩展需要手动操作。安装包暂未签名，下载时核对官方仓库提供的校验文件。
 
-最新预发布版为 **[0.5.48](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.48)**，稳定版为 **0.5.37**。以下功能和教程按 0.5.48 编写；稳定版代码在 `main`，预发布代码见 `v0.5.48` 标签。[0.5.48 说明](docs/release-0.5.48.md) · [完整代码审查交接](docs/REVIEW_HANDOFF.md)。
+软件内可从「工具与帮助 → 使用说明」或托盘的使用说明入口打开离线教程。下载源码中的 Markdown 文件后，也可以用支持 Markdown 的编辑器阅读。
 
-更新后到 Chrome 扩展管理页重新加载「灵感采集」，再刷新作品页面。[完整更新步骤](docs/update.md)
+## 支持的入口
 
-首次使用需要手动加载扩展。目前提供 Windows + Chrome 版本，安装包暂未签名。
+- **小红书**：单篇笔记、作者主页和具体收藏夹。
+- **花瓣、Pinterest**：当前作品和具体画板；花瓣支持画板中的普通与素材采集。
+- **X**：单帖和作者主页；主页批量不包含转帖与引用帖。
+- **B站**：单视频、分 P、视频合集、UP 主投稿、图文和文集。
+- **YouTube**：单视频、Shorts、播放列表与频道入口。
+- **Instagram、ArtStation、微博**：已适配的作品或列表入口。
+- **其他网页**：当前文章正文与图片。
 
-## 0.5.48 新版内容
+不同站点的内容类型和批量范围有差别，以页面可选项和任务结果为准。需要登录的内容由已登录的 Chrome 读取。[实际使用问题](docs/use-cases.md)
 
-- 视频可选「视频 + 字幕 + MD」「仅视频」「仅文字稿」或「仅提取音频」，另可开启自动抽帧。
-- 图片 / GIF 与图文的过滤选项直接显示在弹窗；去重方式、下载上限和抽帧间隔放在设置页。
-- 评论分别设置一级评论数量和每条评论的回复数量。楼中楼默认关闭。
-- MCP 在 Chrome 扩展后台接单，弹窗可关闭；支持完整采集选项、批量、进度、暂停、继续和失败重试。
-- B 站视频页支持分 P 选集批量，可保存视频或只提取音频；修复同轨备用地址被遗漏导致的下载失败。
-- 修复预扫描参数残留、解析缓存混用、取消后仍占用，以及任务进度串到上一项的问题。
-- 任务失败可跳到对应媒体诊断，支持搜索和错误类型筛选。
-- 修复旧任务恢复导致的启动失败，调整 X 媒体读取、花瓣主图识别与 X 批量计数。
-- 打开采集弹窗时检查正式新版并提醒；安装仍需运行下载的安装包。
+## 文件放在哪里
 
-这是预发布版。请重点试关弹窗后的 MCP 采集、暂停与继续、B 站分 P 批量；X 登录视频、花瓣全屏图与批量继续实测。[完整版本说明](docs/release-0.5.48.md)
+新采集按类型、平台和入口命名，图片、视频、字幕直接放在作品目录；没有内容的分类不创建文件夹。
 
-## 让 AI 调用 RefTray
+例如小红书收藏夹为 `批量/小红书/收藏夹采集-减肥-Ivy/图文-笔记标题`，B站分 P 为 `批量/B站/分P采集-总标题-UP主/P03-分P标题`。[各平台保存目录](docs/SAVE-LAYOUT-REVIEW-2026-11-11.md)
 
-**0.5.48 提供 16 个 MCP 工具。** AI 可以自动打开作品页，按要求保存图文、评论、图片或视频，并返回进度和保存位置；也能批量采集和控制任务。使用 Chrome 采集时保持浏览器及 RefTray 后台运行，扩展弹窗可以关闭。普通下载工具由本地后台直接访问网页。
+**更改素材库位置不会自动搬动旧文件。** 手动搬素材后，在设置中选择搬后的同一层目录，并保留每份素材的 `_来源记录`。如果素材库内有存放设置和记录的 `data` 文件夹，把它留在原处。
 
-[0.5.48 MCP 接入步骤与工具说明](docs/mcp.md)
+## 更新与排查
 
-## 能在哪些网站使用？
+在「设置 → 关于与更新」检查新版本、更新或恢复上一版程序。托盘的「程序更新」打开同一页。更新包括后台、Chrome 扩展和 MCP；素材与设置保留。[更新与恢复](docs/update.md)
 
-**小红书 · Pinterest · Instagram · X · 花瓣 · B站**，以及部分其他网页图片。
+失败任务可直接打开对应诊断，也可以从左侧「诊断记录」搜索。诊断每页 10 条，详细日志按需展开。
 
-各平台可用的采集方式见下表。
+## 让 AI 调用
 
-<details>
-<summary><strong>展开查看各平台适配范围</strong></summary>
+通过 MCP 接入后，AI 可以提交网页采集、查看进度、查找保存结果和控制任务。采集登录网页时保持 Chrome 与 RefTray 后台运行，扩展弹窗可以关闭。[接入步骤和工具说明](docs/mcp.md)
 
-| 平台 | 目前适配的范围 |
-| --- | --- |
-| 小红书 | 单篇笔记的图片、图文、纯文字及部分视频模式；部分作者页面批量 |
-| Pinterest | 当前 Pin、具体画板的相关图片采集；画板批量不支持图文模式 |
-| Instagram | 帖子、Reels 与部分作者帖子列表 |
-| X（原 Twitter） | 单帖和部分作者帖子列表；批量不包含转帖 |
-| 花瓣 | 已加入主图与画板/作者采集适配；全屏图和批量仍在修复验证 |
-| B站 | 受支持的视频稿件及 UP 主投稿列表，支持符合条件的视频保存、抽帧 |
-| YouTube | 单视频、Shorts 及播放列表/频道入口；字幕取决于原视频是否提供 |
-| ArtStation、微博 | 作品图片与图文入口；新版线上回归还没做完 |
-| 其他网页 | 当前文章的正文与图片，不提供通用作者批量 |
+## 项目说明
 
-新版完整线上回归还没做完。已收到的问题和处理进度见 [实际使用问题](docs/use-cases.md)。
+独立第三方项目，非相关平台官方产品。请在拥有相应权利、获得许可或其他合法依据时保存内容。[版权与隐私](docs/rights-and-privacy.md)
 
-</details>
+源代码可公开查看，项目尚未选定开源许可证；第三方组件遵守各自许可。[第三方声明](docs/third-party-notices.md) · [媒体组件](docs/third-party-media.md)
 
-## 常见问题
-
-**安装完，Chrome 里怎么还是旧版？**
-
-到 `chrome://extensions` 找到「灵感采集」，点重新加载，再刷新要采集的网页。安装程序更新磁盘上的文件，Chrome 需要重新加载扩展。[更新步骤](docs/update.md)
-
-**网页已经能看到图片或播放视频，为什么还保存失败？**
-
-花瓣主图识别和 X 登录视频都收到过这样的反馈。0.5.47 改了读取流程，这两项还没完成真实下载验收。遇到失败，保留任务记录；有诊断入口的任务可以直接查看对应原因。[已遇到的问题](docs/use-cases.md)
-
-**安装后提示“服务启动失败”，怎么办？**
-
-0.5.44 曾因恢复旧任务失败而无法启动，修复已包含在 0.5.47。更新后重试，保留原素材库和任务数据；若仍失败，查看程序状态目录中的 `data/inspiration/logs/service-errors.log`。[安装排查](docs/install.md)
-
-[更多实际使用问题 →](docs/use-cases.md)
-
-## 项目文档
-
-| 想做什么 | 从这里开始 |
-| --- | --- |
-| 安装、更新、解决使用问题 | [首次安装](docs/install.md) · [旧版更新](docs/update.md) · [完整教程](docs/usage.md) |
-| 查找真实反馈和修复进度 | [实际使用问题](docs/use-cases.md) · [English use cases](docs/use-cases-en.md) |
-| 查找全部文档 | [文档导航](docs/README.md) |
-| 介绍项目、查看图标方案 | [品牌与图标](docs/brand-guide.md) |
-
-<details>
-<summary><strong>名称、版本与文件位置说明</strong></summary>
-
-**RefTray · 灵感采集** 是对外展示名称；较早文档中的 **InspiShelf** 也指这个项目。最新预发布版为 **0.5.48**，稳定版为 **0.5.37**。安装器、快捷方式、托盘和扩展继续使用「灵感采集 / Inspiration Collector」。下载和已知问题见 [版本说明](docs/release-0.5.48.md)。
-
-首页采用已选定的简洁文件图标：空心文件轮廓与右上实心方块，不加内部横线。横幅固定使用白底，不随深色模式切换；0.5.28 构建已将同一 A 款标识应用到扩展与 Windows 程序图标。
-
-```text
-你选择的素材库/
-├── 图片/平台/作品/
-├── 图文/平台/作品/
-├── 视频/平台/作品/
-└── 批量/平台/作者或画板/
-```
-
-这是结构示例，实际目录随采集模式变化。
-
-</details>
-
----
-
-**独立第三方项目，非相关平台官方产品。** 仅在拥有相应权利、获得许可或其他合法依据时保存内容；公开可见不等于允许再分发或商用。[版权与隐私](docs/rights-and-privacy.md)
-
-源代码可公开查看，但**项目尚未选定开源许可证**；第三方组件遵守各自许可。[第三方声明](docs/third-party-notices.md) · [媒体组件说明](docs/third-party-media.md)
-
-维护：[iiiiivy123](https://github.com/iiiiivy123) · [提交反馈](https://github.com/iiiiivy123/inspiration-collector/issues)。反馈请附版本、复现步骤与脱敏截图，不要上传 Cookie、凭据、私人资料或受版权保护的完整媒体。开发过程中使用 OpenAI Codex 辅助。
+维护：[iiiiivy123](https://github.com/iiiiivy123) · [问题反馈](https://github.com/iiiiivy123/inspiration-collector/issues) · [全部文档](docs/README.md)。反馈请附版本、步骤与脱敏截图。开发过程中使用 OpenAI Codex 辅助。
 
 ## Windows 构建前检查
 
 构建宿主使用 Python 3.11 或更新版本及 pip；安装包运行时仍为锁定的 Python 3.13。先准备项目要求的离线 wheelhouse、运行时及编译工具，再从仓库根目录运行：
+
+0.5.50起还需已核验的 `build-tools/speech-runtime`。可用 `tools/prepare_build_inputs.py --media-source <媒体组件目录> --speech-source <已核验的speech-tools目录>` 准备；语音引擎、模型、对应源码与许可证按独立清单校验，缺失时在生成安装包前停止。原生构建方法、固定源码和许可见 [本地语音组件](docs/third-party-speech.md)，无需将本机完整FFmpeg或外部语音环境带进安装包。
 
 ```powershell
 python tools/build_windows.py --check-dependencies
@@ -166,7 +85,7 @@ python tools/build_windows.py
 
 ## 开发检查
 
-以下命令用于 `v0.5.48` 预发布源码：先检出该标签或对应开发分支，再在仓库根目录运行。Python 需要项目依赖；当前本机使用安装包自带的解释器，导入路径明确指向这份源码。其他机器把第一行改为实际解释器路径。
+在仓库根目录运行。Python 需要项目依赖；当前本机使用安装包自带的解释器，导入路径明确指向这份源码。其他机器把第一行改为实际解释器路径。
 
 ```powershell
 $reftrayTestPython = 'F:/RefTray/app/runtime/python.exe'

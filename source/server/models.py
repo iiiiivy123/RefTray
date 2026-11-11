@@ -7,14 +7,19 @@ from typing import Literal, Annotated
 
 class ImageItem(BaseModel):
     url: str
+    preferred_url: str | None = Field(default=None,max_length=4096)
+    data_url: str | None = Field(default=None,max_length=4096)
     alt: str | None = None
     data_base64: str | None = None
     content_type: str | None = None
-    source_kind: Literal['image', 'video_frame'] = 'image'
+    source_kind: Literal['image', 'video_frame', 'comment_gif'] = 'image'
+    role: Literal['body', 'comment'] = 'body'
+    comment_id: str | None = Field(default=None, max_length=100)
     frame_time: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class CommentItem(BaseModel):
+    parent_id: str | None = Field(default=None, max_length=100)
     text: str = Field(max_length=10000)
     author: str | None = Field(default=None, max_length=1000)
     id: str | None = Field(default=None, max_length=100)
@@ -72,7 +77,7 @@ class CollectRequest(BaseModel):
     omitted_images: int = Field(default=0, ge=0)
     include_images: bool = True
     md_only: bool = False
-    directory_schema: Literal['four-categories-v1', 'function-platform-v2'] = 'four-categories-v1'
+    directory_schema: Literal['four-categories-v1', 'function-platform-v2', 'function-platform-v3'] = 'four-categories-v1'
     capture_scope: Literal['single', 'batch'] | None = None
     capture_kind: Literal['images', 'text', 'video'] | None = None
     duplicate_policy: Literal['fill', 'skip', 'refresh'] = 'fill'
@@ -87,7 +92,7 @@ class CollectRequest(BaseModel):
     body_text: str = Field(default='', max_length=100000)
     document_source: DocumentSource | None = None
     published_at: str | None = Field(default=None, max_length=1000)
-    comments: list[CommentItem] = Field(default_factory=list, max_length=100)
+    comments: list[CommentItem] = Field(default_factory=list, max_length=1100)
     comments_requested: bool = False
     extraction_warnings: list[str] = Field(default_factory=list, max_length=20)
     save_directory: str | None = None
@@ -164,6 +169,7 @@ class DirectoryRequest(BaseModel):
 
 
 class VideoDownloadRequest(CollectRequest):
+    cover_url: str | None = Field(default=None, max_length=4096)
     resolver_warning: str = Field(default='', max_length=500)
     resolver_id: str | None = Field(default=None, max_length=100)
     subtitle_mode: Literal['none','only','with_video'] = 'none'
@@ -174,6 +180,8 @@ class VideoDownloadRequest(CollectRequest):
     trim_start: float = Field(default=0, ge=0, le=86400, allow_inf_nan=False)
     trim_end: float = Field(default=0, ge=0, le=86400, allow_inf_nan=False)
     audio_url: str | None = None
+    backup_urls: list[str] = Field(default_factory=list, max_length=3)
+    audio_backup_urls: list[str] = Field(default_factory=list, max_length=3)
     media_kind: Literal['ordinary','bilibili-dash','bilibili-file','bilibili-audio','youtube-dash','resolved'] = 'ordinary'
     quality: str | None = None
     max_video_mb: int = Field(default=512, ge=1, le=1048576)
@@ -210,6 +218,8 @@ class CaptureDefaults(BaseModel):
     include_images: bool = True
     include_comments: bool = False
     comment_limit: int = Field(default=10, ge=1, le=100)
+    include_replies: bool = False
+    replies_per_comment: int = Field(default=2, ge=1, le=10)
     ocr_enabled: bool = True
     strategy: Literal['slides','interval'] = 'slides'
     interval: float = Field(default=1, ge=0.5, le=60, allow_inf_nan=False)

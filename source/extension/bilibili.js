@@ -2,6 +2,7 @@
 (() => {
   const bv = value => {try {const u=new URL(value);return /^(www\.)?bilibili\.com$/.test(u.hostname)?u.pathname.match(/^\/video\/(BV[\da-zA-Z]{10})\/?$/)?.[1]:null;}catch(_){return null;}};
   const mediaUrl = value => {try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&(!u.port||u.port==='443')&&/(^|\.)bilivideo\.(com|cn)$/.test(u.hostname)?u.href:null;}catch(_){return null;}};
+  const trackUrls = x => [x.baseUrl,x.base_url,x.url,...(Array.isArray(x.backupUrl)?x.backupUrl:[]),...(Array.isArray(x.backup_url)?x.backup_url:[])].map(mediaUrl).filter(Boolean);
   function post(url,state,play,quality='best',outputFormat='original',playerIdentity=null) {
     const id=bv(url),video=state?.videoData;
     if(!id||video?.bvid!==id||!/^\d+$/.test(String(video?.owner?.mid||'')))throw Error('未确认当前B站稿件和UP主，未保存广告或推荐内容');
@@ -11,7 +12,7 @@
     const cid=String(page?.cid||(part===1?video.cid:'')||'');
     if(!/^\d+$/.test(cid))throw Error('未确认当前分P，未读取视频源');
     const canonical='https://www.bilibili.com/video/'+id+'/' +(part>1?'?p='+part:'');
-    const payload={canonical_url:canonical,page_title:video.title+(part>1?' · P'+part+' '+(page.part||''):''),author_name:video.owner.name||String(video.owner.mid),author_handle:String(video.owner.mid),platform:'bilibili',has_video:true,images:[],body_text:video.desc||'',extraction_warnings:[]};
+    const payload={canonical_url:canonical,page_title:video.title+(part>1?' · P'+part+' '+(page.part||''):''),author_name:video.owner.name||String(video.owner.mid),author_handle:String(video.owner.mid),platform:'bilibili',has_video:true,video_count:1,images:[],body_text:video.desc||'',extraction_warnings:[]};
     try{const pic=new URL(video.pic,'https://www.bilibili.com');if(pic.protocol==='http:')pic.protocol='https:';if(pic.protocol==='https:'&&/(^|\.)hdslb\.com$/.test(pic.hostname))payload.images=[{url:pic.href,alt:'当前稿件封面'}];}catch(_){}
     const data=play?.data;
     let source,error;
@@ -23,7 +24,7 @@
     else if(mismatch)error='[BILI_ID_MISMATCH] 播放信息身份与当前稿件或分P不匹配，未读取其他视频';
     else if(!bound)error='[BILI_ID_UNBOUND] 无法确认播放信息绑定当前分P；请等待播放器加载并播放后重试，不凭文件路径猜测来源';
     else if(data.dash){
-      const trackUrl=x=>[x.baseUrl,x.base_url,...(Array.isArray(x.backupUrl||x.backup_url)?x.backupUrl||x.backup_url:[])].map(mediaUrl).find(Boolean);
+      const trackUrl=x=>trackUrls(x)[0];
       const valid=(items,type)=>(items||[]).filter(x=>x&&trackUrl(x)&&!x.drm&&(!(x.mimeType||x.mime_type)||String(x.mimeType||x.mime_type).toLowerCase().startsWith(type+'/')));
       const allVideos=valid(data.dash.video,'video');
       const codec=x=>x.codecs||({7:'avc1',12:'hev1',13:'av01'})[x.codecid]||'';
@@ -33,20 +34,21 @@
         .sort((a,b)=>(b.bandwidth||0)-(a.bandwidth||0));
       const duration=Number(data.dash.duration||data.timelength/1000||page?.duration||video.duration)||null;
       const common={...pickPage(payload),duration,source_identity:{bvid:id,cid,part}};
-      if(outputFormat==='audio'&&audios.length)source={url:trackUrl(audios[0]),media_kind:'bilibili-audio',quality:'AAC 音频',...common};
-      else if(outputFormat!=='audio'&&videos.length&&audios.length)source={url:trackUrl(videos[0]),audio_url:trackUrl(audios[0]),media_kind:'bilibili-dash',quality:(videos[0].height||'?')+'p '+(/^avc1/i.test(codec(videos[0]))?'AVC':/^av01/i.test(codec(videos[0]))?'AV1':'HEVC'),...common};
+      const backups=track=>[...new Set(trackUrls(track))].slice(1,4);
+      if(outputFormat==='audio'&&audios.length)source={url:trackUrl(audios[0]),backup_urls:backups(audios[0]),media_kind:'bilibili-audio',quality:'AAC 音频',...common};
+      else if(outputFormat!=='audio'&&videos.length&&audios.length)source={url:trackUrl(videos[0]),backup_urls:backups(videos[0]),audio_url:trackUrl(audios[0]),audio_backup_urls:backups(audios[0]),media_kind:'bilibili-dash',quality:(videos[0].height||'?')+'p '+(/^avc1/i.test(codec(videos[0]))?'AVC':/^av01/i.test(codec(videos[0]))?'AV1':'HEVC'),...common};
       else {
         const reason=(items,type)=>(items||[]).map((x,i)=>`#${i+1} ${x.drm?'受保护':!trackUrl(x)?'地址协议或CDN域名未支持':(x.mimeType||x.mime_type)&&!String(x.mimeType||x.mime_type).toLowerCase().startsWith(type+'/')?'媒体类型不符':type==='audio'&&!/^mp4a/i.test(x.codecs||'')?'音频编码未支持':'已通过地址检查'}`).join('；')||'无轨道';
         error=`[BILI_TRACK_FILTER] 当前分P ${cid} 已绑定。网页视频 ${(data.dash.video||[]).length} 条、音轨 ${(data.dash.audio||[]).length} 条；地址通过视频 ${allVideos.length} 条、符合画质视频 ${videos.length} 条、AAC ${audios.length} 条。${outputFormat==='audio'?'音频输出仅要求有效音轨。':'完整视频要求视频和音轨均有效。'} 视频诊断：${reason(data.dash.video,'video')}。音轨诊断：${reason(data.dash.audio,'audio')}。`;
       }
     }else if(data.durl?.length===1){
-      const url=mediaUrl(data.durl[0].url);
-      if(url && !/\.flv(?:[?#]|$)/i.test(url))source={url,media_kind:'bilibili-file',quality:String(data.quality||'当前'),duration:Number(data.timelength)/1000||null,...pickPage(payload)};
+      const url=trackUrls(data.durl[0]).find(value=>!/\.flv(?:[?#]|$)/i.test(value));
+      if(url)source={url,backup_urls:[...new Set(trackUrls(data.durl[0]))].filter(value=>value!==url&&!/\.flv(?:[?#]|$)/i.test(value)).slice(0,3),media_kind:'bilibili-file',quality:String(data.quality||'当前'),duration:Number(data.timelength)/1000||null,...pickPage(payload)};
       else error='[BILI_FILE_UNSUPPORTED] 当前地址协议、CDN域名或格式不支持，未把FLV分段当作完整文件';
     }else error='[BILI_FORMAT_UNSUPPORTED] 当前是多段或未知格式，未保存不完整内容';
     return {payload,source,error};
   }
-  function pickPage(p){return {canonical_url:p.canonical_url,page_title:p.page_title};}
+  function pickPage(p){return {canonical_url:p.canonical_url,page_title:p.page_title,cover_url:p.images?.[0]?.url||null};}
   function article(url,doc,state){
     const u=new URL(url),id=u.pathname.match(/^\/(?:opus\/(\d+)|read\/cv(\d+))\/?$/);
     if(!id||! /^(www\.)?bilibili\.com$/.test(u.hostname))throw Error('请打开具体B站图文或专栏');

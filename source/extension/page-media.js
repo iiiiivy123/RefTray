@@ -1,5 +1,5 @@
 // Read only media belonging to the open post from already-loaded page state.
-// CAT-LOGUE's pure parsers are used under MIT; no network hooks or requests.
+// CAT-LOGUE's MIT parsers read page props and the bounded X response cache.
 (() => {
   const host = location.hostname, path = location.pathname;
   const xhs = /(^|\.)xiaohongshu\.com$/.test(host);
@@ -8,13 +8,15 @@
   const id = xhs ? path.match(/\/([a-f0-9]{24})\/?$/i)?.[1] : ins ? path.match(/^\/(?:[\w.]+\/)?(?:p|reels?)\/([\w-]+)/)?.[1] : x ? path.match(/\/status\/(\d+)/)?.[1] : null;
   if (!id) return {media: []};
   const roots = [];
+  let mainArticleFound=false, matchedRecord=false, parserFailed=false;
   if(x){
     // React-rendered post props may hold loaded media that is absent from script JSON.
     // Only inspect the article whose own status link matches this post, never global state.
     for(const article of document.querySelectorAll('article[data-testid="tweet"]')){
-      const ownLink=article.querySelector('a[href*="/status/"] time')?.closest('a');
+      const ownLink=[...article.querySelectorAll('a[href]')].find(link=>link.closest('article')===article&&link.querySelector('time')&&!link.closest('[data-testid="quoteTweet"]'));
       if(ownLink?.getAttribute('href')?.match(/\/status\/(\d+)/)?.[1]!==id)continue;
-      for(const node of [article,...Array.from(article.querySelectorAll('[data-testid="videoPlayer"],[data-testid="videoComponent"],video')).slice(0,10)]){
+      mainArticleFound=true;
+      for(const node of [article,...Array.from(article.querySelectorAll('*')).slice(0,400)]){
         const key=Object.keys(node).find(k=>k.startsWith('__reactProps$'));
         if(key)roots.push(node[key]);
         const fiberKey=Object.keys(node).find(k=>k.startsWith('__reactFiber$'));
@@ -38,7 +40,8 @@
     try { roots.push(JSON.parse(body)); } catch (_) {}
   }
   const stack = roots, seen = new WeakSet();
-  let best = [], visits = 0, author_handle;
+  const session=x ? globalThis.RefTrayXSession?.get(id) : null;
+  let best = session?.media || [], visits = 0, author_handle=session?.account;
   while (stack.length && visits++ < 5000) {
     const value = stack.pop();
     if (!value || typeof value !== 'object' || seen.has(value)) continue;
@@ -52,17 +55,17 @@
         const username=value.owner?.username || value.user?.username;
         if(typeof username==='string' && /^[\w.]{1,30}$/.test(username))author_handle=username.toLowerCase();
       }
-      if (x && String(value.rest_id || value.id_str || '') === id) record = globalThis.XEagleMedia.tweetRecord(value);
-    } catch (_) {}
-    if (record?.media?.length > best.length) best = record.media;
-    const children = Object.values(value);
+      if (x && String(value.rest_id || value.id_str || '') === id) {matchedRecord=true;record = globalThis.XEagleMedia.tweetRecord(value);}
+    } catch (_) {if(x)parserFailed=true;}
+    if(record?.media?.length)best=[...new Map([...best,...record.media].map(m=>[m.kind+':'+m.url,m])).values()];
+    const children = x ? Object.entries(value).filter(([key])=>!['return','stateNode','_owner','alternate'].includes(key)).map(([,child])=>child) : Object.values(value);
     for (let i = 0; i < Math.min(children.length, 500); i++) if (children[i] && typeof children[i] === 'object') stack.push(children[i]);
   }
   let hasGif=false;
-  if(x&&!best.length){
+  if(x&&!best.some(m=>m.kind==='gif'||m.kind==='video')){
     const article=[...document.querySelectorAll('article[data-testid="tweet"]')].find(a=>a.querySelector('a[href*="/status/"] time')?.closest('a')?.getAttribute('href')?.match(/\/status\/(\d+)/)?.[1]===id);
     for(const video of article?.querySelectorAll('video')||[]){
-      if(video.mediaKeys||video.closest('[data-testid="quoteTweet"]'))continue;
+      if(video.mediaKeys||video.closest('article')!==article||video.closest('[data-testid="quoteTweet"]'))continue;
       const component=video.closest('[data-testid="videoComponent"],[data-testid="videoPlayer"]');
       const gif=component&&[...component.querySelectorAll('span,[aria-label]')].some(n=>/^(GIF|Animated GIF)$/i.test((n.getAttribute('aria-label')||n.textContent||'').trim()));
       hasGif ||= Boolean(gif);
@@ -71,7 +74,8 @@
       best.push({kind:gif?'gif':'video',url,extension:'mp4'});
     }
   }
-  return {postId: id, author_handle, has_gif:hasGif||best.some(m=>m.kind==='gif'), media: best.slice(0, 100).filter(item => {
+  const read_state=x ? best.length?'media_found':parserFailed?'parser_failed':session||matchedRecord?'post_without_media':mainArticleFound?'post_data_missing':'main_post_missing' : undefined;
+  return {postId: id, read_state, author_handle, session_text:session?.text, session_ready:Boolean(globalThis.RefTrayXSession), has_gif:hasGif||best.some(m=>m.kind==='gif'), media: best.slice(0, 100).filter(item => {
     try {
       const url = new URL(item.url);
       return url.protocol === 'https:' && /(^|\.)(xhscdn\.com|xhscdn\.net|xhsimg\.com|cdninstagram\.com|fbcdn\.net|twimg\.com)$/.test(url.hostname);

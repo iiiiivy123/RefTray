@@ -1,6 +1,31 @@
 // UI strings only. Captured titles, paths, OCR and source documents stay unchanged.
 (() => {
   const en={
+    '批量视频':'Batch videos','批量音频':'Batch audio','批量图片':'Batch images','批量图文':'Batch notes','批量文字':'Batch text','音频':'Audio',
+    '忽略任务':'Dismiss task','忽略所选':'Dismiss selected','恢复到待处理':'Restore task','保留已保存的文件':'Keep saved files',
+    '尚未保存内容':'No content saved yet','已处理 {count} 项 · 失败 {failures}':'Processed {count} items · {failures} failed',
+    '文件已移走或发生变化':'Files have moved or changed','导入旧采集目录':'Import saved captures','目录路径':'Folder path',
+    '粘贴原采集目录的完整路径':'Paste the full capture folder path','选择原采集目录，先预览，再导入记录。素材留在原处。':'Choose the original folder, preview, then import its records. Files stay in place.',
+    '从本地视频保存画面，保留原视频。':'Save frames from a local video. The original stays unchanged.',
+    '取图方式':'Frame selection','合并相近画面':'Merge similar frames','按固定间隔取图':'At fixed intervals',
+    '每次最多 600 个采样点，图片最长边 2560 像素。减小间隔可保留更多短暂画面。':'Up to 600 samples, with a longest image edge of 2560 px. Shorter intervals retain more brief frames.',
+    '诊断记录':'Diagnostics','关于与更新':'About & updates','查看详细日志':'View detailed log','使用说明':'User guide',
+    '连接与恢复说明':'Connection & recovery','更新和恢复会保留素材、设置与采集记录。':'Updates and recovery preserve your files, settings and history.',
+    '采集选项':'Capture options','评论':'Comments','仅保存封面':'Cover only','保存封面':'Save cover',
+    '跳过首尾':'Trim','开头':'Start','结尾':'End','秒':'s',
+    '输入路径，或点击“选择系统文件夹”。':'Enter a path or choose a system folder.',
+    '正在选择文件夹；取消会关闭系统窗口并保留原目录。':'Choosing a folder. Cancel closes the system dialog and keeps the original path.',
+    '已取消系统选择；可以直接输入路径。':'System selection cancelled. You can enter a path.',
+    '已选好文件夹，点击“使用此目录”确认。':'Folder selected. Click Use this folder to confirm.',
+    '正在关闭系统窗口…':'Closing the system dialog…',
+    '从第几 P 开始':'Start from P','从第几个视频开始':'Start from video','恢复上一版程序':'Restore previous version',
+    '继续上次未完成的列表；起点和数量沿用原任务。':'Resume the unfinished list using the original start and count.',
+    '起始视频超出当前合集范围。':'Starting video is outside this collection.',
+    '仅按当前合集目录顺序采集，不包含推荐视频':'Follow this collection in order; exclude recommendations.',
+    '继续上次未完成的选集；起点和数量沿用原任务。':'Resume unfinished parts using the original start and count.',
+    '起始 P 超出当前选集范围。':'Starting P is outside this video’s part range.',
+    '程序更新':'App updates','检查正式新版':'Check for an official release','检查更新':'Check for updates','下载并更新':'Download & update',
+    '发现新版':'Update available','查看正式发布':'View release','稍后提醒':'Remind me later','忽略此版本':'Ignore this version',
     '管理':'Manage','任务':'Tasks','工具与帮助':'Tools & help','采集默认值':'Capture defaults','视频与保护':'Video & protection','内容偏好':'Content preferences',
     '正在连接本地后台…':'Connecting to local service…','本地后台已连接':'Local service connected','后台连接失败':'Local service unavailable','本地服务 · 素材保存在你的文件夹':'Local service · Files stay in your folders',
     '查看连接与诊断 ↗':'Connection & diagnostics ↗','默认值只影响未来新任务，续采保留原参数。':'Defaults apply to future tasks. Resume keeps original options.',
@@ -9,7 +34,7 @@
     '补齐缺失，不删除已有文件。':'Fill missing content; keep existing files.','网页抽帧从采集弹窗开始。':'Start web-video frames in the popup.','不保存 GIF / LIVE 动图内容。':'Skip GIF / LIVE animations.','仅页面已加载的内容。':'Already loaded content only.','本地 OCR':'Local OCR',
     '{count} 本页':'{count} on page','下载确认 · {count}':'Download approval · {count}',
     '扩展 {extension} · 后台 {backend}':'Extension {extension} · Service {backend}','扩展 {extension}':'Extension {extension}',
-    '已确认图片 {images} · GIF {gifs} · 视频 {videos}':'Confirmed images {images} · GIFs {gifs} · videos {videos}',
+    '预扫描图片 {images} · GIF {gifs} · 视频 {videos}；保存时核实':'Preview: images {images} · GIFs {gifs} · videos {videos}; verified when saving',
  '当前作品':'Current post','批量采集':'Batch capture','媒体过滤':'Media filters','跳过 GIF':'Skip GIFs','附带内容':'Include','正文图片':'Images','待开始':'Ready','处理中':'Processing','部分完成':'Partially complete','已完成':'Complete','已停止':'Stopped','正在收尾':'Finishing','失败':'Failed','跳过':'Skipped','选择采集内容后开始':'Choose content to begin','重新识别当前页':'Identify this page again','正在识别已加载正文…':'Checking loaded main content…','已确认图片 {images} · 视频 {videos}':'Confirmed images {images} · videos {videos}','未能识别，可手动选择采集内容。':'Could not identify content. Choose manually.',
     '后台已连接':'Backend connected',
     '下载保护':'Download protection','单个下载上限':'Download size limit','单个下载上限（MB）':'Download size limit (MB)',
@@ -204,11 +229,14 @@
     '篇数请填写 1–500。':'Enter a post limit from 1 to 500.'
   };
   Object.assign(en,{'默认评论条数':'Default reply limit','评论条数':'Reply limit','视频转 GIF':'Video to GIF','提取音频':'Extract audio','选择本地视频，转换为动图。':'Convert a local video into an animated GIF.','从本地视频提取 M4A 音频。':'Extract M4A audio from a local video.','打开本地视频工具；不上传视频。':'Open local frame extraction. No cloud upload.','暂无符合筛选条件的任务':'No tasks match this filter','失败':'Failed'});
+  Object.assign(en,{"采集范围": "Capture range", "图片上限（0 不限）": "Image limit (0 = unlimited)", "当前素材库": "Current library", "保存分类方式": "Save layout", "还原未保存选择": "Revert unsaved choice", "已还原当前选择。": "Selection reverted.", "分类方式尚未保存。": "Layout has unsaved changes.", "分类方式已保存，仅用于新作品。": "Layout saved for new captures.", "已识别：{items}": "Detected: {items}", "当前页未发现可采集内容": "No capture content found on this page", "发现视频": "Video found", "部分媒体读取失败": "Some media could not be read", "素材库位置已保存。": "Library location saved.", "正在保存位置并核对已有文件…": "Saving location and checking existing files…", "位置已保存，已关联 {count} 条搬库记录。": "Location saved; {count} moved records linked.", "手动搬库后，选择搬后的同一层目录，并保留「_来源记录」。校验一致的采集记录会自动关联。": "After moving the library, choose the same root level and keep the source records. Verified captures will be linked.", "未完成任务仍使用原路径，搬库前请先完成或停止任务。": "Unfinished tasks keep their original paths. Finish or stop them before moving the library.", "这里的 data 文件夹存放设置和采集记录，搬素材时请保留它。": "The data folder here contains settings and capture history. Leave it in place when moving media."});
   let language='zh';const originals=new WeakMap();
   function translate(s){
     if(language!=='en')return s;
     if(en[s])return en[s];
     let m;
+    if((m=s.match(/^本次范围：第(\d+)–(\d+)个视频（合集共(\d+)个）；按合集顺序采集。$/)))return `Videos ${m[1]}–${m[2]} of ${m[3]}, in collection order.`;
+    if((m=s.match(/^本次范围 P(\d+)–P(\d+)(?:（共 (\d+) P）)?；已保存项仍按重复保存设置处理。$/)))return `Range P${m[1]}–P${m[2]}${m[3]?' ('+m[3]+' parts total)':''}. Existing files follow your duplicate settings.`;
     if((m=s.match(/^已处理 (\d+)\/(\d+) 篇 · 图文 (\d+) 篇 · 新增图片 (\d+) · 重复图片 (\d+) · 视频 (\d+)$/)))return `Processed ${m[1]}/${m[2]} posts · Notes ${m[3]} · New images ${m[4]} · Duplicates ${m[5]} · Videos ${m[6]}`;
     if((m=s.match(/^本次预检 (\d+) 篇：已知视频 ([\d.]+) MB（可本地复用 ([\d.]+) MB），(\d+) 项大小或地址未知。\n磁盘剩余 ([\d.]+) GB；图片、抽帧和临时空间未计入。确认后开始下载。$/)))return `Checked ${m[1]} posts: known videos ${m[2]} MB (${m[3]} MB reusable locally); ${m[4]} sizes or sources unknown.\nFree disk space ${m[5]} GB. Images, frames and temporary files are not included. Confirm to download.`;
     if((m=s.match(/^保存完成，新增 (\d+) 张$/)))return `Saved ${m[1]} new images`;
