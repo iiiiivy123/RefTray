@@ -15,8 +15,10 @@ from fastapi import HTTPException, Request
 from server.update_storage import atomic_json, safe_path, sha256
 from server.update_recovery import backup_state, recovery_info
 
-REPOSITORY = 'iiiiivy123/inspiration-collector'
+REPOSITORY = 'iiiiivy123/RefTray'
+LEGACY_REPOSITORY = 'iiiiivy123/inspiration-collector'
 LATEST = f'https://api.github.com/repos/{REPOSITORY}/releases/latest'
+LEGACY_LATEST = f'https://api.github.com/repos/{LEGACY_REPOSITORY}/releases/latest'
 MAX_PACKAGE = 512 * 1024 * 1024
 ACTIVE = {'downloading', 'ready', 'installing', 'restarting', 'rolling_back'}
 
@@ -78,8 +80,9 @@ def release_info(data, current):
         if len(matches) != 1:
             raise ValueError('正式发布缺少安装包或校验文件')
         item = matches[0]
-        expected = f'https://github.com/{REPOSITORY}/releases/download/{tag}/{filename}'
-        if item.get('browser_download_url') != expected:
+        expected = {f'https://github.com/{repo}/releases/download/{tag}/{filename}'
+                    for repo in (REPOSITORY, LEGACY_REPOSITORY)}
+        if item.get('browser_download_url') not in expected:
             raise ValueError('更新文件来源不匹配')
         return item
     package, sums = asset(name), asset(checksum)
@@ -179,7 +182,14 @@ class Updates:
         atomic_json(self.base / 'status.json', {'phase': phase, 'message': message, 'time': time.time(), **values})
 
     def check(self):
-        return release_info(json.loads(read_small(LATEST, 2 * 1024 * 1024)), self.current)
+        try:
+            data = read_small(LATEST, 2 * 1024 * 1024)
+        except urllib.error.HTTPError as error:
+            # The bridge release also works before the repository is renamed.
+            if error.code != 404:
+                raise
+            data = read_small(LEGACY_LATEST, 2 * 1024 * 1024)
+        return release_info(json.loads(data), self.current)
 
     def start(self, requested):
         version(requested)

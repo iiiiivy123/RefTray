@@ -2,7 +2,8 @@
 // Only the official repository is contacted; no page or collection data is sent.
 const RefTrayUpdates = (() => {
   const day = 24 * 60 * 60 * 1000;
-  const latestUrl = 'https://api.github.com/repos/iiiiivy123/inspiration-collector/releases/latest';
+  const latestUrl = 'https://api.github.com/repos/iiiiivy123/RefTray/releases/latest';
+  const legacyUrl = 'https://api.github.com/repos/iiiiivy123/inspiration-collector/releases/latest';
 
   function versionParts(value) {
     const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(value || '');
@@ -26,8 +27,10 @@ const RefTrayUpdates = (() => {
     if (!(Date.now() < releaseCheck.nextCheck)) {
       let retryAt=Date.now()+3600000;
       try {
-        const response = await fetch(latestUrl, {credentials:'omit',referrerPolicy:'no-referrer',
-          signal:AbortSignal.timeout(5000),headers:{Accept:'application/vnd.github+json'}});
+        const options = {credentials:'omit',referrerPolicy:'no-referrer',
+          signal:AbortSignal.timeout(5000),headers:{Accept:'application/vnd.github+json'}};
+        let response = await fetch(latestUrl, options);
+        if (response.status === 404) response = await fetch(legacyUrl, options);
         if (!response.ok) {
           if(response.status===403||response.status===429){
             const reset=Number(response.headers?.get('x-ratelimit-reset'))*1000;
