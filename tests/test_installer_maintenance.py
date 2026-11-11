@@ -49,6 +49,37 @@ class MaintenanceTests(unittest.TestCase):
         backups = list((self.program / 'preserved-program-files').iterdir())
         self.assertEqual('user edit', backups[0].read_text())
         self.assertEqual('user edit', target.read_text())
+    def test_shipped_help_and_speech_tools_support_preflight_and_cleanup(self):
+        files = {name: self.file(name, name) for name in (
+            'help/index.html', 'speech-tools/bin/whisper-cli.exe',
+            'help/obsolete.html', 'speech-tools/obsolete.dll')}
+        edited = self.file('speech-tools/custom-model.bin', 'user edited')
+        unknown = self.file('help/personal-note.txt', 'user note')
+        old = {name: digest(path) for name, path in files.items()}
+        old['speech-tools/custom-model.bin'] = hashlib.sha256(b'original').hexdigest()
+        new = {name: old[name] for name in ('help/index.html', 'speech-tools/bin/whisper-cli.exe')}
+        self.manifests(old, new)
+        previous = self.root / 'previous.json'
+        result = cleanup_upgrade(self.program, self.incoming, self.state,
+                                 plan_only=True, export_manifest=previous)
+        self.assertEqual([], result['removed'])
+        self.assertTrue(all(path.exists() for path in files.values()))
+        result = cleanup_upgrade(self.program, self.incoming, self.state, previous_manifest=previous)
+        self.assertEqual({'help/obsolete.html', 'speech-tools/obsolete.dll'}, set(result['removed']))
+        self.assertTrue(files['help/index.html'].exists())
+        self.assertTrue(files['speech-tools/bin/whisper-cli.exe'].exists())
+        self.assertEqual('user edited', edited.read_text())
+        self.assertEqual('user note', unknown.read_text())
+
+    def test_unknown_directories_and_traversal_still_abort_before_changes(self):
+        target = self.file('help/obsolete.html', 'owned')
+        for name in ('unknown/file.txt', 'helpful/file.txt', 'speech-tools-extra/file.txt',
+                     'help/../../outside.txt', 'speech-tools/../outside.txt'):
+            with self.subTest(name=name):
+                self.manifests({'help/obsolete.html': digest(target), name: 'bad'}, {})
+                with self.assertRaises(ValueError):
+                    cleanup_upgrade(self.program, self.incoming, self.state)
+                self.assertTrue(target.exists())
     def test_invalid_manifest_does_not_delete_an_earlier_valid_entry(self):
         target = self.file('server/old.py', 'old')
         self.manifests({'server/old.py': digest(target), '../material.txt': 'bad'}, {})

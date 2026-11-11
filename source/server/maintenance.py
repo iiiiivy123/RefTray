@@ -11,7 +11,7 @@ from contextlib import closing
 import time
 from pathlib import Path
 
-PROGRAM_DIRS = {'server', 'extension', 'runtime', 'media-tools', 'docs', 'licenses'}
+PROGRAM_DIRS = {'server', 'extension', 'runtime', 'media-tools', 'speech-tools', 'docs', 'help', 'licenses'}
 PROGRAM_FILES = {'InspirationCollector.exe', 'README.md', 'README.txt', 'DISCLAIMER.md',
                  '首次安装.txt', '更新说明.txt', '安装后说明.html', 'managed-files.json', 'build-inputs.json'}
 
