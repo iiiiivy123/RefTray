@@ -6,20 +6,24 @@
 
 Chrome 和 RefTray 后台保持运行，扩展已加载即可。扩展在后台接单，自动打开或复用作品页；不用打开采集弹窗，也不用手动点击开始。空闲时通常在 30 秒内接单。
 
-登录页面使用 Chrome 当前账号。遇到网站登录或验证页面时，任务会返回具体原因。登录、图片识别与下载仍使用浏览器扩展原有的各平台实现。
+登录页面使用 Chrome 当前账号。遇到网站登录或验证页面时，先按网站提示完成操作，再重试。
+
+**X 作者主页批量期间需要保持该页面在前台。** 扩展弹窗可以关闭，但不要把主页标签切到后台。
+
+AI 客户端会收到任务结果，其中可能有原链接、标题、保存路径和诊断信息。使用前确认客户端的数据处理设置。[素材使用与隐私](rights-and-privacy.md)
 
 ## 接入
 
-在支持 stdio MCP 的客户端添加 `reftray`，启动命令与参数指向自己的安装目录：
+在支持 stdio MCP 的客户端添加 `reftray`。把下面两处 `<安装目录>` 换成你电脑上的完整路径：
 
 ```text
-command: F:\RefTray\app\runtime\python.exe
+command: <安装目录>\runtime\python.exe
 args:
   -B
-  F:\RefTray\app\server\mcp_stdio.py
+  <安装目录>\server\mcp_stdio.py
 ```
 
-默认安装目录为 `%LOCALAPPDATA%\Programs\InspirationCollector`。完整安装包同时包含后台、扩展和 MCP，更新沿用同一条启动命令，不需要重新填写安装路径。安装会关闭占用旧运行时的 MCP 进程；在 AI 客户端重新连接 RefTray 后，调用 `reftray_status` 可查看新后台版本和扩展是否在线。
+默认安装目录为 `%LOCALAPPDATA%\Programs\InspirationCollector`。可以在文件资源管理器打开这个地址，再复制地址栏里的完整路径；自定义安装位置请用自己的目录。完整安装包同时包含后台、扩展和 MCP，更新沿用同一条启动命令，不需要重新填写安装路径。安装会关闭占用旧运行时的 MCP 进程；在 AI 客户端重新连接 RefTray 后，调用 `reftray_status` 可查看新后台版本和扩展是否在线。
 
 ## 日常使用
 

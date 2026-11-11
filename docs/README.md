@@ -16,8 +16,8 @@
 | [MCP接口](mcp.md) | AI接入、工具参数、会话与网络 |
 | [全仓代码审查交接](REVIEW_HANDOFF.md) | 产品、架构、规范、历史问题和审查范围 |
 | [安装与使用教程](usage.md) | 下载安装、加载 Chrome 扩展、选择素材库、日常使用、更新与故障排查 |
-| [使用场景与常见问题](use-cases.md) | 启动失败、旧扩展、花瓣识别、X 登录视频与批量数量等实际反馈 |
-| [English use cases](use-cases-en.md) | Reported issues and current fixes in English |
+| [常见问题](use-cases.md) | 启动、更新、页面识别、批量数量、文件位置和素材使用 |
+| [English FAQ](use-cases-en.md) | Setup, updates, collection issues and use of saved material |
 | [下载与发布记录](https://github.com/iiiiivy123/inspiration-collector/releases) | Windows 安装包、版本说明与校验文件 |
 
 > 已有旧版：先从系统托盘**退出灵感采集**，再运行新安装包，最后重新加载 Chrome 扩展。只关闭浏览器不会退出本地后台。
@@ -45,7 +45,7 @@
 
 ## 版权、隐私与组件
 
-[版权与隐私](rights-and-privacy.md) · [第三方声明](third-party-notices.md) · [媒体组件说明](third-party-media.md) · [CAT·LOGUE 许可](CAT-LOGUE-LICENSE.txt)
+[素材使用与隐私](rights-and-privacy.md) · [第三方声明](third-party-notices.md) · [媒体组件说明](third-party-media.md) · [CAT·LOGUE 许可](CAT-LOGUE-LICENSE.txt)
 
 项目源代码可公开查看，尚未选择项目级开源许可证。RefTray 是独立第三方工具；保存和使用素材时，请遵守来源网站规则与内容授权。
 

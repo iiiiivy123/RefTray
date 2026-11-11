@@ -1,16 +1,22 @@
-# 首次安装（Windows 10/11 64 位 + Chrome）
+# 首次安装
 
-当前正式版为 **1.0.0**，从官方 Releases 下载 Windows 安装包。
+需要 Windows 10/11 64 位和 Chrome 120 或更新版本。当前正式版为 **1.0.0**。
 
 ## 1. 下载安装包
 
-打开 [Releases 下载页](https://github.com/iiiiivy123/inspiration-collector/releases)，在 Assets 下载文件名以 `Windows-x64-Setup.exe` 结尾的安装包。页面上的 Source code ZIP 是源码。
+打开 [Releases 下载页](https://github.com/iiiiivy123/inspiration-collector/releases)，在 Assets 下载文件名以 `Windows-x64-Setup.exe` 结尾的安装包，以及同版本的 `SHA256SUMS` 文件。`user.zip` 和 Source code ZIP 都需要自行配置运行环境；普通使用请选择安装包。
 
 安装包内置运行环境、媒体组件和扩展文件。
 
 AI客户端接入见 [MCP接口](mcp.md)。本地视频抽帧、视频转GIF和音频提取位于管理页“工具与帮助”。
 
-安装包尚未签名。请核实下载来源和 SHA256 校验文件，保留系统安全防护；来源不明的副本不要运行。
+安装包尚未签名。下载后，在文件所在文件夹打开 PowerShell，运行：
+
+```powershell
+Get-FileHash .\InspirationCollector-1.0.0-Windows-x64-Setup.exe -Algorithm SHA256
+```
+
+把输出的 Hash 与 `SHA256SUMS-1.0.0.txt` 中该文件名旁的值对照，字母大小写不影响比较。不一致就先别运行，重新从本仓库下载。系统若提示未知发布者，先核实来源和校验结果，保留系统安全防护。
 
 ## 2. 安装并启动
 
@@ -47,7 +53,7 @@ AI客户端接入见 [MCP接口](mcp.md)。本地视频抽帧、视频转GIF和�
 - **连接不到后台**：从开始菜单启动“灵感采集”，确认托盘图标出现后，重新打开扩展。
 - **版本不一致**：按 [更新说明](update.md) 重新加载扩展，再刷新作品页。
 - **端口被占用**：退出自己仍在运行的旧版后台；不要结束来源不明的其他程序。
-- **提示服务启动失败**：升级后失败时，先看 [更新与恢复说明](update.md)。0.5.50起会保存独立的旧程序恢复入口；保留状态目录中的 `data/inspiration/logs/service-errors.log`。
-- **花瓣图片或 X 视频保存失败**：查看 [实际反馈与修复状态](use-cases.md)，保留该次任务记录。
+- **提示服务启动失败**：升级后失败时，先看 [更新与恢复说明](update.md)。0.5.50起会保存独立的旧程序恢复入口；启动日志默认在 `%LOCALAPPDATA%\InspirationCollector\data\inspiration\logs\service-errors.log`，自定义状态目录则看其中的同名日志。
+- **花瓣图片或 X 视频保存失败**：查看 [常见问题](use-cases.md)，保留该次任务记录。
 
 仍有问题时，反馈版本、操作步骤、错误编号和脱敏截图即可。请勿发送 Cookie、密码或完整私人日志。更多操作见 [使用教程](usage.md)。
