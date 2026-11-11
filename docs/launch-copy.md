@@ -66,7 +66,7 @@ Repo：https://github.com/iiiiivy123/RefTray
 
 **Post:**
 
-I kept losing visual references across bookmarks and different content platforms, so I built **RefTray** (the Windows app is named Inspiration Collector).
+I kept losing visual references across bookmarks and different content platforms, so I built **RefTray** (shown as 灵感采集 in the Windows app and Chrome).
 
 It's a Windows app plus a Chrome extension that saves supported images, Markdown notes, text and some video files into a local folder you choose. Certain creator pages and boards support limited batch collection, and supported videos can be turned into reference frames.
 
@@ -123,4 +123,4 @@ Windows + Chrome · Images / Markdown / Video Frames
 
 ## 发布前检查
 
-首次发布前至少确认实际功能演示可重复、安装路径无误、兼容矩阵没有夸大、第三方许可随安装包分发、截图或视频内容有使用权。当前 0.5.48 为预发布版，稳定版为 0.5.37，程序内显示“灵感采集 / Inspiration Collector”，介绍时保留这个名称，方便用户查找。
+首次发布前至少确认实际功能演示可重复、安装路径无误、兼容矩阵没有夸大、第三方许可随安装包分发、截图或视频内容有使用权。发布版本以 [GitHub Releases](https://github.com/iiiiivy123/RefTray/releases) 为准；程序和扩展显示「灵感采集」，介绍时保留这个名称，方便用户查找。

@@ -10,7 +10,7 @@ class DistributionTests(unittest.TestCase):
             archive=build_release.build('user',Path(tmp))
             with zipfile.ZipFile(archive) as z:
                 names=set(z.namelist())
-                for name in ['extension/reftray-a.svg','extension/reftray-a.ico','extension/reftray-a-dark.ico','docs/install.md','docs/update.md','licenses/CAT-LOGUE-LICENSE.txt','licenses/third-party-notices.md','licenses/third-party-media.md','licenses/ytdlp-license.md']:
+                for name in ['extension/reftray-a.svg','extension/reftray-a.ico','extension/reftray-a-dark.ico','docs/install.md','docs/update.md','docs/save-layout.md','docs/SAVE-LAYOUT-REVIEW-2026-11-11.md','help/save-layout.html','help/SAVE-LAYOUT-REVIEW-2026-11-11.html','licenses/CAT-LOGUE-LICENSE.txt','licenses/third-party-notices.md','licenses/third-party-media.md','licenses/ytdlp-license.md']:
                     self.assertIn(name,names)
                 self.assertFalse(any('live-test.' in n or 'collector-settings.json' in n or '.sqlite' in n or n.startswith('data/') for n in names))
                 self.assertIsNone(z.testzip())

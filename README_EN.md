@@ -40,3 +40,7 @@ Keep the original URL, author, title and rights notices with the files. Before r
 RefTray does not bypass login, payment, CAPTCHA, DRM or access controls. Files are saved locally; source websites receive collection requests, and your AI client may process MCP results such as titles and saved paths. See the [rights and privacy guide](docs/rights-and-privacy.md).
 
 RefTray is an independent project. Its source is publicly viewable, but a project-wide open-source license has not been selected. Components have their own licenses, listed in the [third-party notices](docs/third-party-notices.md).
+
+## Development
+
+Build prerequisites and test commands are in the [development guide](docs/development.md) (Chinese). For normal use, download the Windows installer instead.

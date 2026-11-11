@@ -1,5 +1,5 @@
 """Offline guides must read cleanly and remain navigable without a network."""
-import sys, unittest
+import re, sys, unittest
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -27,6 +27,39 @@ class HelpPagesTests(unittest.TestCase):
             self.assertNotIn('<p align=', ''.join(parser.text))
         self.assertNotIn('Windows 构建前检查', pages['index.html'])
         self.assertIn('关于与更新',pages['update.html'])
+
+    def test_current_layout_and_legacy_links_both_work_offline(self):
+        pages=build_help.documents(ROOT)
+        self.assertIn('save-layout.html',pages)
+        self.assertIn('SAVE-LAYOUT-REVIEW-2026-11-11.html',pages)
+        for name in ('index.html','usage.html','SAVE-LAYOUT-REVIEW-2026-11-11.html'):
+            self.assertIn('href="save-layout.html"',pages[name],name)
+        self.assertIn('历史记录',pages['SAVE-LAYOUT-REVIEW-2026-11-11.html'])
+        self.assertIn('P03-第三讲',pages['save-layout.html'])
+
+    def test_build_commands_live_in_the_developer_guide(self):
+        readme=(ROOT/'README.md').read_text('utf-8')
+        development=(ROOT/'docs/development.md').read_text('utf-8')
+        self.assertIn('(docs/development.md)',readme)
+        for command in ('python tools/build_windows.py --check-dependencies','test_architecture_boundaries.py'):
+            self.assertNotIn(command,readme)
+            self.assertIn(command,development)
+        self.assertNotIn('F:/RefTray',development)
+        self.assertNotIn('F:/RefTray',readme)
+
+    def test_current_documentation_relative_file_links_resolve(self):
+        names=('README.md','README_EN.md','AGENTS.md','docs/README.md','docs/development.md',
+               'docs/usage.md','docs/install.md','docs/update.md','docs/mcp.md','docs/save-layout.md',
+               'docs/use-cases.md','docs/use-cases-en.md','docs/rights-and-privacy.md',
+               'docs/brand-guide.md','docs/press-kit.md','docs/launch-copy.md','docs/publishing.md',
+               'docs/demo-script.md','docs/release-1.0.1.md','docs/SAVE-LAYOUT-REVIEW-2026-11-11.md')
+        for name in names:
+            source=(ROOT/name).read_text('utf-8-sig')
+            self.assertNotIn('\ufffd',source,name)
+            for href in re.findall(r'\[[^]\n]+\]\(([^\s)]+)\)',source):
+                url=urlsplit(href)
+                if not url.scheme and url.path:
+                    self.assertTrue((ROOT/name).parent.joinpath(url.path).is_file(),(name,href))
 
     def test_markup_is_rendered_and_plain_fallback_has_no_markdown_noise(self):
         text='# 教程\n\n## 保存\n\n- **图片**：选 `高清`。\n- [更新](update.md)\n\n| 模式 | 用途 |\n| --- | --- |\n| 图文 | 正文 |\n\n```text\n示例路径\n```'

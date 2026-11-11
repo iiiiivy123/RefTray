@@ -170,3 +170,7 @@
 !/tests/collector/fixtures/
 /tests/collector/fixtures/*
 !/tests/collector/fixtures/bilibili-season-5056136.json
+
+# Current user guide and the separate developer entry.
+!/docs/save-layout.md
+!/docs/development.md

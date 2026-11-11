@@ -46,7 +46,7 @@ RefTray 是 Windows + Chrome 本地素材采集工具。素材保存在你选的
 
 新采集按类型、平台和入口命名，图片、视频、字幕直接放在作品目录；没有内容的分类不创建文件夹。
 
-例如小红书收藏夹为 `批量/小红书/收藏夹采集-减肥-Ivy/图文-笔记标题`，B站分 P 为 `批量/B站/分P采集-总标题-UP主/P03-分P标题`。[各平台保存目录](docs/SAVE-LAYOUT-REVIEW-2026-11-11.md)
+例如小红书收藏夹为 `批量/小红书/收藏夹采集-参考-示例作者/图文-笔记标题`，B站分 P 为 `批量/B站/分P采集-总标题-UP主/P03-分P标题`。[各平台保存目录](docs/save-layout.md)
 
 **更改素材库位置不会自动搬动旧文件。** 手动搬素材后，在设置中选择搬后的同一层目录，并保留每份素材的 `_来源记录`。如果素材库内有存放设置和记录的 `data` 文件夹，把它留在原处。
 
@@ -74,37 +74,6 @@ RefTray 是独立项目，平台名称用于说明支持哪些网页。
 
 维护：[iiiiivy123](https://github.com/iiiiivy123) · [问题反馈](https://github.com/iiiiivy123/RefTray/issues) · [全部文档](docs/README.md)。反馈请附版本、步骤与脱敏截图。开发过程中使用 OpenAI Codex 辅助。
 
-## Windows 构建前检查
+## 开发与构建
 
-构建宿主使用 Python 3.11 或更新版本及 pip；安装包运行时仍为锁定的 Python 3.13。先准备项目要求的离线 wheelhouse、运行时及编译工具，再从仓库根目录运行：
-
-0.5.50起还需已核验的 `build-tools/speech-runtime`。可用 `tools/prepare_build_inputs.py --media-source <媒体组件目录> --speech-source <已核验的speech-tools目录>` 准备；语音引擎、模型、对应源码与许可证按独立清单校验，缺失时在生成安装包前停止。原生构建方法、固定源码和许可见 [本地语音组件](docs/third-party-speech.md)，无需将本机完整FFmpeg或外部语音环境带进安装包。
-
-```powershell
-python tools/build_windows.py --check-dependencies
-python tools/build_windows.py
-```
-
-第一条只解析和校验锁定的离线依赖，不生成安装包；第二条也自动执行同一检查，通过后才创建打包目录。构建子进程隔离本机 pip 默认配置，不修改全局配置。规则见 `docs/SPEC.md` B02。
-
-实现依据：[pip 配置隔离](https://pip.pypa.io/en/stable/topics/configuration/)、[pip 离线解析与 dry-run](https://pip.pypa.io/en/stable/cli/pip_install/)。
-
-## 开发检查
-
-在仓库根目录运行。Python 需要项目依赖；当前本机使用安装包自带的解释器，导入路径明确指向这份源码。其他机器把第一行改为实际解释器路径。
-
-```powershell
-$reftrayTestPython = 'F:/RefTray/app/runtime/python.exe'
-& $reftrayTestPython -c "import sys,unittest; sys.path.insert(0,'source'); r=unittest.TextTestRunner().run(unittest.defaultTestLoader.discover('tests/collector',pattern='test_architecture_boundaries.py')); sys.exit(not r.wasSuccessful())"
-```
-
-每轮收尾执行架构检查。修改共享采集、任务或参数模块时，再运行完整回归：
-
-```powershell
-& $reftrayTestPython -c "import sys,unittest; sys.path.insert(0,'source'); r=unittest.TextTestRunner().run(unittest.defaultTestLoader.discover('tests/collector',pattern='test_*.py')); sys.exit(not r.wasSuccessful())"
-& $reftrayTestPython -c "import sys,unittest; sys.path.insert(0,'source'); r=unittest.TextTestRunner().run(unittest.defaultTestLoader.discover('tests',pattern='test_*.py')); sys.exit(not r.wasSuccessful())"
-node --test tests/collector/*.cjs
-git diff --check
-```
-
-架构检查覆盖服务端本地模块引用、循环依赖、解析与下载的依赖方向，以及扩展脚本加载文件。参数、停止、断线和平台内容由行为测试验证；真实 Chrome 验收记录在 [CURRENT](docs/CURRENT.md)。
+构建环境、依赖预检和测试命令见[开发指南](docs/development.md)。当前开发状态见 [CURRENT](docs/CURRENT.md)。
