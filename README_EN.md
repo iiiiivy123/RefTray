@@ -2,9 +2,9 @@
 
 Save web references to folders on your Windows PC: images, GIFs, Markdown notes, videos and audio.
 
-[Download 0.5.55](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v0.5.55) · [中文](README.md) · [Installation](docs/install.md) · [MCP setup](docs/mcp.md)
+[Download 1.0.0](https://github.com/iiiiivy123/inspiration-collector/releases/tag/v1.0.0) · [中文](README.md) · [Installation](docs/install.md) · [MCP setup](docs/mcp.md)
 
-**0.5.55 is the current stable release.** It uses the same capture engine in the Chrome extension and MCP interface.
+**1.0.0 is the current stable release.** It uses the same capture engine in the Chrome extension and MCP interface.
 
 ## Getting started
 
@@ -29,7 +29,7 @@ Adapters cover Xiaohongshu, Huaban, Pinterest, X, Bilibili, YouTube, Instagram, 
 
 ## Updating
 
-From 0.5.48 or earlier, install the full 0.5.55 package over the existing program. Later versions can check for updates in **Settings → About & updates**. Reload the Chrome extension and refresh work pages after upgrading. Reconnect the AI client's MCP connection when needed.
+From 0.5.48 or earlier, install the full 1.0.0 package over the existing program. Later versions can check for updates in **Settings → About & updates**. Reload the Chrome extension and refresh work pages after upgrading. Reconnect the AI client's MCP connection when needed.
 
 Your library, settings and saved records are retained. Read the [update guide](docs/update.md) for recovery steps.
 

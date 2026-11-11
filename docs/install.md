@@ -1,6 +1,6 @@
 # 首次安装（Windows 10/11 64 位 + Chrome）
 
-当前正式版为 **0.5.55**，从官方 Releases 下载 Windows 安装包。
+当前正式版为 **1.0.0**，从官方 Releases 下载 Windows 安装包。
 
 ## 1. 下载安装包
 

@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 PAGES=('README.md','docs/usage.md','docs/install.md','docs/update.md','docs/mcp.md',
-       'docs/use-cases.md','docs/rights-and-privacy.md','docs/SAVE-LAYOUT-REVIEW-2026-11-11.md','docs/release-0.5.54.md','docs/release-0.5.55.md')
+       'docs/use-cases.md','docs/rights-and-privacy.md','docs/SAVE-LAYOUT-REVIEW-2026-11-11.md','docs/release-0.5.54.md','docs/release-0.5.55.md','docs/release-1.0.0.md')
 NAMES={name:('index.html' if name=='README.md' else Path(name).stem+'.html') for name in PAGES}
 STYLE='''body{margin:0;background:#f7f7f7;color:#222;font:16px/1.85 "Segoe UI","Microsoft YaHei",sans-serif}main{max-width:880px;margin:48px auto;padding:0 28px 60px}nav{display:flex;gap:22px;flex-wrap:wrap;border-bottom:1px solid #ddd;padding-bottom:18px;margin-bottom:36px}a{color:inherit;text-decoration:underline;text-underline-offset:4px}h1{font-size:30px;line-height:1.4;margin:32px 0}h2{font-size:22px;margin:38px 0 16px}h3{font-size:18px;margin-top:26px}p,li{overflow-wrap:anywhere}li{margin:7px 0}table{border-collapse:collapse;width:100%;font-size:15px}td,th{text-align:left;border-bottom:1px solid #ddd;padding:12px 14px;vertical-align:top}th{font-weight:600}code{font-family:Consolas,monospace;background:#eee;padding:2px 4px}pre{background:#eee;padding:18px;white-space:pre-wrap;overflow-wrap:anywhere}pre code{padding:0}footer{margin-top:40px;padding-top:20px;border-top:1px solid #ddd;color:#777;font-size:13px}@media(max-width:600px){main{margin:24px auto;padding:0 18px 40px}table{font-size:14px}td,th{padding:8px}}'''
 

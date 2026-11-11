@@ -1,4 +1,4 @@
-# RefTray 0.5.55 使用教程
+# RefTray 1.0.0 使用教程
 
 适用于 Windows + Chrome。首次使用见 [安装步骤](install.md)，从旧版升级见 [更新步骤](update.md)。
 
