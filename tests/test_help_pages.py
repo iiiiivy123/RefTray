@@ -77,6 +77,66 @@ class HelpPagesTests(unittest.TestCase):
         self.assertNotIn('href=',rendered)
         self.assertIn('&lt;script&gt;',rendered)
 
+class McpDocumentationTests(unittest.TestCase):
+    def test_stdio_configuration_has_separate_command_and_arguments(self):
+        import json
+        text=(ROOT/'docs/mcp.md').read_text('utf-8')
+        blocks=[json.loads(value) for value in re.findall(r'```json\n(.*?)\n```',text,re.S)]
+        configs=[value for value in blocks if 'mcpServers' in value]
+        self.assertEqual(len(configs),1)
+        config=configs[0]['mcpServers']['reftray']
+        self.assertEqual(config['args'][0],'-B')
+        self.assertEqual(len(config['args']),2)
+        self.assertTrue(config['command'].endswith('/runtime/python.exe'))
+        self.assertTrue(config['args'][1].endswith('/server/mcp_stdio.py'))
+        self.assertEqual(config['command'].removesuffix('/runtime/python.exe'),
+                         config['args'][1].removesuffix('/server/mcp_stdio.py'))
+        self.assertNotIn('%LOCALAPPDATA%',json.dumps(config))
+
+    def test_documented_tool_arguments_match_discovery_and_capture_models(self):
+        import json
+        from server.browser_bridge import BrowserCapture
+        from server.mcp_stdio import dispatch
+        schemas={tool['name']:tool['inputSchema'] for tool in dispatch('tools/list',{},None)['tools']}
+        text=(ROOT/'docs/mcp.md').read_text('utf-8')
+        examples=re.findall(r'工具：`([^`]+)`\s*\n+```json\n(.*?)\n```',text,re.S)
+        self.assertEqual(len(examples),6)
+        # Configuration is the only JSON block that is not a tool-argument example.
+        self.assertEqual(len(re.findall(r'```json\n',text)),len(examples)+1)
+        captures=[]
+        for name,encoded in examples:
+            args=json.loads(encoded)
+            with self.subTest(tool=name,args=args):
+                self.assertIn(name,schemas)
+                schema=schemas[name]
+                self.assertTrue(set(schema['required']) <= set(args))
+                self.assertTrue(set(args) <= set(schema['properties']))
+                for key,value in args.items():
+                    field=schema['properties'][key]
+                    if field.get('type')=='string': self.assertIsInstance(value,str)
+                    if 'enum' in field: self.assertIn(value,field['enum'])
+                    if 'pattern' in field: self.assertRegex(value,field['pattern'])
+                if name in ('reftray_capture_browser','reftray_capture_batch'):
+                    captures.append(BrowserCapture.model_validate(args))
+        self.assertEqual(len(captures),3)
+        self.assertEqual(captures[0].scope,'single')
+        self.assertEqual(captures[1].options.limit,5)
+        self.assertEqual((captures[2].scope,captures[2].mode),('author','video'))
+        self.assertEqual((captures[2].options.skip_posts,captures[2].options.limit,
+                          captures[2].options.output_format),(9,5,'audio'))
+
+    def test_offline_guides_keep_setup_and_permission_instructions(self):
+        pages=build_help.documents(ROOT)
+        for text in ('mcpServers','reftray_status','reftray_process_local','PASTE_JOB_ID','8766',
+                     '安装和恢复工具一旦调用','REFTRAY_MCP_PORT'):
+            self.assertIn(text,pages['mcp.html'])
+        for page in ('install.html','usage.html'):
+            self.assertIn('齿轮',pages[page])
+            self.assertIn('新标签页',pages[page])
+        self.assertIn('SmartScreen',pages['install.html'])
+        self.assertIn('程序状态目录',pages['install.html'])
+        self.assertNotIn('若自行修改后台端口',pages['mcp.html'])
+
 class HelpEndpointTests(unittest.TestCase):
     def test_only_authorized_requests_open_the_fixed_packaged_guide(self):
         import tempfile

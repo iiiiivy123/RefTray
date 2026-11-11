@@ -1,6 +1,6 @@
 # RefTray 1.0.1 已发布（2026-11-12，UTC+08:00）
 
-[1.0.1 正式版](https://github.com/iiiiivy123/RefTray/releases/tag/v1.0.1)已公开并设为 Latest。仓库已改名为 [RefTray](https://github.com/iiiiivy123/RefTray)，旧仓库、旧发布页面和旧校验文件链接跳转正常。版本标签对应 `2c15a0d`；之后的提交只更新本页和任务记录。
+[1.0.1 正式版](https://github.com/iiiiivy123/RefTray/releases/tag/v1.0.1)已公开并设为 Latest。仓库已改名为 [RefTray](https://github.com/iiiiivy123/RefTray)，旧仓库、旧发布页面和旧校验文件链接跳转正常。版本标签对应 `2c15a0d`；发布后的 main 另有三份指南和文档测试修订，不改变该版本资产。
 
 更新器兼容新旧仓库名，升级预检支持已发布的离线帮助和语音组件目录。用户文档根目录收敛到 14 个教程/许可文件，开发交接、历史版本和宣传资料各归子目录。安装包只包含当前用户指南和版本说明。
 
@@ -8,4 +8,6 @@
 
 日常安装和原未提交工作没有改动。完整 setup.exe 升级/卸载仍需专用干净 Windows 环境。当前网络的匿名 GitHub API 曾返回限流；已用官方鉴权元数据验证新旧解析器，并实取新旧地址的公开校验文件。1.0.0 及更早版本需按[更新说明](../update.md)手动覆盖安装一次。
 
-本轮发布收尾完成，后续 mcp、usage、install 的新增 review 单独处理。详情见 [TASK](TASK.md)。
+发布后的 mcp、usage、install review 已集成：补齐 MCP 配置和调用示例、更新与恢复的操作条件、管理页入口，并说明端口、目录与客户端权限。以 main `c494369` 为基线，在 `integrate/postrelease-guides` 分支的 `work/integrate-postrelease-guides/checkout` 合入 `d502495`，保留本页和任务记录中的发布结果。
+
+本轮 49 项分发/帮助、8 项架构和 13 项 MCP 检查通过；10 个离线帮助文件可生成，180 个文档相对链接有效。GitHub main 上的在线指南已更新；1.0.1 安装包、随包离线帮助及 user.zip 保持发布时内容，下一次发布时才会带上本轮修改。本轮不发新版、不改日常安装。详情见 [TASK](TASK.md)。
