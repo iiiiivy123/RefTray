@@ -10,4 +10,4 @@
 
 RefTray 是独立项目，平台名称用于说明兼容范围。项目源码可查看，项目级开源许可证尚未选定；第三方组件按各自许可提供。
 
-详细说明见[素材使用与隐私](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/rights-and-privacy.md)和[第三方声明](https://github.com/iiiiivy123/inspiration-collector/blob/main/docs/third-party-notices.md)。
+详细说明见[素材使用与隐私](https://github.com/iiiiivy123/RefTray/blob/main/docs/rights-and-privacy.md)和[第三方声明](https://github.com/iiiiivy123/RefTray/blob/main/docs/third-party-notices.md)。
