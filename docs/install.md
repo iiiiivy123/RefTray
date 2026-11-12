@@ -4,21 +4,11 @@
 
 ## 1. 下载安装包
 
-打开 [Releases 下载页](https://github.com/iiiiivy123/RefTray/releases)，在 Assets 下载文件名以 `Windows-x64-Setup.exe` 结尾的安装包，以及同版本的 `SHA256SUMS` 文件。`user.zip` 和 Source code ZIP 都需要自行配置运行环境；普通使用请选择安装包。
+打开 [Releases 下载页](https://github.com/iiiiivy123/RefTray/releases)，在 Assets 下载文件名以 `Windows-x64-Setup.exe` 结尾的安装包。`user.zip` 和 Source code ZIP 都需要自行配置运行环境；普通使用请选择安装包。
 
-安装包内置运行环境、媒体组件和扩展文件。
+**普通安装只需下载安装包并双击运行，不需要打开 PowerShell、手动校验或另装 Python、FFmpeg。** 安装包内置运行环境、媒体组件和扩展文件。`SHA256SUMS` 是可选校验文件，不是安装依赖。
 
 AI 客户端接入见 [MCP 接口](mcp.md)。先完成以下安装和扩展设置，再配置 AI。
-
-安装包尚未签名。下载后，在文件所在文件夹打开 PowerShell，运行：
-
-```powershell
-Get-FileHash .\InspirationCollector-1.0.1-Windows-x64-Setup.exe -Algorithm SHA256
-```
-
-打开同一版本的 `SHA256SUMS-1.0.1.txt`，找到安装包文件名旁的校验值，与命令输出的 Hash 逐字对照；字母大小写不影响比较。不一致就先别运行，重新从本仓库下载。
-
-SHA256 一致说明下载文件与发布的校验值相符，不是安全认证。未签名的安装包可能触发 Windows SmartScreen 提示。遇到“未知发布者”或“Windows 已保护你的电脑”时，先核实下载来源和校验结果；不要关闭系统安全防护。不确定时停止安装，附脱敏提示截图反馈。
 
 ## 2. 安装并启动
 
@@ -28,7 +18,16 @@ SHA256 一致说明下载文件与发布的校验值相符，不是安全认证�
 
 采集时保持后台运行。需要退出时，在托盘图标上右键选择 **退出灵感采集**。关闭 Chrome 或扩展弹窗后，后台仍会运行。
 
-## 3. 把扩展添加到 Chrome
+### 只有遇到 Windows 拦截时才看这里
+
+安装包暂未签名。如果出现蓝色 **“Windows 已保护你的电脑”** SmartScreen 提示，确认文件来自[本仓库 Releases](https://github.com/iiiiivy123/RefTray/releases)、应用名是刚下载的安装包，且你愿意安装 RefTray 后，点击 **“更多信息” → “仍要运行”**。
+
+“未知发布者”表示没有签名，不等于下载损坏。担心下载是否完整，可用文末的**可选校验**。没有“仍要运行”、被组织策略禁止，或安全软件明确报告病毒/恶意软件时，请停止并反馈截图；不要关闭安全防护或添加排除项。默认安装不需要管理员权限；意外弹出管理员授权窗口时先取消，核实打开的文件。
+
+## 3. 把扩展添加到 Chrome（仅首次）
+
+程序到这里已经安装完成。**当前扩展尚未通过 Chrome 网上应用店分发，首次仍需手动加载一次**；安装器已准备好扩展文件，不用另行下载或解压。后续打开 Chrome 就可以使用，不必每天重做（采集时后台需保持运行）。
+
 
 1. 右键托盘图标，选择 **复制扩展文件夹地址**。
 2. 在 Chrome 地址栏输入 `chrome://extensions`。
@@ -63,6 +62,55 @@ SHA256 一致说明下载文件与发布的校验值相符，不是安全认证�
 完成后点击 **打开保存位置**，检查图片能否打开、媒体能否播放。若失败，请保留错误提示，并按下面的方法排查。
 
 想加工本地视频时，打开同一个管理页，选择左侧 **工具与帮助**，再选抽帧、视频转 GIF 或提取音频。
+
+## 可选：自动检查下载是否完整
+
+这不是必做的安装步骤。怀疑文件下载不完整，或想额外核对时，再下载同版本的 `SHA256SUMS` 文件，用下面的方法自动检查，**不用逐字比对校验码**：
+
+1. 将同一次发布的安装包和 `SHA256SUMS` 文件放进**同一个文件夹**。下面以 1.0.1 为例，文件名应为 `InspirationCollector-1.0.1-Windows-x64-Setup.exe` 和 `SHA256SUMS-1.0.1.txt`。不要混用不同版本；若浏览器给文件名加了 `(1)`，先把这两个文件恢复为上述原名，或重新下载到空文件夹。
+2. 在文件资源管理器打开这个文件夹，点击顶部**地址栏**，输入 `powershell` 后回车。不需要管理员权限；下载到其他磁盘或中文、带空格的目录也一样。
+3. 复制下面**整段**命令，粘贴进 PowerShell 后按回车。它只读文件并校验，不会安装程序、联网或修改安全设置。
+
+```powershell
+& {
+    $version = '1.0.1'
+    $name = "InspirationCollector-$version-Windows-x64-Setup.exe"
+    $installer = Join-Path (Get-Location).Path $name
+    $sums = Join-Path (Get-Location).Path "SHA256SUMS-$version.txt"
+    try {
+        foreach ($file in @($installer, $sums)) {
+            if (!(Test-Path -LiteralPath $file -PathType Leaf)) {
+                throw "找不到 $file。请在两个下载文件所在的文件夹打开 PowerShell，并检查文件名。"
+            }
+        }
+        $pattern = '^([0-9a-fA-F]{64})\s+\*?' + [regex]::Escape($name) + '$'
+        $entries = @(Get-Content -LiteralPath $sums -ErrorAction Stop |
+            ForEach-Object { if ($_ -match $pattern) { $Matches[1] } })
+        if ($entries.Count -ne 1) {
+            throw '校验文件中没有唯一的对应安装包记录。请重新下载同一版本的两个文件。'
+        }
+        $stream = [IO.File]::OpenRead($installer)
+        $sha = [Security.Cryptography.SHA256]::Create()
+        try {
+            $actual = ([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-', '')
+        } finally {
+            $stream.Dispose()
+            $sha.Dispose()
+        }
+        if ($actual -ine $entries[0]) {
+            throw '文件内容不一致。不要运行安装包，请从本仓库重新下载两个文件后再试。'
+        }
+        Write-Host '校验通过：下载文件与发布记录一致。下一步可双击安装包。' -ForegroundColor Green
+    } catch {
+        Write-Host ('校验失败：' + $_.Exception.Message) -ForegroundColor Red
+    }
+}
+```
+
+- **显示“校验通过”**：可以双击安装包。SHA256 只确认文件与发布记录一致，不是安全认证，也不替代你对下载来源的信任。
+- **显示“校验失败”**：不要运行安装包，按后面的具体原因处理，再运行整段检查。如果提示找不到文件，先确认打开的是下载目录，而不是 PowerShell 的默认用户目录。
+- 以后安装其他版本时，将第一行 `$version = '1.0.1'` 中的版本号换成该次发布的版本；安装包和校验文件必须来自同一个 Release。
+
 
 ## 常见问题
 
