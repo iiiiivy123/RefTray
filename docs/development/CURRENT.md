@@ -1,3 +1,17 @@
+# 当前：1.0.2 本地候选，待专用 Windows 验收
+
+2026-11-16（Asia/Shanghai）。基于已 fetch 核实的 GitHub main `eea11a680ad40829cc8a81634c7a3c41fb31c54f`，分支 `feat/onboarding-101`，源码 `F:/RefTray/worktrees/onboarding-101`。正式发布仍为 **v1.0.1**；本轮未推送/发布。旧 `F:/RefTray/source` 未提交工作保留。
+
+已实现：安装向导可选登录自启（新装默认关闭）、设置页开关、首次手动启动选素材库、选库后同窗口指导加载 Chrome；单一引导可从托盘返回。兼容旧名称扩展与安装身份，不移动素材，不重做弹窗或采集功能。
+
+**用户已选择保留安装到 `F:/RefTray/app` 的 1.0.2 候选。** 本轮查看向导期间检测到用户操作，安装已完成；原“不改日常安装”状态已被此决定更新。后台版本 1.0.2，1848 个程序文件校验通过；原库 `F:/LibLib自动化`、设置及 456 条采集记录/2566 条素材索引/429 条任务记录均保留。Chrome 最近仍报告扩展 1.0.1，需用户重新加载一次。未重启宿主。
+
+候选：`dist/InspirationCollector-1.0.2-Windows-x64-Setup.exe`，126579400 字节，SHA256 `5b5c63c8390d0fc630c299eeec5a0a98a09054f05080eb7b31be467dd0488f95`。58 项 Python、170 项 JavaScript、命名管道/C# 编译、依赖预检、构建和隔离启动退出检查通过。
+
+**整体验收未完成**：未发现可用的专用干净 Windows，尚未跑发布页浏览器下载、首次选库完整 UI、候选 Chrome 首图实存、勾选/不勾及设置切换后的真实重启登录、专用环境覆盖升级与卸载。宿主实装和 fixture 不替代这些验收；也未复现朋友的下载后“双击无反应”。下一步与分项证据见 [TASK](TASK.md)。本轮不做悬浮保存、SVG、网页长截图。
+
+---
+
 # RefTray 1.0.1 已发布（2026-11-12，UTC+08:00）
 
 [1.0.1 正式版](https://github.com/iiiiivy123/RefTray/releases/tag/v1.0.1)已公开并设为 Latest。仓库已改名为 [RefTray](https://github.com/iiiiivy123/RefTray)，旧仓库、旧发布页面和旧校验文件链接跳转正常。版本标签对应 `2c15a0d`；发布后的 main 另有三份指南和文档测试修订，不改变该版本资产。

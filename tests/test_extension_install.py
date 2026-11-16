@@ -11,6 +11,21 @@ from server.extension_install import sync_extensions
 
 
 class ExtensionUpgradeTests(unittest.TestCase):
+    def test_rebranded_extension_updates_legacy_path_and_can_restore(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            old = self.extension(root, 'old', '1.0.1')
+            new = self.extension(root, 'new', '1.0.2')
+            backup = self.extension(root, 'backup', '1.0.1')
+            manifest = new / 'manifest.json'
+            value = json.loads(manifest.read_text('utf-8'))
+            value['name'] = 'RefTray'
+            manifest.write_text(json.dumps(value), 'utf-8')
+            sync_extensions(new, [old])
+            self.assertEqual(json.loads((old / 'manifest.json').read_text('utf-8'))['name'], 'RefTray')
+            sync_extensions(backup, [old])
+            self.assertEqual(json.loads((old / 'manifest.json').read_text('utf-8'))['version'], '1.0.1')
+
     def extension(self, root, name, version):
         path = root / name
         path.mkdir()

@@ -30,7 +30,7 @@ def create_app(runtime=None):
     if runtime is None and settings.library_configured:
         initialize_folders(settings.inbox)
     storage = runtime.storage if runtime is not None else Storage(settings)
-    app = FastAPI(title="灵感采集", version="0.5.0")
+    app = FastAPI(title="RefTray", version="0.5.0")
     from .extension_origin import paired_origins
     origins = paired_origins()
     app.add_middleware(CORSMiddleware, allow_origins=sorted(origins), allow_methods=["GET", "HEAD", "POST", "OPTIONS"], allow_headers=["Content-Type", "X-Collector-Token", "Range"], expose_headers=['Content-Length', 'Content-Range', 'Accept-Ranges'])
@@ -100,7 +100,7 @@ def create_app(runtime=None):
 
     def authorize_settings(request: Request) -> None:
         if not secrets.compare_digest(request.headers.get("X-Collector-Token", ""), settings_token):
-            raise HTTPException(403, "扩展未通过后台校验。升级后请在 chrome://extensions 重新加载「灵感采集」，刷新作品网页并重新打开面板；若仍失败，请确认扩展与后台来自同一安装版本。")
+            raise HTTPException(403, "扩展未通过后台校验。升级后请在 chrome://extensions 重新加载「RefTray」，刷新作品网页并重新打开面板；若仍失败，请确认扩展与后台来自同一安装版本。")
 
 
     @app.get('/settings/library/check')
@@ -126,6 +126,25 @@ def create_app(runtime=None):
             except OSError as exc:
                 raise HTTPException(400, f'素材库读写检查失败，请检查目录权限或重新选择文件夹：{exc}') from exc
         return {'directory': str(directory), 'writable': True}
+
+    class StartupRequest(BaseModel):
+        enabled: bool
+
+    @app.get('/settings/startup')
+    def get_startup(request: Request):
+        return startup_preference(request)
+
+    @app.post('/settings/startup')
+    def set_startup(value: StartupRequest, request: Request):
+        return startup_preference(request, value.enabled)
+
+    def startup_preference(request, enabled=None):
+        authorize_settings(request)
+        from .startup import preference
+        try:
+            return preference(enabled)
+        except (OSError, ValueError, ImportError) as exc:
+            raise HTTPException(400, f'开机启动设置未完成：{exc}') from exc
 
 
     @app.get('/settings/defaults')

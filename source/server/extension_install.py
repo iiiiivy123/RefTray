@@ -20,7 +20,7 @@ def checked_directory(path):
 def is_reftray(path):
     try:
         manifest = json.loads((path / 'manifest.json').read_text('utf-8'))
-        return (manifest.get('name') == '灵感采集' and manifest.get('manifest_version') == 3
+        return (manifest.get('name') in ('灵感采集', 'RefTray') and manifest.get('manifest_version') == 3
                 and manifest.get('background', {}).get('service_worker') == 'background.js'
                 and (path / 'reftray-a.ico').is_file())
     except (OSError, ValueError):
@@ -60,7 +60,7 @@ def sync_extensions(source, destinations, incoming=None, previous=None):
         if target == source or target in targets:
             continue
         if not is_reftray(target):
-            raise ValueError('记录的扩展目录不是灵感采集：' + str(target))
+            raise ValueError('记录的扩展目录不是 RefTray：' + str(target))
         for file in files:
             checked_directory(target / file.relative_to(source))
         targets.append(target)

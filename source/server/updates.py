@@ -196,7 +196,7 @@ class Updates:
         if self.busy():
             raise ValueError('正在采集或处理文件，请任务结束后再更新')
         if not os.environ.get('COLLECTOR_LAUNCHER_SECRET') or not (self.program / 'InspirationCollector.exe').is_file():
-            raise ValueError('请使用安装版灵感采集启动后台后更新')
+            raise ValueError('请使用安装版RefTray启动后台后更新')
         safe_path(self.base); safe_path(self.program)
         with self.lock:
             if self.worker and self.worker.is_alive() or self.status().get('phase') in ('installing', 'restarting', 'rolling_back'):

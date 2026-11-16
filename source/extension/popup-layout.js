@@ -22,7 +22,7 @@
  // Preserve path handlers and status elements without taking space in the primary form.
  const stash=make('div','path-secondary');stash.hidden=true;stash.innerHTML='<small id="destination-label"></small>';body.append(stash);
  const open=make('button','open-path','text-button');open.type='button';open.textContent='打开文件夹';open.hidden=true;stash.append(open);
- const brand=q('.brand');brand.innerHTML='<img src="reftray-a.svg" width="28" height="28" alt=""><div class="brand-wordmark"><strong>RefTray</strong><span>灵感采集</span></div>';
+ const brand=q('.brand');brand.innerHTML='<img src="reftray-a.svg" width="28" height="28" alt=""><div class="brand-wordmark"><strong>RefTray</strong><span>图片与图文采集</span></div>';
  const version=make('small','version');version.hidden=true;brand.append(version);
  const picker=q('#ui-language');picker.hidden=true;const languages=make('div',null,'languages');languages.innerHTML='<button type="button" id="lang-zh" aria-pressed="true">中</button><span>/</span><button type="button" id="lang-en" aria-pressed="false">EN</button>';picker.after(languages);
  for(const lang of ['zh','en'])q('#lang-'+lang).onclick=()=>{picker.value=lang;picker.dispatchEvent(new Event('change',{bubbles:true}));};
@@ -62,7 +62,7 @@
   for (const [item, reason] of sources) {
    const why = String(reason || '');
    let hint;
-   if (/No module named|ModuleNotFoundError/i.test(why)) hint = en ? 'Download component could not start. Update RefTray and retry.' : '下载组件未能启动。请更新灵感采集后重试。';
+   if (/No module named|ModuleNotFoundError/i.test(why)) hint = en ? 'Download component could not start. Update RefTray and retry.' : '下载组件未能启动。请更新RefTray后重试。';
    else if (/后台缺少|Not Found|HTTP 404 · \//.test(why)) hint = en ? 'The local service is missing this feature. Start the installed RefTray.' : '当前后台缺少所需功能，请启动已安装的 RefTray。';
    else if (/未找到本人帖子|未识别到当前主页的作品链接/.test(why)) hint = en ? 'Posts on this profile could not be identified. Refresh the profile and retry.' : '未识别到主页里的作品。请刷新主页后重试。';
    else if (/身份|mismatch|不匹配/.test(why)) hint = en ? 'The source could not be matched to this post. Reopen the original post.' : '媒体与当前帖子未能对应。请从原帖详情页重试。';

@@ -213,6 +213,7 @@
 !/tests/test_install_guide.py
 !/tests/test_installer_maintenance.py
 !/tests/test_runtime_contracts.py
+!/tests/test_onboarding.py
 
 # Runtime data, credentials, generated installers and local probes stay private.
 /source/extension/live-test.*

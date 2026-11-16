@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -55,10 +55,11 @@ internal static partial class Launcher {
     writer.AutoFlush=true;
     if(command=="install-update "+launcherSecret){try{StartUpdate();writer.WriteLine("accepted");}catch(Exception error){Log(error.Message);writer.WriteLine("failed");}continue;}
     if(command=="restore-update "+launcherSecret){try{StartRecovery();writer.WriteLine("accepted");}catch(Exception error){Log(error.Message);writer.WriteLine("failed");}continue;}
+    if(command=="open-onboarding"){control.BeginInvoke((Action)OpenOnboarding);writer.WriteLine("accepted");continue;}
     if(command!="prepare-upgrade"&&command!="prepare-update-idle"){writer.WriteLine("无效更新请求");continue;}
     string result="ready";try{try{Stop();}catch{
      if(command=="prepare-update-idle")throw;
-     var choice=MessageBox.Show("后台仍有任务或目录选择。是：停止接单，等待当前任务完成；否：本篇结束后停止；取消：保留运行并退出安装。目录选择窗口请手动完成或取消。","更新灵感采集",MessageBoxButtons.YesNoCancel,MessageBoxIcon.Question);
+     var choice=MessageBox.Show("后台仍有任务或目录选择。是：停止接单，等待当前任务完成；否：本篇结束后停止；取消：保留运行并退出安装。目录选择窗口请手动完成或取消。","更新RefTray",MessageBoxButtons.YesNoCancel,MessageBoxIcon.Question);
      if(choice==DialogResult.Cancel)throw new Exception("更新已取消，后台保持运行。");
      Stop(choice==DialogResult.Yes?"wait":"stop");
     }}catch(Exception error){result=error.Message;}writer.WriteLine(result);
@@ -89,7 +90,7 @@ internal static partial class Launcher {
  }
  static bool Available(){try{var l=new TcpListener(IPAddress.Loopback,port);l.Start();l.Stop();return true;}catch(SocketException){return false;}}
  static void Start(){
-  if(!Available())throw new Exception("本地端口已被占用。请先退出旧版灵感采集，再启动；不会停止其他程序。");
+  if(!Available())throw new Exception("本地端口已被占用。请先退出旧版RefTray，再启动；不会停止其他程序。");
   Directory.CreateDirectory(state);var temporary=Path.Combine(state,"cache","tmp");Directory.CreateDirectory(temporary);
   var p=new ProcessStartInfo(Path.Combine(app,"runtime","pythonw.exe"),"-B -m server.desktop");
   p.WorkingDirectory=app;p.UseShellExecute=false;p.CreateNoWindow=true;p.RedirectStandardError=true;p.RedirectStandardOutput=true;
@@ -102,6 +103,7 @@ internal static partial class Launcher {
  }
  static string ShutdownRequest(string mode){using(var client=new LocalClient()){client.Proxy=null;client.Headers["X-Launcher-Secret"]=launcherSecret;return client.UploadString("http://127.0.0.1:"+port+"/internal/prepare-upgrade"+(mode==""?"":"?mode="+mode),"POST","");}}
  static void Stop(string mode=""){
+  if(libraryPicking)throw new Exception("请先完成或取消素材库选择，再退出或更新 RefTray。");
   if(service==null||service.HasExited)return;
   try{
    int attempts=0;
@@ -109,7 +111,7 @@ internal static partial class Launcher {
     var response=ShutdownRequest(mode);
     if(response.Contains("\"ready\":true"))break;
     if(mode=="")throw new Exception("后台未确认退出。");
-    if(++attempts%60==0&&MessageBox.Show("后台仍在收尾。继续等待？取消后保留已保存文件，已提出的停止请求不会自动恢复。","更新灵感采集",MessageBoxButtons.OKCancel)!=DialogResult.OK){ShutdownRequest("resume");throw new Exception("等待已取消，后台恢复接单。");}
+    if(++attempts%60==0&&MessageBox.Show("后台仍在收尾。继续等待？取消后保留已保存文件，已提出的停止请求不会自动恢复。","更新RefTray",MessageBoxButtons.OKCancel)!=DialogResult.OK){ShutdownRequest("resume");throw new Exception("等待已取消，后台恢复接单。");}
     Thread.Sleep(1000);
    }
   }catch(WebException){throw new Exception("后台尚未确认退出。请等待当前任务或目录选择结束后重试。");}
@@ -123,15 +125,17 @@ internal static partial class Launcher {
   if(args.Length==3&&args[0]=="--finish-installer")return FinishInstaller(args[1],args[2]);
   if(args.Length==3&&args[0]=="--restore-after-setup")return RestoreAfterSetup(args[1],args[2]);
   if(args.Length==0&&Path.GetFileName(Application.ExecutablePath).Equals("RefTrayRestore.exe",StringComparison.OrdinalIgnoreCase))return RestoreFromShortcut();
+  quietStart=args.Length==1&&args[0]=="--autostart";
+  requestedGuide=args.Length==1&&args[0]=="--onboarding";
   bool updateStart=(args.Length==1&&args[0]=="--update-start")||(args.Length==0&&QuietUpdateRestart());
   if(args.Length==1&&args[0]=="--prepare-upgrade")return PrepareUpgrade()?0:3;
   bool smoke=args.Length==3&&(args[0]=="--smoke"||args[0]=="--tray-smoke"||args[0]=="--exit-smoke");exitSmoke=smoke&&args[0]=="--exit-smoke";traySmoke=smoke&&(args[0]=="--tray-smoke"||exitSmoke);
   try{
    if(smoke){port=int.Parse(args[1]);state=Path.GetFullPath(args[2]);Start();var result=Health();if(traySmoke){Application.EnableVisualStyles();RunTray();}else Stop();bool versionOk=result.Contains("\"release\":\""+Release()+"\"");File.WriteAllText(Path.Combine(state,"smoke-result.json"),"{\"release_ok\":"+versionOk.ToString().ToLowerInvariant()+",\"service_stopped\":"+Available().ToString().ToLowerInvariant()+"}");return versionOk&&Available()?0:2;}
    bool created;mutex=new Mutex(true,"Local\\InspirationCollectorLauncher",out created);
-   if(!created){if(!updateStart)MessageBox.Show("灵感采集已在后台运行。请查看 Windows 右下角托盘图标（可能收在向上的小箭头里）；右键可打开使用说明或退出。");return 0;}
+   if(!created){if(requestedGuide){RequestGuide();return 0;}if(!updateStart&&!quietStart)MessageBox.Show("RefTray已在后台运行。请查看 Windows 右下角托盘图标（可能收在向上的小箭头里）；右键可打开使用说明或退出。");return 0;}
    Application.EnableVisualStyles();Start();RunTray();return 0;
-  }catch(Exception e){ForceCleanup();Log(e.ToString());if(smoke){Directory.CreateDirectory(state);File.WriteAllText(Path.Combine(state,"smoke-error.txt"),e.ToString());}else if(!updateStart)MessageBox.Show(e.Message,"灵感采集启动失败",MessageBoxButtons.OK,MessageBoxIcon.Error);return 1;}
+  }catch(Exception e){ForceCleanup();Log(e.ToString());if(smoke){Directory.CreateDirectory(state);File.WriteAllText(Path.Combine(state,"smoke-error.txt"),e.ToString());}else if(!updateStart&&!quietStart)MessageBox.Show(e.Message,"RefTray启动失败",MessageBoxButtons.OK,MessageBoxIcon.Error);return 1;}
   finally{ForceCleanup();if(mutex!=null)mutex.Dispose();}
  }
  static void OpenReadme(){Process.Start(new ProcessStartInfo(Path.Combine(app,"help","index.html")){UseShellExecute=true});}
@@ -155,18 +159,20 @@ internal static partial class Launcher {
  static void RunTray(){
   IDataObject private_clipboard=null;
   using(var icon=TrayIcon())using(var tray=new NotifyIcon())using(var menu=new ContextMenuStrip())using(var check=new System.Windows.Forms.Timer()){
-   tray.Icon=icon;tray.Text="灵感采集 · 后台运行";tray.ContextMenuStrip=menu;tray.Visible=true;
+   tray.Icon=icon;tray.Text="RefTray · 后台运行";tray.ContextMenuStrip=menu;tray.Visible=true;
+   menu.Items.Add("开始使用（素材库与扩展）",null,(s,e)=>OpenOnboarding());
    menu.Items.Add("使用说明（安装、保存与更新）",null,(s,e)=>OpenReadme());
    menu.Items.Add("程序更新",null,(s,e)=>OpenUpdates());
     menu.Items.Add("打开扩展文件夹",null,(s,e)=>Process.Start(new ProcessStartInfo("explorer.exe","\""+ExtensionDirectory()+"\""){UseShellExecute=true}));
    EventHandler copy=(s,e)=>{var data=new DataObject();data.SetData(DataFormats.UnicodeText,false,ExtensionDirectory());Clipboard.SetDataObject(data,true,5,100);};
    menu.Items.Add("复制扩展文件夹地址",null,copy);menu.Items.Add(new ToolStripSeparator());
-   EventHandler exit=(s,e)=>{try{Stop();Application.ExitThread();}catch(Exception error){MessageBox.Show(error.Message,"灵感采集");}};
+   EventHandler exit=(s,e)=>{try{Stop();Application.ExitThread();}catch(Exception error){MessageBox.Show(error.Message,"RefTray");}};
    var restart=menu.Items.Add("重新启动后台",null,(s,e)=>{try{if(service==null||service.HasExited){if(job!=IntPtr.Zero){CloseTree();}Start();}}catch(Exception error){MessageBox.Show(error.Message,"启动失败");}});
-   var monitor=new System.Windows.Forms.Timer();monitor.Interval=1000;monitor.Tick+=(s,e)=>{bool running=service!=null&&!service.HasExited;tray.Text=running?"灵感采集 · 后台运行":"灵感采集 · 后台已停止";restart.Enabled=!running;};monitor.Start();
+   var monitor=new System.Windows.Forms.Timer();monitor.Interval=1000;monitor.Tick+=(s,e)=>{bool running=service!=null&&!service.HasExited;tray.Text=running?"RefTray · 后台运行":"RefTray · 后台已停止";restart.Enabled=!running;};monitor.Start();
    // Create a UI handle for the one-shot installer control request.
    var control=new Control();control.CreateControl();UpgradeListener(control);
-   menu.Items.Add("退出灵感采集",null,exit);tray.DoubleClick+=(s,e)=>OpenReadme();
+   menu.Items.Add("退出RefTray",null,exit);tray.DoubleClick+=(s,e)=>OpenOnboarding();
+   if(!traySmoke&&!quietStart){try{if(requestedGuide||!Convert.ToBoolean(DesktopHealth()["library_configured"]))control.BeginInvoke((Action)OpenOnboarding);}catch(Exception error){Log(error.Message);MessageBox.Show(error.Message,"RefTray 引导未能启动");}}
    if(traySmoke){if(!exitSmoke)private_clipboard=Clipboard.GetDataObject();bool copied=false;int exitStage=0,exitTicks=0;check.Interval=500;check.Tick+=(s,e)=>{try{if(Application.OpenForms.Count!=0||!tray.Visible)throw new Exception("Tray must run without a main window");if(exitSmoke){
     if(exitStage==0){service.Kill();service.WaitForExit(5000);exitStage=1;return;}
     if(exitStage==1){if(!restart.Enabled){if(++exitTicks>10)throw new Exception("Tray did not acknowledge backend exit");return;}if(!tray.Text.Contains("已停止"))throw new Exception("Tray falsely reports running");restart.PerformClick();if(service.HasExited)throw new Exception("Restart failed");File.WriteAllText(Path.Combine(state,"exit-smoke.json"),"{\"stopped_state\":true,\"restart_ok\":true}");exitStage=2;return;}

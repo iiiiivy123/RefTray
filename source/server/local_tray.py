@@ -55,20 +55,20 @@ def main():
         server=uvicorn.Server(uvicorn.Config(app,host='127.0.0.1',port=8766,access_log=False,log_config=None,log_level='warning'))
         def stop(_icon=None,_item=None):
             if active_urls or videos.busy():
-                icon.notify('请先停止或完成采集，再退出后台。','灵感采集')
+                icon.notify('请先停止或完成采集，再退出后台。','RefTray')
                 return
             stopping.set();server.should_exit=True;icon.stop()
         def open_path(path):
             try:os.startfile(str(path))
             except OSError:logger.exception('Could not open requested folder')
         menu=pystray.Menu(
-            pystray.MenuItem('灵感采集 · 本地后台运行中',lambda:None,enabled=False),
+            pystray.MenuItem('RefTray · 本地后台运行中',lambda:None,enabled=False),
             pystray.MenuItem('打开素材库',lambda _i,_m:open_path(settings.inbox)),
             pystray.MenuItem('打开扩展文件夹',lambda _i,_m:open_path(COLLECTOR/'extension')),
             pystray.MenuItem('打开后台日志',lambda _i,_m:open_path(logdir)),
-            pystray.MenuItem('退出灵感采集',stop),
+            pystray.MenuItem('退出RefTray',stop),
         )
-        icon=pystray.Icon('LibLibCollectorLocal',Image.open(tray_image_path()),'灵感采集 · 本地后台',menu)
+        icon=pystray.Icon('LibLibCollectorLocal',Image.open(tray_image_path()),'RefTray · 本地后台',menu)
         configure_shutdown(app,stop)
         def run_server():
             try:server.run()

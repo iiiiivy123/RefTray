@@ -701,7 +701,7 @@ async function collect(mode, port, options = {}, testTarget) {
     const health = await reftrayHealth(`http://127.0.0.1:${port}/health`).then(r => r.json());
     healthCache = health;
     const extensionRelease=chrome.runtime.getManifest().version;
-    if(health.release&&health.release!==extensionRelease)throw new Error(`扩展 ${extensionRelease} 与后台 ${health.release} 版本不一致。请在 chrome://extensions 重新加载「灵感采集」，再刷新作品网页；确认加载的是本次安装目录中的 extension。`);
+    if(health.release&&health.release!==extensionRelease)throw new Error(`扩展 ${extensionRelease} 与后台 ${health.release} 版本不一致。请在 chrome://extensions 重新加载「RefTray」，再刷新作品网页；确认加载的是本次安装目录中的 extension。`);
     if(options.md_only&&!health.md_only)throw new Error('纯文字模式需要新版保存服务，请安装并启动0.5.11或更新版本；尚未保存文件');
     if(options.video_only&&!health.space_preflight)throw new Error('视频批量需要支持容量预检的保存服务');
     if(health.capture_history){startPreparation();}
@@ -896,7 +896,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse({ok:false,error:'无效的实测入口或测试参数'});return false;
   }
   if (message.build !== BUILD) {
-    sendResponse({ok: false, error: '界面与后台版本不一致，请在扩展管理页重新加载灵感采集。'});
+    sendResponse({ok: false, error: '界面与后台版本不一致，请在扩展管理页重新加载RefTray。'});
     return false;
   }
   if (taskRunning || scanInProgress) {sendResponse({ok: false, error: '任务或扫描正在运行，请稍候。'}); return false;}

@@ -38,3 +38,15 @@
   Hub.defaults().then(d=>{savedLayout=d.layout==='organized_flat'?'organized_flat':'organized';get('directory-layout').value=savedLayout;layoutReady=true;preview();sync();}).catch(e=>{get('layout-help').hidden=false;get('layout-help').textContent='分类方式读取失败：'+e.message;})
  ]);
 })();
+
+// Windows preference is independent of capture defaults and the material library.
+(() => {
+ const panel=document.createElement('section');panel.className='panel';
+ panel.innerHTML='<div class="panel-heading"><h2>启动</h2></div><div class="panel-body"><label class="toggle-row"><span>开机自动启动 RefTray</span><span class="switch"><input type="checkbox" id="startup-enabled" disabled><span></span></span></label><p>登录 Windows 后后台运行。不勾选时请手动打开 RefTray。</p><p id="startup-message" role="status"></p><button type="button" id="startup-retry">重新读取</button></div>';
+ document.querySelector('[data-settings-panel="capture"]').append(panel);
+ const toggle=panel.querySelector('#startup-enabled'),message=panel.querySelector('#startup-message'),retry=panel.querySelector('#startup-retry');
+ let saved=false;
+ async function load(){toggle.disabled=true;retry.disabled=true;try{const value=await Hub.api('/settings/startup');toggle.checked=saved=value.enabled;toggle.disabled=false;message.textContent='';}catch(e){message.textContent=e.message;}finally{retry.disabled=false;}}
+ toggle.onchange=async()=>{toggle.disabled=true;retry.disabled=true;try{const value=await Hub.api('/settings/startup',{enabled:toggle.checked});toggle.checked=saved=value.enabled;message.textContent=saved?'已开启，下次登录 Windows 后后台启动。':'已关闭，下次登录 Windows 后请手动启动。';}catch(e){toggle.checked=saved;message.textContent=e.message;}finally{toggle.disabled=false;retry.disabled=false;}};
+ retry.onclick=load;load();
+})();

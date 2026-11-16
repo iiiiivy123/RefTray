@@ -1,13 +1,14 @@
-﻿#ifndef AppVersion
+#ifndef AppVersion
   #error AppVersion must be passed explicitly by the versioned build script
 #endif
 [Setup]
 AppId={{293CFEA9-3205-4D70-96E6-A5F7491438CC}
-AppName=Inspiration Collector
+AppName=RefTray
 AppVersion={#AppVersion}
 DefaultDirName={code:GetInstallDirectory}
 UsePreviousAppDir=yes
-DefaultGroupName=Inspiration Collector
+DefaultGroupName=RefTray
+UsePreviousGroup=no
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -31,22 +32,52 @@ Source: "..\source\server\update_recovery.py"; Flags: dontcopy
 Source: "..\source\server\update_storage.py"; Flags: dontcopy
 Source: "..\build-windows\payload\managed-files.json"; DestName: "incoming-managed-files.json"; Flags: dontcopy
 [Tasks]
-Name: "desktopicon"; Description: "Create desktop shortcut"
+Name: "desktopicon"; Description: "创建桌面快捷方式"
+Name: "autostart"; Description: "开机自动启动 RefTray（登录 Windows 后后台运行）"; Flags: unchecked
 [Icons]
-Name: "{userdesktop}\灵感采集"; Filename: "{app}\InspirationCollector.exe"; Tasks: desktopicon
-Name: "{group}\灵感采集"; Filename: "{app}\InspirationCollector.exe"
+Name: "{userdesktop}\RefTray"; Filename: "{app}\InspirationCollector.exe"; Tasks: desktopicon
+Name: "{group}\RefTray"; Filename: "{app}\InspirationCollector.exe"
 Name: "{group}\使用说明"; Filename: "{sys}\notepad.exe"; Parameters: """{app}\README.txt"""
 [InstallDelete]
+Type: files; Name: "{userdesktop}\灵感采集.lnk"
+Type: files; Name: "{group}\灵感采集.lnk"
+Type: files; Name: "{userprograms}\Inspiration Collector\灵感采集.lnk"
+Type: files; Name: "{userprograms}\Inspiration Collector\使用说明.lnk"
 Type: files; Name: "{app}\开始使用.html"
 Type: files; Name: "{group}\首次安装引导.lnk"
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "RefTray"; Flags: uninsdeletevalue
 [Run]
-Filename: "{app}\安装后说明.html"; Description: "扩展加载与更新说明"; Flags: shellexec nowait postinstall skipifsilent
-Filename: "{sys}\notepad.exe"; Parameters: """{app}\README.txt"""; Description: "Read instructions"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\InspirationCollector.exe"; Description: "Start Inspiration Collector"; Flags: nowait postinstall skipifsilent; Check: NeedStart
+Filename: "{app}\InspirationCollector.exe"; Parameters: "--onboarding"; Description: "开始使用 RefTray"; Flags: nowait postinstall skipifsilent
 
 [Code]
 var
   RecoveryPrepared, InstallationFinished: Boolean;
+
+procedure InitializeWizard();
+var
+  Existing: String;
+begin
+  { Current registry preference wins over the previous installer task selection. }
+  if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'RefTray', Existing) and (Existing <> '') then
+    WizardSelectTasks('autostart')
+  else WizardSelectTasks('!autostart');
+end;
+
+procedure SaveStartupPreference();
+var
+  Command: String;
+begin
+  Command := '"' + ExpandConstant('{app}\InspirationCollector.exe') + '" --autostart';
+  if WizardIsTaskSelected('autostart') then begin
+    if Length(Command) > 260 then RaiseException('安装路径过长，无法登记开机启动。');
+    if not RegWriteStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'RefTray', Command) then
+      RaiseException('无法保存开机启动设置，请检查当前用户权限。');
+  end else if RegValueExists(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'RefTray') then begin
+    if not RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'RefTray') then
+      RaiseException('无法关闭开机启动，请检查当前用户权限。');
+  end;
+end;
 
 function NeedStart(): Boolean;
 begin
@@ -71,11 +102,11 @@ begin
     Launcher := ExpandConstant('{tmp}\upgrade-client.exe');
   end else Launcher := ExpandConstant('{app}\InspirationCollector.exe');
   if not FileExists(Launcher) then begin
-    Result := '后台仍在运行。请从系统托盘退出灵感采集后重试。';
+    Result := '后台仍在运行。请从系统托盘退出RefTray后重试。';
     exit;
   end;
   if not Exec(Launcher, '--prepare-upgrade', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
-    Result := '无法联系灵感采集后台，请从系统托盘退出后重试。'
+    Result := '无法联系RefTray后台，请从系统托盘退出后重试。'
   else if (ExitCode <> 0) or CheckForMutexes('Local\InspirationCollectorLauncher') then
     Result := '后台尚未确认退出。请等待采集或目录选择完成，再重试；旧版后台请从托盘退出。';
 end;
@@ -214,7 +245,7 @@ end;
 function GetCustomSetupExitCode(): Integer;
 begin
   { A post-install exception alone does not change Inno's successful exit code. }
-  if RecoveryPrepared and not InstallationFinished then Result := 12
+  if not InstallationFinished then Result := 12
   else Result := 0;
 end;
 
@@ -247,7 +278,7 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if (CurUninstallStep = usDone) and not UninstallSilent then
-    MsgBox('程序已卸载。素材仍在您选择的素材库；未选择清理的偏好、历史和缓存保留于 ' + ExpandConstant('{localappdata}\InspirationCollector') + '。请勿直接删除整个目录：旧版素材也可能在其中。请在 chrome://extensions 手动移除灵感采集扩展。', mbInformation, MB_OK);
+    MsgBox('程序已卸载。素材仍在您选择的素材库；未选择清理的偏好、历史和缓存保留于 ' + ExpandConstant('{localappdata}\InspirationCollector') + '。请勿直接删除整个目录：旧版素材也可能在其中。请在 chrome://extensions 手动移除RefTray扩展。', mbInformation, MB_OK);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -274,6 +305,7 @@ begin
       else if ExitCode <> 0 then
         RaiseException('新版未正常启动，退出安装后将恢复旧程序。素材与设置保留。');
     end;
+    SaveStartupPreference();
     InstallationFinished := True;
   end;
 end;

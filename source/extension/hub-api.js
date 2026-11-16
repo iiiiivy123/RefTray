@@ -11,7 +11,7 @@ const Hub = (() => {
       health = undefined;
       if (error.name === 'TimeoutError' || error.name === 'AbortError')
         throw new Error('本地后台响应超时。请查看任务记录确认结果，避免重复开始采集。');
-      throw new Error('连接不到本地后台。请从 Windows 开始菜单打开“灵感采集”，确认右下角托盘有图标，再重新打开扩展。关闭 Chrome 不会启动后台。');
+      throw new Error('连接不到本地后台。请从 Windows 开始菜单打开“RefTray”，确认右下角托盘有图标，再重新打开扩展。关闭 Chrome 不会启动后台。');
     }
   }
   async function api(path, value) {
@@ -19,7 +19,7 @@ const Hub = (() => {
     const release=chrome.runtime.getManifest().version;
     // The old UI must read the new backend's completion receipt before it can reload.
     const updateStatus=path==='/updates/status'&&value===undefined;
-    if(!updateStatus&&health.release&&health.release!==release)throw new Error(`扩展版本 ${release} 与后台版本 ${health.release} 不一致。请打开 chrome://extensions，找到「灵感采集」点重新加载，然后刷新作品网页；若仍不一致，请确认加载的是本次安装目录中的 extension 文件夹。`);
+    if(!updateStatus&&health.release&&health.release!==release)throw new Error(`扩展版本 ${release} 与后台版本 ${health.release} 不一致。请打开 chrome://extensions，找到「RefTray」点重新加载，然后刷新作品网页；若仍不一致，请确认加载的是本次安装目录中的 extension 文件夹。`);
     if(path==='/health')return health;
     for(let attempt=0;attempt<2;attempt++){
       const response=await localFetch('http://127.0.0.1:8766'+path,{method:value===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Collector-Token':health.settings_token},...(value===undefined?{}:{body:JSON.stringify(value)}),signal:AbortSignal.timeout(15000)});
