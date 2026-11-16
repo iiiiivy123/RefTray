@@ -33,13 +33,23 @@ P1/P2（2026-11-16）：核对 Microsoft [Run 登录启动](https://learn.micros
 - 宿主自启项现为开启；首次观察前已有用户操作，**不能据此证明新装默认复选框状态**。没有切换宿主设置、没有重启。最近后台记录的 Chrome 扩展为 1.0.1，需重新加载一次；未重复重载用户扩展。
 - 安装器能在宿主打开并完成升级；它是本地构建文件，非浏览器下载，未捕获下载安全提示，因此不能解释朋友的“双击无反应”，也不能声明 SmartScreen 已通过。
 
+## 2026-11-16 追加：用户授权重载与宿主单图实采
+
+用户要求重新加载扩展、确认 1.0.2、实际保存一张测试图并核对文件和记录；保留原素材/设置，仍不发布。浏览器工具因 chrome:// 协议策略拒绝管理页，未换工具绕过；用户手动重新加载并确认后，RefTray status 验证扩展与后台均 1.0.2、browser.ready=true、busy=false。
+
+首次 NASA 页面任务 `408eed4a85d940ec9c85bf222c207a2c` 因扩展缺少该 host 权限失败，无文件保存；保留失败记录，未扩权限。改选已有 host 授权的 ArtStation 作品 [Single Image, Public Domain](https://www.artstation.com/artwork/Jv3JJz)，通过 reftray_capture_browser 交给真实 Chrome 扩展执行，任务 `5658a438ac5f4e0e8a0c52bf260d081b` completed：新增1、重复0、失败0、partial=false。仅本次 max_images=1，不改默认值。
+
+实际文件 `F:/LibLib自动化/图片/ArtStation/图片-Single Image, Public Domain/001_dc02a3db67.jpg`，183649字节，JPEG 960×960，可完整解码；SHA256 `dc02a3db675b890feeffd8e7a65b671f48d11b66b95aa6e52a8834254384891b`。find_saved 返回 verified_local，采集记录 ID457 的目录/大小/摘要均与文件一致。
+
+采集前后比较：captures456→457、assets2566→2567、tasks429→433（两次尝试的父子任务）、preferences1→1；所有旧数据库行内容保留，collector-settings 摘要保持。证据 `work/live-capture-20261116/result.json`；含旧数据的 baseline.json 仅本地忽略，不进入 Git 或发行包。此次完成的是**已有宿主 Chrome 扩展实采**，没有补齐专用干净 Windows、浏览器下载安装器或真实重启登录验收。
+
 ## 尚未满足的真实验收（N04）
 
 | 场景 | 本轮证据 | 状态 / 继续条件 |
 | --- | --- | --- |
 | 发布页浏览器下载、双击、完整安全提示 | 只有本地候选在已有宿主打开 | 待专用测试 Windows；候选未发布 |
 | 无配置首次已有/新建目录、取消/不可写重试 | API、持久化和错误行为检查 | 原生完整 UI 待干净环境 |
-| 加载 Chrome → 保存第一张图 → 核对实际落盘 | 未运行候选首图链路 | 待专用环境，使用有权保存样例 |
+| 加载 Chrome → 保存第一张图 → 核对实际落盘 | 已有宿主1.0.2扩展单图实采通过，见追加记录 | 专用干净环境仍待验 |
 | 默认不勾、勾选、设置切换后的真实重启登录 | 隔离注册表读写 fixture，仅本产品值 | 未重启，不能报通过 |
 | 1.0.1 覆盖升级、原库与数据保留 | 宿主用户操作完成；配置/全部旧 DB 行保留 | 专用环境仍待验 |
 | 关闭引导后托盘重新打开、卸载清本软件自启 | 实现与编译检查 | 原生操作仍待验 |
