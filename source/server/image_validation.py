@@ -10,6 +10,9 @@ from .image_download import MAX_BYTES
 def validate_image(data):
     if not data or len(data) > MAX_BYTES:
         raise ValueError('图片为空或超过 30MB，未保存')
+    if data.lstrip(b'\xef\xbb\xbf \t\r\n').startswith(b'<'):
+        from .svg_validation import validate_svg
+        return validate_svg(data)
     try:
         with warnings.catch_warnings():
             warnings.simplefilter('error', Image.DecompressionBombWarning)

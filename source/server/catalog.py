@@ -161,7 +161,7 @@ class Catalog:
             p = Path(row['path'])
             try:
                 if p.is_file() and p.stat().st_size == row['size'] and fingerprint(p) == row['sha']:
-                    if image or p.suffix.lower() in ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.bmp', '.tif', '.tiff'):
+                    if image or p.suffix.lower() in ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.bmp', '.tif', '.tiff', '.svg'):
                         from .image_validation import validate_image
                         validate_image(p.read_bytes())
                     return p
@@ -182,7 +182,7 @@ class Catalog:
         # Batch is a capture scope, not a media type. Derive old rows without a migration.
         item['content_kind'] = ('video' if suffixes & {'.mp4','.webm','.mkv','.mov','.m4v'}
             else 'audio' if suffixes & {'.m4a','.mp3','.aac','.wav','.flac','.ogg','.opus'}
-            else 'text' if item['mode'] == 'text' and suffixes & {'.jpg','.jpeg','.png','.webp','.gif','.avif','.bmp'}
+            else 'text' if item['mode'] == 'text' and suffixes & {'.jpg','.jpeg','.png','.webp','.gif','.avif','.bmp','.svg'}
             else 'plain' if item['mode'] == 'text'
             else 'images')
         item['available'] = check_files and bool(item['files']) and all(Path(f['path']).is_file() and Path(f['path']).stat().st_size == f['size'] for f in item['files'])
@@ -247,7 +247,7 @@ class Catalog:
                 # A legacy coverage flag alone must never cause skip/fill to reuse it.
                 from .image_validation import validate_image
                 attachments = [f for f in item['files'] if Path(f['path']).suffix.lower() in
-                               ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.bmp', '.tif', '.tiff')]
+                               ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.bmp', '.tif', '.tiff', '.svg')]
                 if not attachments:
                     continue
                 try:

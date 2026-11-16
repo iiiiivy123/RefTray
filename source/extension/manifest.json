@@ -6,7 +6,7 @@
     "open_in_tab": true
   },
   "name": "RefTray",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "icons": {
     "16": "icon-16.png",
     "32": "icon-32.png",
@@ -67,5 +67,9 @@
       "run_at": "document_start",
       "world": "MAIN"
     }
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
   ]
 }

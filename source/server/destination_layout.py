@@ -138,3 +138,11 @@ def clean_empty(created):
         try:path.rmdir()
         except FileNotFoundError:continue
         except OSError:break
+
+
+def snapshot_directory(root, title, url, identity, layout="organized"):
+    """Independent snapshots never replace a previous saved layout."""
+    parent = Path(root) / "图片"
+    if layout != "organized_flat":
+        parent = parent / platform_name(url)
+    return parent / ("网页长截图-" + safe(title or urlsplit(url).hostname)[:65] + "-" + identity[:8])

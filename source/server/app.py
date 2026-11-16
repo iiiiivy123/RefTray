@@ -44,7 +44,7 @@ def create_app(runtime=None):
     catalog = storage.catalog
     videos = runtime.videos if runtime is not None else VideoDownloads(catalog)
     for record in catalog.tasks() if catalog is not None else ():
-        if record.get('mode') in ('video-queue', 'browser-capture') and record.get('status') in ('running', 'waiting_browser', 'paused', 'stopping'):
+        if record.get('mode') in ('video-queue', 'browser-capture', 'page-snapshot') and record.get('status') in ('running', 'waiting_browser', 'paused', 'stopping'):
             catalog.save_task({**record, 'status': 'interrupted', 'completed': False,
                                'message': '后台已重启，已保存结果保留，请核对后重新提交'},
                               expected_revision=record.get('revision', 0))
@@ -53,6 +53,8 @@ def create_app(runtime=None):
     import_previews = {}
     folder_requests = {}
     local_tools_busy = lambda: False
+    snapshot_busy = lambda: False
+    snapshot_stop = lambda: None
     local_tools_stop = lambda: None
     from .components import CapabilityCache
     capability_cache = CapabilityCache()
@@ -304,7 +306,7 @@ def create_app(runtime=None):
         nonlocal settings
         authorize_settings(request)
         with lock:
-            if active_urls or videos.busy():
+            if active_urls or videos.busy() or snapshot_busy():
                 raise HTTPException(409, "请等待正在保存的图片完成，再修改目录")
             if not catalog.path.is_file():
                 raise HTTPException(409, '设置和采集记录所在的 data 文件夹已被移动。请将它放回原位置后再修改素材库；未新建或清空记录。')
@@ -510,6 +512,8 @@ def create_app(runtime=None):
     def collect_start(request: CollectRequest, http_request: Request) -> dict[str, str]:
         authorize_settings(http_request)
         with lock:
+            if snapshot_busy():
+                raise HTTPException(409, "请等待整页截图完成")
             prune_finished(jobs)
             if request.save_directory is not None and request.save_directory != str(settings.inbox):
                 raise HTTPException(409, "保存目录已变更，请停止本批采集后重新开始，避免图片分散")
@@ -606,10 +610,11 @@ def create_app(runtime=None):
         video_queue.stop()
         videos.request_stop_all()
         local_tools_stop()
+        snapshot_stop()
         media_jobs.stop_all()
 
     def busy():
-        return (bool(active_urls) or video_queue.busy() or videos.busy() or local_tools_busy()
+        return (bool(active_urls) or video_queue.busy() or videos.busy() or local_tools_busy() or snapshot_busy()
                 or media_jobs.busy() or app.state.browser_bridge.busy()
                 or any(item.get('state') in ('pending', 'cancelling') for item in folder_requests.values()))
 
@@ -639,6 +644,8 @@ def create_app(runtime=None):
     attach_browser(app, authorize_settings, origins, catalog, RELEASE, stop_browser_child)
     from .local_tools import attach
     local_tools_busy, local_tools_stop = attach(app, lambda: settings, authorize_settings)
+    from .page_snapshots import attach as attach_snapshots
+    snapshot_busy, snapshot_stop = attach_snapshots(app, lambda: settings, catalog, authorize_settings, busy)
     from .updates import attach as attach_updates
     attach_updates(app, settings, RELEASE, authorize_settings, busy)
     return app

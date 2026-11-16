@@ -123,7 +123,7 @@ class Storage:
                     if quality_error: quality_warnings.append(f'图片 {done}：高清源暂不可用，已保存网页图（{quality_error}）')
                     digest = hashlib.sha256(data).hexdigest()
                     if text_only_images:
-                        if digest not in known_images and request.ocr_enabled:
+                        if digest not in known_images and request.ocr_enabled and suffix != ".svg":
                             import tempfile
                             with tempfile.TemporaryDirectory(prefix='collector-ocr-') as temporary_root:
                                 temporary_image = Path(temporary_root) / ('source' + suffix)
@@ -230,7 +230,7 @@ class Storage:
             for index, image in enumerate(merged_images, 1):
                 if image.get('role', 'body') != 'comment' and image.get('file') and request.ocr_enabled and image.get('ocr', {}).get('status') != 'completed':
                     progress(92, f'识别图片文字 {index}/{len(merged_images)}')
-                    image['ocr'] = recognize(page_dir / image['file'])
+                    image['ocr'] = recognize(page_dir / image['file']) if Path(image['file']).suffix.lower() != '.svg' else {'text': '', 'error': 'SVG 原矢量文件不运行像素文字识别'}
             metadata['ocr_status'] = ('completed' if all(i.get('ocr', {}).get('status') == 'completed' for i in merged_images if i.get('role', 'body') != 'comment') else 'partial') if request.ocr_enabled else 'disabled'
             valid_media = set(existing.get('media_files', []))
             for name in request.media_files:

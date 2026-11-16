@@ -917,4 +917,4 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
-if(typeof importScripts==='function')importScripts('browser-runner.js');
+if(typeof importScripts==='function')importScripts('browser-runner.js','pinterest-identity.js','site-panel.js','full-page-capture.js','web-permissions.js','web-actions-worker.js');

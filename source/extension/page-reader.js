@@ -41,6 +41,14 @@ async function pagePayload(tabId, options = {}) {
   return payload;
 }
 async function readPagePayload(tabId, options, current) {
+  if(/\.svg(?:[?#]|$)/i.test(current.url)||/^(www\.)?svglogo\.top$/.test(new URL(current.url).hostname)){
+    await chrome.scripting.executeScript({target:{tabId},files:['svg-reader.js']});
+    const [{result}]=await chrome.scripting.executeScript({target:{tabId},args:[options],func:options=>{
+      try{return {payload:RefTraySvg.extract(options)};}catch(error){return {error:error.message};}
+    }});
+    if(result?.error)throw new Error(result.error);
+    if(result?.payload)return result.payload;
+  }
   if(/(^|\.)huaban\.com$/.test(new URL(current.url).hostname)){
     await chrome.scripting.executeScript({target:{tabId},world:'MAIN',injectImmediately:true,files:['huaban.js']});
     // The detail shell appears before its signed main image is ready. Keep the
