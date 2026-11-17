@@ -158,3 +158,5 @@ P1/P2（2026-11-16）：核对 Microsoft [Run 登录启动](https://learn.micros
 - 显式依赖预检通过，最终构建成功；安装器126592444字节，SHA256 54a21a5ba3b405233624ce84418e999035c2463a2db9a070269dd94065462867。147个源文件逐字节匹配payload，Onboarding/Launcher输入摘要相符；隔离18766启动退出release_ok/service_stopped均true。初始shell未等待GUI进程就检查LASTEXITCODE导致假失败，随后读取完成标记及进程确认实际成功，没有重复运行。核对构建输入最初因Windows路径分隔符KeyError失败，统一键名后校验通过。
 - IAB模拟页面实际拖动不触发保存、刷新恢复位置、一次点击一次请求；成功短提示、部分/失败、详情滚动及Esc、更多菜单已观察。CUA不支持closed shadow输入，仅预览副本改open；产品保持closed。fixture为模拟Chrome API，不是素材实采。原生预览截图两次超时停止；键盘/AX仅证明部分步骤，完整布局和完成步骤仍待验收。首轮C#夹具命令路径被csc按选项解析，改Windows路径后编译通过。证据存work/ui-preview；对用户提供previews/1.0.4的可交互模拟页。
 - 日常安装仍1.0.3，1857个受管文件hash未改，后台/最近配对扩展1.0.3。原素材与设置未写入。保留1.0.2/1.0.3归档，1.0.4归档到同一releases入口，不发布、不再次尝试已被策略拒绝的安装动作。
+
+- 最终归档已落盘：F:/RefTray/releases/1.0.4-candidate，3个摘要与源码ZIP完整性通过；源码归档固定7af7fceaa6d77fec50c0ab312119aa4691ec359c。根README及releases索引已更新。预览静态文件保存在F:/RefTray/previews/1.0.4；本次临时网页服务和原生预览进程已核对身份后停止，隔离smoke后台已自行退出，未新增常驻后台。
