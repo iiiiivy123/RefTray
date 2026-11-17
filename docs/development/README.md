@@ -16,7 +16,7 @@
 
 ## 本机交付归档
 
-本机项目入口为 `F:/RefTray/README.md`，安装包统一归档到 `F:/RefTray/releases`。`worktrees/*/dist` 仅为构建输出。新机器需先核实实际项目根目录。
+安装包统一归档到本机项目根目录的 `releases`，实际根目录与当前安装路径以 [CURRENT](CURRENT.md) 为准；根目录 README 是用户入口。`worktrees/*/dist` 仅为构建输出。新机器需先核实实际路径，不把本机盘符写进通用构建命令。
 
 - 正式包用版本目录，候选用 `版本-candidate`；候选也属于本地 releases，不代表已公开发布。
 - 每次交付含安装程序、对应提交的完整源码 ZIP、交付说明和 SHA256 文件。源码 ZIP 用 `git archive` 生成；不带素材、配置、数据库和本地 work 证据。说明记录提交、安装状态、验证与未完成项。

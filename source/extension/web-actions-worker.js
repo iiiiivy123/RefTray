@@ -1,5 +1,10 @@
 /* Web actions share the existing collector and its immutable task parameters. */
 chrome.runtime.onMessage.addListener((message,sender,respond)=>{
+ if(message.type==='REFTRAY_OPEN_MANAGE'){
+  if(sender.id!==chrome.runtime.id||!sender.tab||sender.frameId!==0||!['history','defaults'].includes(message.section)){respond({ok:false,error:'无效的管理页入口'});return false;}
+  chrome.tabs.create({url:chrome.runtime.getURL('manage.html#'+message.section)}).then(()=>respond({ok:true})).catch(error=>respond({ok:false,error:error.message}));
+  return true;
+ }
  if(!['REFTRAY_QUICK_SAVE','REFTRAY_FULL_PAGE'].includes(message.type))return false;
  const quick=message.type==='REFTRAY_QUICK_SAVE';
  if(sender.id!==chrome.runtime.id||(quick?(!sender.tab||sender.frameId!==0):sender.url!==chrome.runtime.getURL('popup.html'))){respond({ok:false,error:'无效的网页保存入口'});return false;}
@@ -22,7 +27,7 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
   const mode=site.mode==='video'?(options.video_action==='frames'?'download-frames':'download'):'current';
   const result=await collect(mode,8766,options,{id:tab.id,url:tab.url});
   await reportProgress({percent:100,status:TaskProgress.resultStatus(result),message:result.message||`保存完成，新增 ${result.new_images} 张`,directory:result.directory,details:result.details||result.warnings?.join('\n')});
-  return result;
+  return {...result,status:TaskProgress.resultStatus(result)};
  })().then(result=>respond({ok:true,result})).catch(async error=>{
   try{
    if(quick&&taskContext!==previous)await reportProgress({status:error.message==='USER_STOPPED'?'stopped':'failed',message:error.message});

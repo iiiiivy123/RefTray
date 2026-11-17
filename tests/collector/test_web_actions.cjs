@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const CaptureOptions=require('../../source/extension/capture-options.js');
 function worker({busy=false}={}){
  let listener;const calls=[];
- const chrome={runtime:{id:'extension',getURL:p=>'chrome-extension://extension/'+p,getManifest:()=>({version:'1.0.3'}),onMessage:{addListener:f=>listener=f}},storage:{local:{set:async()=>{}}}};
+ const chrome={tabs:{create:async value=>calls.push(value)},runtime:{id:'extension',getURL:p=>'chrome-extension://extension/'+p,getManifest:()=>({version:'1.0.3'}),onMessage:{addListener:f=>listener=f}},storage:{local:{set:async()=>{}}}};
  const context={chrome,URL,taskRunning:busy,scanInProgress:false,taskContext:{},CaptureOptions,
   reftrayHealth:async()=>({ok:true,json:async()=>({release:'1.0.3',settings_token:'test',busy:false})}),
   downloadApi:async(...args)=>{calls.push(args);return {collection_mode:'text',layout:'organized_flat',include_images:true,video_action:'skip',ocr_enabled:false};},
@@ -12,6 +12,12 @@ function worker({busy=false}={}){
  return {calls,run:(message,sender)=>new Promise(resolve=>listener(message,sender,resolve))};
 }
 const sender={id:'extension',frameId:0,tab:{id:42,url:'https://example.com/work'}};
+test('floating navigation opens only fixed internal sections, even while capture is busy',async()=>{
+ const w=worker({busy:true});assert.equal((await w.run({type:'REFTRAY_OPEN_MANAGE',section:'history',url:'https://untrusted.example'},sender)).ok,true);
+ assert.equal(w.calls[0].url,'chrome-extension://extension/manage.html#history');
+ for(const [section,s] of [['https://untrusted.example',sender],['defaults',{...sender,frameId:1}],['history',{...sender,id:'other'}]])assert.equal((await w.run({type:'REFTRAY_OPEN_MANAGE',section},s)).ok,false);
+ assert.equal(w.calls.length,1);
+});
 test('one click uses defaults and the sender tab, never a supplied destination',async()=>{
  const w=worker(),r=await w.run({type:'REFTRAY_QUICK_SAVE',tabId:999,options:{destination:'wrong'}},sender);
  assert.equal(r.ok,true);const call=w.calls.find(c=>c[0]==='current');
