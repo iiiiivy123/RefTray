@@ -171,3 +171,5 @@ P1/P2（2026-11-16）：核对 Microsoft [Run 登录启动](https://learn.micros
 - 自动审批两次拒绝：①新增test_popup_snapshot.cjs并运行测试的组合命令；②准备带模拟Chrome API的独立预览和本地服务。原文均blocked by policy，未给具体原因。两个新路径都未产生；未通过换工具或路径执行相同的脚本/预览。随后仅运行既有测试文件等独立允许项。弹窗路由新测试及本轮视觉验收未完成，不计入通过。用户已获告知。
 
 - 最终构建：126596413字节，SHA256 bc03b747e8676415ec7ca865b794182c03c8d4378a91dacd19898713c2c78933。首轮构建后补齐新默认安装路径的MCP/开发教程，旧中间构建保留work/build-105-before-docs；再次显式预检后从空payload重建。147个源码文件及全部构建工具输入摘要吻合；smoke18766 release_ok/service_stopped均true；未确认时未创建素材库。日常安装1.0.3的1857个受管文件摘要保持，后台/配对扩展1.0.3，原素材设置未改。没有执行安装/发布。
+
+- 1.0.5最终归档已完成：F:/RefTray/releases/1.0.5-candidate，安装器、源码ZIP、交付说明及SHA256文件齐全；3个摘要和ZIP完整性通过，源码固定8bbfcec34534de5c0cd38ad1f902c07422d5f7bf。根README、releases索引及CURRENT已更新，旧版本保持。没有本轮预览服务残留，因为被拒准备未执行。
