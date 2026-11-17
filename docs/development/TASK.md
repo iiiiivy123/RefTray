@@ -122,3 +122,13 @@ P1/P2（2026-11-16）：核对 Microsoft [Run 登录启动](https://learn.micros
 - 浏览器验证连接失败：CUA createBrowserTab(svglogo.top) 超时30秒，随后 getTab 同URL再次超时30秒；均重置工具会话。未再换入口重试，未操作 chrome:// 管理页，未加载1.0.3扩展。已向用户提出连接恢复后继续实测或稍后验收的选择。悬浮实际点击、SVG Chrome提取、真实长页面首中尾/固定导航/懒加载/恢复位置仍待验收。
 - 最终依赖预检通过，1.0.3候选构建完成：`dist/InspirationCollector-1.0.3-Windows-x64-Setup.exe`，126582288字节，SHA256 `7fc02c5a347228b9344276245a0e1f59fbe017a9db5c68b897ea201348154c68`。源码与payload的147个匹配文件逐字节一致。首轮构建后自查发现不应阻断旧采集状态读取的门禁，收窄到新任务入口；旧构建保留在忽略的 work/build-first，最终从空payload重新预检/构建。
 - 最终payload通过隔离启动/退出检查（端口18766，work/smoke-state，release_ok=true，service_stopped=true）。没有覆盖日常1.0.2、未改变原素材/设置；未推送、未发布、未运行安装器。
+
+## 2026-11-17 恢复隔离实测（等待浏览器入口）
+
+用户明确恢复 N05–N07 实测，要求保持日常1.0.2/原素材设置，不发布。再次读取启用 Ivy v0.5，SHA256 F6A0F36D4338BDAF24C7D4E33B81140EFEDB6228519D4D8985799759CECAB024 未变。
+
+已准备 `work/isolated-20261117/program`（候选payload的server/extension副本；runtime仅复用只读文件）、独立state/library和3000px测试页。仅隔离扩展9个JS文件将后台端口8766替换为18766，差异摘要见 isolation.json；候选包和源代码未改。后台真实启动，health证实1.0.3及独立root/inbox；默认图片上限1用于验证悬浮按默认值保存。测试页18767包含两个公网SVG及首中尾标记、固定导航和滚动位置日志。
+
+日常8766健康读取为1.0.2且busy=true，未停止或修改。原设置/manifest摘要及旧素材记录行摘要保存在忽略目录，未输出私有内容。
+
+工具getState库存读取已恢复。随后含启动独立Chrome资料的shell调用执行前被拒，原文 `rejected: blocked by policy`，没有具体原因；未换工具/包装尝试启动。此前chrome://扩展管理页也被URL策略拒绝。用户已收到一次手动建立独立未登录Chrome资料、加载隔离扩展和打开测试页的请求；仍待回应。后台和fixture仅为本次验收的临时进程，无定时任务/登录启动/安装注册变化。此时未产生浏览器实测通过结果。
