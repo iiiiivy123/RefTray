@@ -173,3 +173,14 @@ P1/P2（2026-11-16）：核对 Microsoft [Run 登录启动](https://learn.micros
 - 最终构建：126596413字节，SHA256 bc03b747e8676415ec7ca865b794182c03c8d4378a91dacd19898713c2c78933。首轮构建后补齐新默认安装路径的MCP/开发教程，旧中间构建保留work/build-105-before-docs；再次显式预检后从空payload重建。147个源码文件及全部构建工具输入摘要吻合；smoke18766 release_ok/service_stopped均true；未确认时未创建素材库。日常安装1.0.3的1857个受管文件摘要保持，后台/配对扩展1.0.3，原素材设置未改。没有执行安装/发布。
 
 - 1.0.5最终归档已完成：F:/RefTray/releases/1.0.5-candidate，安装器、源码ZIP、交付说明及SHA256文件齐全；3个摘要和ZIP完整性通过，源码固定8bbfcec34534de5c0cd38ad1f902c07422d5f7bf。根README、releases索引及CURRENT已更新，旧版本保持。没有本轮预览服务残留，因为被拒准备未执行。
+
+## 2026-11-17 用户授权安装1.0.5：启动被拒，原安装保留
+
+用户明确要求装1.0.5，保留原素材设置，安装后由用户重载再实测，不发布。恢复读取Ivy v0.5入口（C:/Users/Admin/.codex/ivy-dev-system/AGENTS.md，SHA256 F6A0F36D4338BDAF24C7D4E33B81140EFEDB6228519D4D8985799759CECAB024）。内置更新工具仅支持已检查的正式版，不用于本地候选。
+
+- 核对归档1.0.5包SHA256与记录一致。后台1.0.3空闲，root/inbox均F:/LibLib自动化。新备份work/install-105包含设置、SQLite在线一致副本、程序清单及基线；SQLite integrity_check=ok，设置副本逐字节一致。
+- 基线captures485/assets2643/tasks450/preferences1。素材索引去重后2391个现存文件记录大小与mtime，另20个基线已不存在的路径单独计数，不算安装丢失；记录和设置内容未输出或加入Git。
+- 正常调用归档1.0.5安装器（VERYSILENT/SUPPRESSMSGBOXES/NORESTART，固定原目录F:/RefTray/app，日志写入本次备份目录）执行前被拒：blocked by policy，未给具体原因。没有改用其他工具、包装、手动复制或其他安装路径。安装未开始，PID和setup.log不存在。
+- 只读复核后台、安装扩展及最近配对扩展仍1.0.3；四张表的全部旧行、2391个文件size/mtime、1857个程序文件SHA256、原设置摘要、目录登记和登录自启均保持。结果存work/install-105/blocked-install-evidence.json。核验脚本首次工具包装少括号产生语法错误、未执行，修正后执行通过。
+- CURRENT、根入口和releases索引同步真实阻塞状态。没有发布，没有宣称安装或浏览器实测成功。用户无需现在重载；等待安装阻塞解除并确认1.0.5运行后，接用户重载，再验收悬浮/SVG/长截图及旧采集问题。
+- 收尾：8项架构检查与git diff --check通过；本轮仅更新交接记录，候选安装包和产品源码未改。
