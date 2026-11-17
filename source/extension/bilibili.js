@@ -102,7 +102,8 @@
     const u=new URL(url),match=u.hostname==='space.bilibili.com'&&u.pathname.match(/^\/(\d+)\/(?:upload\/video|video|lists\/\d+)\/?$/);
     if(!match)throw Error('请打开B站UP主空间的「投稿 → 视频」列表，再开始批量');
     const root=doc.querySelector('#submit-video-list,.upload-video-list,.upload-list,.video-list,.video-section,.video-list-body,.items-list,.video-list__content,main');
-    if(!root)throw Error('未识别投稿列表；不会退回抓取整个页面的广告和推荐');
+    const pending=message=>{const error=new Error(message);error.code='BILI_LIST_PENDING';error.diagnostics={ready_state:doc.readyState||'unknown',visibility:doc.visibilityState||'unknown',recognized_root:Boolean(root)};throw error;};
+    if(!root)pending('未识别投稿列表；不会退回抓取整个页面的广告和推荐');
     const urls=new Set();
     for(const a of root.querySelectorAll('a[href]')){
       if(a.closest('[data-ad],[data-is-ad="true"],.ad-card,.ad-report,.bili-video-card__info--ad,aside,.recommend-list'))continue;
@@ -111,6 +112,7 @@
       if([...card.querySelectorAll('[class*="badge"],[class*="ad-tag"]')].some(n=>/^(广告|推广|商业推广)$/.test((n.textContent||'').trim())))continue;
       const id=bv(a.href);if(id)urls.add('https://www.bilibili.com/video/'+id+'/');
     }
+    if(!urls.size)pending('投稿列表尚未出现可识别的视频卡片；不会把未加载当作空列表');
     const owner=(doc.querySelector('#h-name,.nickname,.upinfo-detail__top__name')?.textContent||match[1]).trim(),collection=/\/lists\/\d+/.test(u.pathname);
     return {author_url:u.origin+u.pathname,author_name:owner,handle:match[1],view:'videos',urls:[...urls],list_url:u.origin+u.pathname,list_kind:collection?'collection':'videos',list_owner:owner,list_name:collection?(doc.querySelector('.series-header__title,.collection-title,.list-title,h1')?.textContent||'合集 '+u.pathname.split('/').pop()).trim():'视频'};
   }
@@ -140,5 +142,5 @@
     if(/^\/(opus\/\d+|read\/cv\d+)/.test(location.pathname))return article(location.href,document,window.__INITIAL_STATE__);
     let identity=null;try{identity=window.player?.getVideoInfo?.()||window.bilibiliPlayer?.getVideoInfo?.()||null;}catch(_){}
     return post(location.href,window.__INITIAL_STATE__,window.__playinfo__,globalThis.__collectorVideoQuality||'best',globalThis.__collectorOutputFormat||'original',identity);
-  }catch(e){return {error:e.message};}
+  }catch(e){return {error:e.message,...(e.code?{code:e.code,diagnostics:e.diagnostics}: {})};}
 })();

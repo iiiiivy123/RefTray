@@ -226,3 +226,4 @@
 !/tests/test_web_capture.py
 !/tests/collector/test_full_page_capture.cjs
 !/tests/collector/test_web_actions.cjs
+!/tests/collector/test_bili_profile_loading.cjs

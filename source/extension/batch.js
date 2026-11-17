@@ -268,8 +268,14 @@ async function runSocialBatch(tab, port, options, platform) {
     await batchProblem(tab.id);
     const current=await chrome.tabs.get(tab.id);
     if(/\/(accounts\/login|challenge|checkpoint|i\/flow|login)(\/|$)/i.test(new URL(current.url).pathname))throw new Error('NEEDS_ATTENTION: 请先完成登录或验证，再回作者主页续采。');
+    if(bilibili){const expected=new URL(tab.url),actual=new URL(current.url);if(actual.origin!==expected.origin||actual.pathname.replace(/\/$/,'')!==expected.pathname.replace(/\/$/,''))throw new Error('B站列表页面已切换，已停止读取其他作者或列表');}
     const parts=bilibili&&Boolean(CollectorBiliParts.key(current.url));
     const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id},injectImmediately:huaban,world:youtube||parts?'MAIN':'ISOLATED',files:huaban?['huaban.js','huaban-list.js']:[artstation?'artstation-list.js':youtube?'youtube.js':parts?'bilibili-parts.js':bilibili?'bilibili.js':instagram?'instagram-profile.js':'x-profile.js']});
+    if(bilibili&&result?.code==='BILI_LIST_PENDING'){
+      if(attempt>=24)throw new Error('等待30秒后仍未识别B站投稿列表：'+result.error+'。可能尚未加载或页面结构变化，不能据此判定登录失效。诊断：'+JSON.stringify(result.diagnostics||{}));
+      await reportProgress({stage:'scanning',message:'等待B站投稿列表加载，请保持作者页在前台（'+(attempt+1)+'/24）'});
+      await controlledWait(1250);await controlPoint();continue;
+    }
     if (!result || result.error) throw new Error(result?.error || '无法读取作者主页');
     if(platform!=='x'||result.list_visible!==false)return result;
     if(attempt>=23)throw new Error('X 主页在后台暂停了列表加载。请切回该主页，再继续未完成任务。');

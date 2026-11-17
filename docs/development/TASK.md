@@ -132,3 +132,12 @@ P1/P2（2026-11-16）：核对 Microsoft [Run 登录启动](https://learn.micros
 日常8766健康读取为1.0.2且busy=true，未停止或修改。原设置/manifest摘要及旧素材记录行摘要保存在忽略目录，未输出私有内容。
 
 工具getState库存读取已恢复。随后含启动独立Chrome资料的shell调用执行前被拒，原文 `rejected: blocked by policy`，没有具体原因；未换工具/包装尝试启动。此前chrome://扩展管理页也被URL策略拒绝。用户已收到一次手动建立独立未登录Chrome资料、加载隔离扩展和打开测试页的请求；仍待回应。后台和fixture仅为本次验收的临时进程，无定时任务/登录启动/安装注册变化。此时未产生浏览器实测通过结果。
+
+## 2026-11-17 用户授权实装1.0.3与电影解析探测
+
+用户要求继续尝试电影下载、赶紧实装1.0.3，装后用户重载扩展再测；不发布。沿用已读Ivy v0.5与同hash、项目B01/B02，独立整合分支fix/install-103，以d875d56为基线，选择性整合c29fa3f（B站复用已验证作者标签、置前台、列表最多30秒等待、停止/变更身份立即退出），不混入该分支旧CURRENT。gitignore上下文与候选已有规则不同导致首次整合失败，分开加入唯一新测试白名单后整合成功（准备冲突，无产品测试失败）。
+
+- 依赖预检通过。182项JS、76项Python（含8项架构）通过；构建成功，payload147个源码文件逐字节匹配；隔离smoke18766 release_ok=true/service_stopped=true。安装包126584490字节，SHA256 c3e8179c9dccf0c4f59ebbdd39a2189a622831b7fb1d455e02f626858d66e388。
+- 安装前日常后台1.0.2空闲；备份配置和SQLite到忽略目录work/host-install，基线captures478/assets2609/tasks443/preferences1，2569个仍存在的素材索引文件记录大小/mtime；登录自启原为开启。安装器已有旧程序恢复备份、空闲退出和启动校验，未改绕开这些流程。
+- 执行启动安装器命令（VERYSILENT/SUPPRESSMSGBOXES/NORESTART，固定目标F:/RefTray/app，先核对health及包SHA256）被工具执行策略拒绝：`rejected: blocked by policy`，没有返回具体理由。没有启动安装器、没有重新包装或换表面完成被拒安装。随后只读核验：日常后台和扩展仍1.0.2，setup.log及installer.pid不存在，collector-settings摘要、素材库路径、所有基线表行和2569个文件size/mtime一致。不能把构建/试图执行标为安装成功；需要用户手动运行已准备的安装包。
+- 电影探测：先由现有yt-dlp BiliBiliBangumiSeason正常读取ss48488，识别刺杀小说家2和ep2154831；再对该ep做不下载的正常解析，返回单个480p HTTPS格式、元信息duration7992.617，同时明确warning只有preview且需premium。未使用浏览器cookie、未绕地区/DRM/购买限制，未下载任何电影文件。该元信息时长不证明格式为全片；账号正常完整版权限和加密情况仍待确认。首期1.0.3没有接入番剧/电影入口，未虚报支持。原始最小探测输出存work/movie-*.json（忽略）；不包含签名播放URL或凭据。

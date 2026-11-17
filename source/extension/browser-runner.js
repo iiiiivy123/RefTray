@@ -48,11 +48,14 @@ const BrowserRunner=(()=>{
     .sort((a,b)=>Number(Boolean(b.active))-Number(Boolean(a.active))||(b.lastAccessed||0)-(a.lastAccessed||0));
   // Huaban navigates works in a separate work tab. Reuse the loaded board grid;
   // duplicate background grids can remain in the site's initial loading shell.
+  const biliAuthor=scope==='author'&&/^https:\/\/space\.bilibili\.com\/\d+\/(?:upload\/video|video|lists\/\d+)\/?(?:\?|$)/.test(url);
   let tab=scope==='single'||scope==='board'&&wanted.startsWith('huaban-board:')?(usable[0]||matches.find(t=>t.active)||matches[0]):null;
   // X stops rendering its virtual timeline in a background tab. Start an owned
   // list in the foreground so scrolling cannot jump over unrendered posts.
   const xAuthor=scope==='author'&&/^https:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/[A-Za-z0-9_]{1,15}\/?(?:\?|$)/.test(url);
-  if(!tab)tab=await chrome.tabs.create({url,active:xAuthor});
+  if(biliAuthor)tab=usable[0]||matches.find(t=>!t.discarded&&!t.frozen)||null;
+  if(!tab)tab=await chrome.tabs.create({url,active:xAuthor||biliAuthor});
+  else if(biliAuthor&&!tab.active)tab=await chrome.tabs.update(tab.id,{active:true});
   let publicPinFallback=false;
   try{await waitForTab(tab.id,{documentReady:/^https:\/\/(?:www\.)?(?:huaban|pinterest|artstation)\.com\//.test(url)});}
   catch(error){
