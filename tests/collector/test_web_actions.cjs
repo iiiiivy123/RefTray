@@ -1,17 +1,30 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const CaptureOptions=require('../../source/extension/capture-options.js');
-function worker({busy=false}={}){
- let listener;const calls=[];
- const chrome={tabs:{create:async value=>calls.push(value)},runtime:{id:'extension',getURL:p=>'chrome-extension://extension/'+p,getManifest:()=>({version:'1.0.3'}),onMessage:{addListener:f=>listener=f}},storage:{local:{set:async()=>{}}}};
+function worker({busy=false,shotFailure=false}={}){
+ let listener;const calls=[],progress=[];
+ const chrome={tabs:{create:async value=>calls.push(value),get:async id=>({id,url:'https://example.com/page',title:'Page'})},runtime:{id:'extension',getURL:p=>'chrome-extension://extension/'+p,getManifest:()=>({version:'1.0.3'}),onMessage:{addListener:f=>listener=f}},storage:{local:{set:async v=>progress.push(v)}}};
  const context={chrome,URL,taskRunning:busy,scanInProgress:false,taskContext:{},CaptureOptions,
-  reftrayHealth:async()=>({ok:true,json:async()=>({release:'1.0.3',settings_token:'test',busy:false})}),
+  reftrayHealth:async()=>({ok:true,json:async()=>({release:'1.0.3',settings_token:'test',busy:false,inbox:'F:/TestLibrary'})}),
   downloadApi:async(...args)=>{calls.push(args);return {collection_mode:'text',layout:'organized_flat',include_images:true,video_action:'skip',ocr_enabled:false};},
   CollectorSite:{context:()=>({single:true})},collect:async(...args)=>{calls.push(args);return {message:'saved',new_images:1};},
+  FullPageCapture:{capture:async(tab,{progress})=>{calls.push(['snapshot',tab]);await progress('tile 1/2');if(shotFailure)throw Error('capture failed');return {directory:'F:/TestLibrary/图片/shot',message:'saved PNG'};}},
   reportProgress:async()=>{},TaskProgress:{resultStatus:()=> 'completed'}};
  vm.runInNewContext(fs.readFileSync('source/extension/web-actions-worker.js','utf8'),context);
- return {calls,run:(message,sender)=>new Promise(resolve=>listener(message,sender,resolve))};
+ return {calls,progress,run:(message,sender)=>new Promise(resolve=>listener(message,sender,resolve))};
 }
 const sender={id:'extension',frameId:0,tab:{id:42,url:'https://example.com/work'}};
+test('hover reads context without saving; opening library ignores a supplied path',async()=>{
+ const w=worker({busy:true});const r=await w.run({type:'REFTRAY_FLOATING_CONTEXT'},sender);assert.equal(r.context.mode,'图文笔记');assert.equal(r.context.directory,'F:/TestLibrary');
+ assert.ok(!w.calls.some(c=>c[0]==='current'));
+ await w.run({type:'REFTRAY_OPEN_LIBRARY',directory:'F:/untrusted'},sender);assert.equal(w.calls.at(-1)[2],'/settings/open');assert.equal(w.calls.at(-1)[3].directory,'F:/TestLibrary');
+ assert.equal((await w.run({type:'REFTRAY_FLOATING_CONTEXT'},{...sender,frameId:1})).ok,false);
+});
+test('screenshot progress carries tab identity and terminal success or failure',async()=>{
+ for(const shotFailure of [false,true]){
+  const w=worker({shotFailure});const r=await w.run({type:'REFTRAY_FULL_PAGE',tabId:42},{id:'extension',url:'chrome-extension://extension/popup.html'});
+  assert.equal(r.ok,!shotFailure);assert.equal(w.progress[0].reftraySnapshotProgress.status,'running');assert.equal(w.progress.at(-1).reftraySnapshotProgress.status,shotFailure?'failed':'completed');assert.equal(w.progress.at(-1).reftraySnapshotProgress.tabId,42);
+ }
+});
 test('floating navigation opens only fixed internal sections, even while capture is busy',async()=>{
  const w=worker({busy:true});assert.equal((await w.run({type:'REFTRAY_OPEN_MANAGE',section:'history',url:'https://untrusted.example'},sender)).ok,true);
  assert.equal(w.calls[0].url,'chrome-extension://extension/manage.html#history');

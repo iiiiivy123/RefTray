@@ -12,7 +12,7 @@ function fixture({result={new_images:22,message:'保存路径\n'+ '详细记录'
  const shadow=new Element();shadow.querySelector=s=>nodes[s]||(nodes[s]=new Element());
  for(const key of ['#notice','#menu','#detail'])shadow.querySelector(key).hidden=true;
  const host=new Element(),window=new Element();window.top=window;
- const context={window,document:{body:{append(){}},querySelector:()=>null,createElement:()=>host,addEventListener(){}},innerWidth:1366,innerHeight:900,Math,Number,Object,String,Error,
+ const context={window,location:{origin:'https://example.com'},document:{body:{append(){}},querySelector:()=>null,createElement:()=>host,addEventListener(){}},innerWidth:1366,innerHeight:900,Math,Number,Object,String,Error,
   setTimeout:(f,ms)=>{timers.set(++timerId,{f,ms});return timerId;},clearTimeout:id=>timers.delete(id),
   chrome:{storage:{local:{get:async()=>stored,set:async v=>{if(storageError)throw Error('denied');writes.push(v);}},onChanged:{addListener(){}}},runtime:{sendMessage:async m=>{calls.push(m);return replyError?{ok:false,error:replyError}:{ok:true,result};}}}};
  vm.runInNewContext(fs.readFileSync('source/extension/floating-save.js','utf8'),context);
@@ -62,4 +62,17 @@ test('success expires, partial does not, settings can initially hide the control
  const f=fixture();await settled();await f.nodes['#save'].onclick({detail:0});const timeout=[...f.timers.values()].find(t=>t.ms===5000);assert.ok(timeout);timeout.f();assert.equal(f.nodes['#notice'].hidden,true);
  const p=fixture({result:{partial:true,new_images:3}});await settled();await p.nodes['#save'].onclick({detail:0});assert.equal(p.timers.size,0);
  const hidden=fixture({stored:{reftrayFloatingEnabled:false}});await settled();assert.equal(hidden.host.hidden,true);
+});
+
+test('new default is upper right; per-site disable and saved position still win',async()=>{
+ const fresh=fixture();await settled();assert.equal(fresh.host.style.top,'96px');
+ const old=fixture({stored:{reftrayFloatingPosition:{x:.8,y:.85}}});await settled();assert.ok(parseFloat(old.host.style.top)>600);
+ const off=fixture({stored:{reftrayFloatingSites:{'https://example.com':false}}});await settled();assert.equal(off.host.hidden,true);
+});
+test('hover only opens context, leaving closes, dragging cancels opening',async()=>{
+ const f=fixture();await settled();f.host.dispatch('pointerenter',{pointerType:'mouse'});
+ await [...f.timers.values()].find(t=>t.ms===350).f();await settled();
+ assert.equal(f.nodes['#menu'].hidden,false);assert.ok(f.calls.every(c=>c.type==='REFTRAY_FLOATING_CONTEXT'));
+ f.host.dispatch('pointerleave');[...f.timers.values()].find(t=>t.ms===250).f();assert.equal(f.nodes['#menu'].hidden,true);
+ f.host.dispatch('pointerenter');f.nodes['#save'].dispatch('pointerdown');assert.ok(![...f.timers.values()].some(t=>t.ms===350));
 });

@@ -3,31 +3,34 @@ let defaults,site,currentTab,defaultPath='',active=false,ready=false,videoMode='
 const error=e=>{if(!ready)q('#version').textContent=t('后台核验未完成');UI.feedback(q('#status'),e.message||String(e));q('#status').dataset.state='failed';q('#diagnostic-text').textContent=e.message||String(e);if(q('#task-result-summary'))q('#task-result-summary').textContent=e.message||String(e);globalThis.PopupPresentation?.paint({status:'failed',message:e.message||String(e)},false);};
 const guarded=fn=>async(...args)=>{try{await fn(...args);}catch(e){error(e);}};
 const isVideo=()=>['video','audio'].includes(q('#collection-mode').value);
+const isSnapshot=()=>q('#collection-mode').value==='snapshot';
+let snapshotPending=false;
 const isAudio=()=>isVideo()&&(q('#subtitle-mode').value==='audio');
 const isCover=()=>isVideo()&&q('#subtitle-mode').value==='cover';
 let modePreferences={},defaultsGeneration=0,manualSelection=0;
 function showSecondary(value){secondary=false;q('#advanced-options').open=value;render();if(value)q('#frame-options').scrollIntoView({block:'nearest'});}
 function render(){
  if(!defaults||!site)return;
- if(!resumeOptions&&site.mode==='video'&&!isVideo())q('#collection-mode').value='video';
+ const snapshot=isSnapshot();q('#task-options').classList.toggle('snapshot-mode',snapshot);q('#snapshot-help').hidden=!snapshot;
+ if(!snapshot&&!resumeOptions&&site.mode==='video'&&!isVideo())q('#collection-mode').value='video';
  if(!resumeOptions&&site.mode==='text'&&isVideo())q('#collection-mode').value='text';
- for(const option of q('#collection-mode').options){option.disabled=site.mode==='video'?!['video','audio'].includes(option.value):site.mode==='text'&&['video','audio'].includes(option.value);option.hidden=option.disabled;}
+ for(const option of q('#collection-mode').options){option.disabled=option.value==='snapshot'?Boolean(resumeOptions):site.mode==='video'?!['video','audio'].includes(option.value):site.mode==='text'&&['video','audio'].includes(option.value);option.hidden=option.disabled;}
  const video=isVideo(),plain=q('#collection-mode').value==='plain',text=plain||q('#collection-mode').value==='text';
  if(isAudio())videoMode='download';
  if(video&&q('#subtitle-mode').value==='only')videoMode='download';
- const allowed=Boolean(site.bulk)&&(!text||['小红书','X','Instagram','B站','ArtStation'].includes(site.site))&&(!video||['小红书','X','Instagram','Pinterest','B站','YouTube'].includes(site.site));
+ const allowed=!snapshot&&Boolean(site.bulk)&&(!text||['小红书','X','Instagram','B站','ArtStation'].includes(site.site))&&(!video||['小红书','X','Instagram','Pinterest','B站','YouTube'].includes(site.site));
  if(!resumeOptions){
    if(!allowed)q('#scope').value='current';
    else if(site.single===false)q('#scope').value='bulk';
  }
  const bulk=q('#scope').value==='bulk';
- const preview=q('#identify-status');if(preview)preview.hidden=bulk;
+ const preview=q('#identify-status');if(preview)preview.hidden=bulk||snapshot;
  const coverOption=q('#subtitle-mode option[value=cover]');coverOption.hidden=coverOption.disabled=bulk||site.site!=='B站'||!site.single;
  if(coverOption.disabled&&isCover())q('#subtitle-mode').value='none';
  q('#quality-row').hidden=q('#quality-help').hidden=!video||isAudio()||isCover()||q('#subtitle-mode').value==='only'||!['B站','YouTube'].includes(site.site);q('#trim-options').hidden=!video||isCover();
  q('#subtitle-help').hidden=!video||isAudio()||q('#subtitle-mode').value==='none';
  q('#subtitle-language-row').hidden=site.site!=='YouTube';
- q('#scope-bulk').disabled=!allowed||Boolean(resumeOptions);q('#scope-current').disabled=site.single===false||Boolean(resumeOptions);
+ q('#scope-bulk').disabled=!allowed||Boolean(resumeOptions);q('#scope-current').disabled=(!snapshot&&site.single===false)||Boolean(resumeOptions);q('#scope-current').textContent=t(snapshot?'当前网页':'当前作品');
  for(const s of ['current','bulk'])q('#scope-'+s).setAttribute('aria-pressed',String(q('#scope').value===s));
  q('#main-options').hidden=false;q('#secondary-options').hidden=false;
  q('#quota-help').textContent=site.site==='YouTube'?t('按当前列表顺序处理；重复和失败条目也计入本次数量。'):t('按视频计数；图片帖跳过。重复和失败的视频占额度；最多扫描500篇。');
@@ -55,7 +58,7 @@ function render(){
  q('#controls').hidden=!active||approval;q('#pause').textContent=t(control==='paused'?'继续':'暂停');
  q('#pause').disabled=q('#stop').disabled=control==='stopped';
  q('#reset').hidden=!active;q('#start').hidden=active||approval;
- const unsupported=bulk?!site.bulk:site.single===false;
+ const unsupported=snapshot?!/^https?:\/\//.test(currentTab?.url||''):bulk?!site.bulk:site.single===false;
  q('#start').disabled=!ready||active||picking||unsupported;
  if(unsupported)q('#mode-help').textContent=t(site.reason||'此处无法采集，请打开作品详情页或作者列表。');
  q('#start').textContent=t(secondary?'返回采集':resumeOptions?'继续未完成任务':video?(bulk?'扫描视频并估算大小':videoMode==='video'?'仅抽帧':'检查视频并估算大小'):'开始采集');
@@ -75,6 +78,9 @@ function render(){
  q('#destination-label').textContent=t(q('#task-destination').value.trim()?'仅本次另存':'使用默认目录');
  q('#recovery').hidden=active||!checkpoint||checkpoint.completed;q('#resume-help').hidden=!resumeOptions;q('#resume-task').disabled=active;
  CaptureLayout.paint({video,plain,text,bulk,audio:isAudio(),cover:isCover(),frames:videoMode==='download-frames',site:site.site});
+ q('#choose-folder').disabled=Boolean(resumeOptions)||snapshot;
+ if(snapshot){q('#start').textContent=t('保存整页长截图');q('#summary').textContent=t('完整网页 PNG + 原网址');q('#save-path').textContent=defaultPath;q('#save-path').title=defaultPath;q('#default-path').hidden=true;}
+ if(snapshotPending||snapshotActive){q('#controls').hidden=true;q('#reset').hidden=true;}
  globalThis.refreshSelects?.();
 }
 function textModeComments(video,plain){return !video&&(plain?q('#plain-comments').checked:q('#collection-mode').value==='text'&&q('#include-comments').checked);}
@@ -104,7 +110,15 @@ function options(){
  return Hub.options({...defaults,include_replies:q('#include-replies').checked&&['小红书','Instagram'].includes(site.site),comment_limit,max_video_mb,min_free_mb:0,skip_posts,min_duration,max_duration,max_images:defaults.max_images||0,output_format:isAudio()?'audio':'original',trim_start,trim_end,skip_gifs:q('#skip-gifs').checked,video_quality:['B站','YouTube'].includes(site.site)?q('#video-quality').value:'best',subtitle_language:'auto',subtitle_mode:isAudio()||isCover()?'none':video?q('#subtitle-mode').value:attachment==='skip'?'none':'with_video',md_only:plain,collection_mode:plain?'text':video?'images':q('#collection-mode').value,video_only:video&&bulk,limit,video_action:video?(videoMode==='download'?'save':'frames'):attachment,capture_scope:bulk?'batch':'single',capture_kind:plain?'text':video?'video':q('#collection-mode').value,duplicate_policy:requestedPolicy||defaults.duplicate_policy||'fill',include_images:!video&&!plain,include_comments:textModeComments(video,plain),plain_comments:q('#plain-comments').checked,ocr_enabled:q('#collection-mode').value==='text'&&q('#ocr-enabled').checked,strategy:q('#video-strategy').value,interval,destination:q('#task-destination').value.trim()||null,resume:false});
 }
 async function start(coverOnly=isCover()){
- if(!ready||active||q('#start').disabled)return;const now=await chrome.tabs.get(currentTab.id);if(now.url!==currentTab.url)throw new Error('页面已切换，请重新打开采集弹窗后开始');const value=options();if(secondary){await remember();showSecondary(false);return;}
+ if(!ready||active||q('#start').disabled)return;const now=await chrome.tabs.get(currentTab.id);if(now.url!==currentTab.url)throw new Error('页面已切换，请重新打开采集弹窗后开始');
+ if(isSnapshot()){
+  snapshotPending=true;active=true;render();let failure;
+  try{const reply=await chrome.runtime.sendMessage({type:'REFTRAY_FULL_PAGE',tabId:currentTab.id});if(!reply?.ok)throw new Error(reply?.error||'截图未完成');}
+  catch(e){failure=e;}
+  finally{snapshotPending=false;await update();if(failure)error(failure);}
+  return;
+ }
+ const value=options();if(secondary){await remember();showSecondary(false);return;}
  const mode=coverOnly?'current':q('#scope').value==='bulk'?site.bulk:isVideo()?videoMode:'current';
  if(coverOnly)Object.assign(value,{capture_scope:'single',capture_kind:'images',collection_mode:'images',include_images:true,include_videos:false,video_action:'skip',video_only:false,subtitle_mode:'none',extract_frames:false});
  if(!mode)throw new Error('此页面不支持所选采集方式');
@@ -113,9 +127,11 @@ async function start(coverOnly=isCover()){
  UI.message(q('#status'),value.include_videos?'正在检查本次媒体…':'开始采集…');
  chrome.runtime.sendMessage({type:'COLLECT_V2',build:BUILD,mode,options:value,port:8766},response=>{active=false;resumeOptions=null;q('#task-destination').value='';q('#resume-task').checked=false;render();if(chrome.runtime.lastError||!response?.ok)error(new Error(response?.error||chrome.runtime.lastError?.message||'任务未完成'));update().catch(error);});
 }
+let snapshotActive=false;
 async function update(){
- const s=await chrome.storage.local.get(['liblibActiveJob','liblibProgress','collectorApproval','liblibControl','collectorCheckpoint']);
- active=Boolean(s.liblibActiveJob);control=s.liblibControl||'running';checkpoint=s.collectorCheckpoint;const p=s.liblibProgress;
+ const s=await chrome.storage.local.get(['liblibActiveJob','liblibProgress','collectorApproval','liblibControl','collectorCheckpoint','reftraySnapshotProgress']);
+ let shot=s.reftraySnapshotProgress;if(shot?.status==='running'&&Date.now()-shot.updatedAt>180000)shot={...shot,status:'failed',message:'截图连接已中断，请查看任务记录后重试'};snapshotActive=shot?.status==='running';
+ active=Boolean(s.liblibActiveJob)||snapshotActive||snapshotPending;control=s.liblibControl||'running';checkpoint=s.collectorCheckpoint;const p=snapshotActive||isSnapshot()&&shot?.tabId===currentTab?.id?shot:s.liblibProgress;
  q('#open-result').hidden=!p?.directory;
  q('#open-result').dataset.directory=p?.directory||'';
  q('#detail-open-result').hidden=!p?.directory;
@@ -161,7 +177,7 @@ function showOptions(d){
 }
 q('#task-options').addEventListener('change',guarded(async event=>{
  if(event.target.id==='collection-mode'){manualSelection++;
-   const kind=event.target.value;showOptions({...CaptureOptions.resolve({defaults,modePreferences,mode:kind,generation:defaultsGeneration}),destination:q('#task-destination').value});q('#collection-mode').value=kind;
+   const kind=event.target.value;if(kind!=='snapshot')showOptions({...CaptureOptions.resolve({defaults,modePreferences,mode:kind,generation:defaultsGeneration}),destination:q('#task-destination').value});q('#collection-mode').value=kind;
  }
  if(event.target.id==='subtitle-mode'&&isAudio())videoMode='download';
  if(event.target.id==='auto-frames')videoMode=event.target.checked?'download-frames':'download';
@@ -179,7 +195,7 @@ q('#resume-task').addEventListener('change',()=>q('#task-dialog').close());
 q('#default-path').onclick=guarded(async()=>{q('#task-destination').value='';await chrome.storage.local.remove('collectorPopupDraft');render();});
 
 async function remember(){
- if(resumeOptions)return;
+ if(resumeOptions||isSnapshot())return;
  const value=options();value.duplicate_policy='fill';value.destination=null;
  value.batch_video_action=q('#video-action').value;
  value.subtitle_output_schema='video-srt-md-v1';
@@ -215,7 +231,7 @@ q('#reset').onclick=guarded(async()=>{const r=await chrome.runtime.sendMessage({
 q('#end-task').onclick=guarded(async()=>{const r=await chrome.runtime.sendMessage({type:'END_BATCH'});if(!r?.ok)throw new Error(r?.error);resumeOptions=null;q('#resume-task').checked=false;await update();});
 q('#resume-task').onchange=guarded(async()=>{if(q('#resume-task').checked){if(!checkpoint||checkpoint.completed)throw new Error('没有未完成任务，请在管理页选择历史任务。');resumeOptions={...checkpoint.options,...(checkpoint.options.destination||checkpoint.root?{destination:checkpoint.options.destination||checkpoint.root}:{})};showOptions(resumeOptions);q('#scope').value='bulk';}else{resumeOptions=null;showOptions(defaults);}render();});
 document.addEventListener('uilanguage',render);
-chrome.storage.onChanged.addListener((changes,area)=>{if(area!=='local')return;const d=changes.collectorPopupDraft?.newValue;if(d?.tabId===currentTab?.id&&d.expires>Date.now()){picking=Boolean(d.picking);q('#task-destination').value=d.options.destination||'';render();if(d.error)error(new Error(d.error));}if(['liblibActiveJob','liblibProgress','collectorApproval','liblibControl','collectorCheckpoint'].some(k=>k in changes))update().catch(error);});
+chrome.storage.onChanged.addListener((changes,area)=>{if(area!=='local')return;const d=changes.collectorPopupDraft?.newValue;if(d?.tabId===currentTab?.id&&d.expires>Date.now()){picking=Boolean(d.picking);q('#task-destination').value=d.options.destination||'';render();if(d.error)error(new Error(d.error));}if(['liblibActiveJob','liblibProgress','collectorApproval','liblibControl','collectorCheckpoint','reftraySnapshotProgress'].some(k=>k in changes))update().catch(error);});
 guarded(async()=>{
  [currentTab]=await chrome.tabs.query({active:true,currentWindow:true});site=CollectorSite.context(currentTab?.url||'');
  if(site.parts){
@@ -263,7 +279,7 @@ q('#skip-video').onchange=guarded(async()=>{q('#video-action').value=q('#skip-vi
 const identifyStatus=document.createElement('p');identifyStatus.id='identify-status';identifyStatus.className='hint';identifyStatus.setAttribute('role','status');q('#collection-mode').closest('label').after(identifyStatus);
 async function identify(){
  if(q('#scope').value==='bulk'){identifyStatus.textContent='';return;}
- if(active||resumeOptions)return;
+ if(active||resumeOptions||isSnapshot())return;
  const token=manualSelection;UI.message(identifyStatus,'正在识别已加载正文…');
  try{const result=await previewCurrentTab(currentTab);
  if(result?.url!==currentTab.url||token!==manualSelection||q('#scope').value==='bulk'||active||resumeOptions)return;

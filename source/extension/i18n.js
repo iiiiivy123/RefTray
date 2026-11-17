@@ -1,6 +1,7 @@
 // UI strings only. Captured titles, paths, OCR and source documents stay unchanged.
 (() => {
   const en={
+    '整页长截图':'Full-page screenshot','保存整页长截图':'Save full-page screenshot','当前网页':'Current page','完整网页 PNG + 原网址':'Full-page PNG + source URL','悬浮':'Float',
     '批量视频':'Batch videos','批量音频':'Batch audio','批量图片':'Batch images','批量图文':'Batch notes','批量文字':'Batch text','音频':'Audio',
     '忽略任务':'Dismiss task','忽略所选':'Dismiss selected','恢复到待处理':'Restore task','保留已保存的文件':'Keep saved files',
     '尚未保存内容':'No content saved yet','已处理 {count} 项 · 失败 {failures}':'Processed {count} items · {failures} failed',

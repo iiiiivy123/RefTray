@@ -94,7 +94,7 @@ internal static partial class Launcher {
   Directory.CreateDirectory(state);var temporary=Path.Combine(state,"cache","tmp");Directory.CreateDirectory(temporary);
   var p=new ProcessStartInfo(Path.Combine(app,"runtime","pythonw.exe"),"-B -m server.desktop");
   p.WorkingDirectory=app;p.UseShellExecute=false;p.CreateNoWindow=true;p.RedirectStandardError=true;p.RedirectStandardOutput=true;
-  p.EnvironmentVariables["LIBLIB_ROOT"]=state;p.EnvironmentVariables["LIBLIB_COLLECTOR_PORT"]=port.ToString();p.EnvironmentVariables["PYTHONUTF8"]="1";
+  p.EnvironmentVariables["LIBLIB_ROOT"]=state;p.EnvironmentVariables["LIBLIB_COLLECTOR_PORT"]=port.ToString();p.EnvironmentVariables["PYTHONUTF8"]="1";p.EnvironmentVariables["REFTRAY_PROGRAM_DIR"]=app;
   p.EnvironmentVariables["COLLECTOR_LAUNCHER_SECRET"]=launcherSecret;
   p.EnvironmentVariables["TMP"]=temporary;p.EnvironmentVariables["TEMP"]=temporary;p.EnvironmentVariables["TMPDIR"]=temporary;
   service=Process.Start(p);try{OwnProcessTree();}catch{if(!service.HasExited)service.Kill();throw;}var ownedService=service;var ownedTree=job;service.Exited+=(s,e)=>{Log("Owned backend exited, code="+ownedService.ExitCode);if(Interlocked.CompareExchange(ref job,IntPtr.Zero,ownedTree)==ownedTree)CloseHandle(ownedTree);};service.EnableRaisingEvents=true;service.OutputDataReceived+=(s,e)=>{};service.ErrorDataReceived+=(s,e)=>Log(e.Data);service.BeginOutputReadLine();service.BeginErrorReadLine();

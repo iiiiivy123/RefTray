@@ -69,6 +69,33 @@ class OnboardingTests(unittest.TestCase):
         self.assertTrue(load_settings().library_configured)
         self.assertEqual(load_settings().inbox, legacy)
 
+    def test_fresh_recommendation_is_beside_app_and_created_only_on_confirmation(self):
+        program = self.root.parent / 'RefTray' / 'app'
+        expected = program.parent / '素材库'
+        with patch.dict(os.environ, {'REFTRAY_PROGRAM_DIR': str(program)}):
+            settings = load_settings()
+            self.assertFalse(settings.library_configured)
+            self.assertEqual(settings.inbox, expected)
+            self.assertFalse(expected.exists())
+            client = TestClient(create_app())
+            headers = {'X-Collector-Token': client.get('/health').json()['settings_token']}
+            self.assertEqual(client.post('/settings/directory', headers=headers, json={'directory': str(expected)}).status_code, 200)
+            self.assertTrue(expected.is_dir())
+
+    def test_new_program_location_never_replaces_old_library_or_preferences(self):
+        old = self.root.parent / 'original-library'
+        self.client.post('/settings/directory', headers=self.headers, json={'directory': str(old)})
+        material = old / 'old.jpg'
+        material.write_bytes(b'keep')
+        config = self.root / 'data/inspiration/collector-settings.json'
+        before = config.read_bytes()
+        with patch.dict(os.environ, {'REFTRAY_PROGRAM_DIR': str(self.root.parent / 'RefTray/app')}):
+            self.assertEqual(load_settings().inbox, old)
+            self.assertTrue(load_settings().library_configured)
+            self.assertEqual(config.read_bytes(), before)
+            self.assertEqual(material.read_bytes(), b'keep')
+            self.assertFalse((self.root.parent / 'RefTray/素材库').exists())
+
     def test_startup_auth_and_error_are_explicit(self):
         with patch('server.startup.preference', return_value={'enabled': True}) as preference:
             self.assertEqual(self.client.post('/settings/startup', json={'enabled': True}).status_code, 403)

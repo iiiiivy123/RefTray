@@ -87,7 +87,7 @@ end;
 function GetInstallDirectory(Param: String): String;
 begin
   if not RegQueryStringValue(HKCU, 'Software\RefTray', 'InstallDirectory', Result) then
-    Result := ExpandConstant('{localappdata}\Programs\InspirationCollector');
+    Result := ExpandConstant('{localappdata}\Programs\RefTray\app');
 end;
 
 function StopOwnedLauncher(UseIncomingClient: Boolean): String;

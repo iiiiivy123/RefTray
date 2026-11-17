@@ -5,7 +5,8 @@
 <section id="main-options">
 <div class="intent-switch" role="group" aria-label="Capture scope / 采集范围"><button type="button" id="scope-current" aria-pressed="true">保存此页</button><button type="button" id="scope-bulk" aria-pressed="false">批量保存</button></div>
 <select id="scope" hidden aria-label="采集范围"><option value="current">保存此页</option><option value="bulk">批量保存</option></select>
-<label class="field"><span>采集内容</span><select id="collection-mode"><option value="images">图片 / GIF</option><option value="text">图文笔记</option><option value="video">视频</option><option value="plain">纯文字 · Markdown</option></select></label>
+<label class="field"><span>采集内容</span><select id="collection-mode"><option value="images">图片 / GIF</option><option value="text">图文笔记</option><option value="video">视频</option><option value="plain">纯文字 · Markdown</option><option value="snapshot">整页长截图</option></select></label>
+<p id="snapshot-help" hidden>保存完整网页 PNG 和原网址，使用默认素材库。截图时请保持网页在前台；滚动或操作页面会取消截图。</p>
 <div class="field" id="video-tools" hidden><span>视频处理</span><div class="video-choices" role="group" aria-label="Video action / 视频操作"><button type="button" id="save-video" aria-pressed="true">仅保存</button><button type="button" id="download-frames" aria-pressed="false">保存并抽帧</button></div></div>
 <label class="field" id="quality-row" hidden><span>视频清晰度</span><select id="video-quality"><option value="best">最高可用</option><option value="1080">最高 1080p</option><option value="720">最高 720p</option><option value="480">最高 480p</option></select></label><p id="quality-help" class="hint" hidden>按可用源选择，不放大画面；下载前显示实际画质。</p>
 <label class="field" id="subtitle-row" hidden><span>保存内容</span><select id="subtitle-mode"><option value="with_video">视频 + 字幕 + MD</option><option value="none">仅视频，不提取文字</option><option value="only">仅文字稿（MD）</option><option value="audio">仅提取音频</option><option value="cover" hidden>仅保存封面</option></select></label>

@@ -16,7 +16,7 @@ AI 客户端会收到任务结果，其中可能有原链接、标题、保存�
 
 先启动 Windows 中的「RefTray」，确认托盘图标已经出现，再配置 AI 客户端。MCP 接口不会代替你启动后台。
 
-在支持 stdio MCP 的客户端添加一个名为 `reftray` 的服务。默认安装目录是 `%LOCALAPPDATA%\Programs\InspirationCollector`；在文件资源管理器打开这个地址，复制地址栏中的完整路径。自定义安装位置请用实际目录。
+在支持 stdio MCP 的客户端添加一个名为 `reftray` 的服务。新装默认目录是 `%LOCALAPPDATA%\Programs\RefTray\app`（旧安装保留原目录）；在文件资源管理器打开这个地址，复制地址栏中的完整路径。自定义安装位置请用实际目录。
 
 如果客户端分别填写命令和参数：
 
@@ -26,16 +26,16 @@ AI 客户端会收到任务结果，其中可能有原链接、标题、保存�
 
 参数分成两项填写，不要把整条命令粘进一个参数。这里的 `<安装目录>` 必须替换；不要指向源码里的 `source/server` 或别人的安装位置。
 
-下面是使用 `mcpServers` 配置格式的客户端示例。把两处 `C:/Users/你的用户名/AppData/Local/Programs/InspirationCollector` 都换成实际安装目录；客户端使用其他格式时，照上面的字段填写。
+下面是使用 `mcpServers` 配置格式的客户端示例。把两处 `C:/Users/你的用户名/AppData/Local/Programs/RefTray/app` 都换成实际安装目录；客户端使用其他格式时，照上面的字段填写。
 
 ```json
 {
   "mcpServers": {
     "reftray": {
-      "command": "C:/Users/你的用户名/AppData/Local/Programs/InspirationCollector/runtime/python.exe",
+      "command": "C:/Users/你的用户名/AppData/Local/Programs/RefTray/app/runtime/python.exe",
       "args": [
         "-B",
-        "C:/Users/你的用户名/AppData/Local/Programs/InspirationCollector/server/mcp_stdio.py"
+        "C:/Users/你的用户名/AppData/Local/Programs/RefTray/app/server/mcp_stdio.py"
       ]
     }
   }

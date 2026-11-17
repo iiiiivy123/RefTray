@@ -121,3 +121,16 @@ body:has(>#scroll-content){width:320px;background:var(--paper)}
 .popup-redesign .trim-values input{width:43px;min-width:0;min-height:30px;padding:3px 0;border:0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
 .popup-redesign #text-options{gap:0 12px}
 .popup-redesign #advanced-options{display:none!important}
+
+/* Compact site permission tag and the transient full-page capture choice. */
+.popup-redesign .header-actions{gap:5px}
+.popup-redesign #enable-site{padding:3px 7px;min-height:24px;font-size:11px;line-height:16px;border-radius:12px;white-space:nowrap;border:1px solid #c9c5bc}
+.popup-redesign #enable-site[aria-pressed=true]{background:#e5ecff;border-color:#b7c9f5;color:#214fae}
+.popup-redesign #enable-site:before{content:'●';font-size:7px;margin-right:4px;color:#8a877f}
+.popup-redesign #enable-site[aria-pressed=true]:before{color:#2456d6}
+.popup-redesign #web-action-message{font-size:11px;margin:0 0 8px;color:var(--muted)}
+.popup-redesign #web-action-message:empty{display:none}
+.popup-redesign .snapshot-mode #filters-row,.popup-redesign .snapshot-mode #text-attachments-row,.popup-redesign .snapshot-mode #video-tools,.popup-redesign .snapshot-mode #subtitle-row,.popup-redesign .snapshot-mode #video-output-options,.popup-redesign .snapshot-mode #quality-row,.popup-redesign .snapshot-mode #limit-row,.popup-redesign .snapshot-mode #batch-range,.popup-redesign .snapshot-mode #trim-options,.popup-redesign .snapshot-mode #advanced-options{display:none!important}
+.popup-redesign #snapshot-help{font-size:12px;line-height:1.65;color:#625e56;margin:12px 0}
+.popup-redesign .snapshot-mode #choose-folder{opacity:1;color:var(--muted);cursor:default}
+.popup-redesign .snapshot-mode #choose-folder .control-arrow{display:none}

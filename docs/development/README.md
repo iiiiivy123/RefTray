@@ -43,7 +43,7 @@ python tools/build_windows.py
 在仓库根目录运行。下面使用默认安装位置中自带的 Python，并明确从当前检出的 `source` 导入代码。自定义安装位置请把第一行换成实际的完整路径；也可使用已装齐项目依赖的开发环境解释器。找不到解释器时先修正路径，不要直接切换到未知的系统 Python。
 
 ```powershell
-$reftrayTestPython = Join-Path $env:LOCALAPPDATA 'Programs\InspirationCollector\runtime\python.exe'
+$reftrayTestPython = Join-Path $env:LOCALAPPDATA 'Programs\RefTray\app\runtime\python.exe'
 if (!(Test-Path -LiteralPath $reftrayTestPython)) { throw '请把 reftrayTestPython 改为实际的 Python 路径' }
 & $reftrayTestPython -c "import sys,unittest; sys.path.insert(0,'source'); r=unittest.TextTestRunner().run(unittest.defaultTestLoader.discover('tests/collector',pattern='test_architecture_boundaries.py')); sys.exit(not r.wasSuccessful())"
 ```

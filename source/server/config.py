@@ -62,7 +62,17 @@ def load_settings() -> Settings:
     return Settings(
         root=root,
         save_directory=directory,
-        recommended_directory=Path.home() / 'Documents' / '灵感采集',
+        recommended_directory=recommended_library(),
         port=int(os.getenv("LIBLIB_COLLECTOR_PORT", "8766")),
         timeout=float(os.getenv("LIBLIB_REQUEST_TIMEOUT", "12")),
     )
+
+
+def recommended_library() -> Path:
+    # The launcher supplies its own install location; never infer it from user data.
+    program = os.getenv('REFTRAY_PROGRAM_DIR')
+    if program:
+        directory = Path(program).expanduser().resolve()
+        root = directory.parent if directory.name.lower() == 'app' else directory
+        return root / '素材库'
+    return Path.home() / 'Documents' / 'RefTray' / '素材库'

@@ -1,25 +1,26 @@
 (() => {
- const panel=document.createElement('section');panel.className='inline-actions';panel.style.cssText='padding:8px 16px;flex-wrap:wrap';
- panel.innerHTML='<button type="button" id="enable-site">在此网站启用悬浮保存</button><button type="button" id="page-screenshot">保存整页长截图</button><p id="web-action-message" role="status" style="width:100%;white-space:pre-wrap"></p>';
- document.querySelector('main').append(panel);
- const message=panel.querySelector('p'),enable=panel.querySelector('#enable-site'),shot=panel.querySelector('#page-screenshot');
- let tab,origin;enable.disabled=shot.disabled=true;
- chrome.tabs.query({active:true,currentWindow:true}).then(tabs=>{
-  tab=tabs[0];const u=new URL(tab.url);if(!/^https?:$/.test(u.protocol))throw new Error('请打开普通网页后使用。');origin=u.origin+'/*';enable.disabled=shot.disabled=false;
- }).catch(e=>{enable.disabled=shot.disabled=true;message.textContent=e.message;});
+ const enable=document.createElement('button');enable.id='enable-site';enable.type='button';enable.textContent='悬浮';enable.disabled=true;enable.setAttribute('aria-pressed','false');
+ document.querySelector('.header-actions').prepend(enable);
+ const message=document.createElement('p');message.id='web-action-message';message.setAttribute('role','status');document.querySelector('.app-header').after(message);
+ let tab,origin,siteKey,enabled=false;
+ const paint=value=>{enabled=value;enable.setAttribute('aria-pressed',String(value));enable.title=value?'已在此网站启用悬浮保存，点击关闭':'在此网站启用悬浮保存';enable.setAttribute('aria-label',enable.title);};
+ const refresh=async()=>{const values=await chrome.storage.local.get(['reftrayFloatingEnabled','reftrayFloatingSites']);const granted=await chrome.permissions.contains({origins:[origin]});paint(granted&&values.reftrayFloatingEnabled!==false&&values.reftrayFloatingSites?.[siteKey]!==false);};
+ chrome.tabs.query({active:true,currentWindow:true}).then(async tabs=>{
+  tab=tabs[0];const u=new URL(tab?.url);if(!/^https?:$/.test(u.protocol))throw new Error('请打开普通网页后使用悬浮保存。');siteKey=u.origin;origin=siteKey+'/*';await refresh();enable.disabled=false;
+ }).catch(e=>{enable.title=e.message;});
  enable.onclick=async()=>{
   if(!origin)return;
+  const next=!enabled;
+  // Request synchronously from the gesture; turning off never revokes capture access.
+  const permission=next?chrome.permissions.request({origins:[origin]}):Promise.resolve(true);
+  enable.disabled=true;
   try{
-   // Call synchronously from the explicit user gesture; no permission prompt on load.
-   const granted=await chrome.permissions.request({origins:[origin]});
-   if(!granted){message.textContent='未授权，此网站不显示悬浮按钮。';return;}
-   await chrome.scripting.executeScript({target:{tabId:tab.id},files:['floating-save.js']});
-   message.textContent='已启用。之后在此网站点击 RefTray 即可按默认设置保存。';
-  }catch(e){message.textContent=e.message;}
+   if(!await permission){message.textContent='未授权，此网站的悬浮保存未启用。';return;}
+   const {reftrayFloatingSites:sites={}}=await chrome.storage.local.get('reftrayFloatingSites');
+   await chrome.storage.local.set({reftrayFloatingSites:{...sites,[siteKey]:next},...(next?{reftrayFloatingEnabled:true}:{})});
+   if(next)await chrome.scripting.executeScript({target:{tabId:tab.id},files:['floating-save.js']});
+   await refresh();message.textContent=next?'已启用，按钮默认在网页右上方；拖动后会记住位置。':'已在此网站关闭悬浮保存。';
+  }catch(e){message.textContent=e.message;}finally{enable.disabled=false;}
  };
- shot.onclick=async()=>{
-  shot.disabled=true;message.textContent='正在保存整页。请保持此网页在前台，不要滚动或切换标签；关闭弹窗仍会继续。';
-  try{const r=await chrome.runtime.sendMessage({type:'REFTRAY_FULL_PAGE',tabId:tab.id});if(!r?.ok)throw new Error(r?.error||'截图未完成');message.textContent=r.result.message;}
-  catch(e){message.textContent=e.message;}finally{shot.disabled=false;}
- };
+ chrome.storage.onChanged.addListener((changes,area)=>{if(origin&&area==='local'&&(changes.reftrayFloatingEnabled||changes.reftrayFloatingSites))refresh().catch(e=>message.textContent=e.message);});
 })();
