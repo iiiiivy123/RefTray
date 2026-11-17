@@ -201,3 +201,4 @@ MCP连接Transport closed，本地后台HTTP仍正常，使用产品API读记录
 - 已为原帖补存视频，使用日常1.0.5已有明确视频模式：任务c6b18d74675049bd8a535bdb2727c373 completed，采集记录487。MP4 1920x1080/19.2秒/2120630字节，SHA256 d991107859bff311fc755af0973f57720fa16e1ba40beb6e87606cafb5e33696，与历史文件索引一致；原Markdown记录486保留。初次HTTP提交因把视频参数放外层返回422，按BrowserCapture.options合同修正一次后成功，无重复下载。详见work/xhs-video-proof.json。
 - 版本升1.0.6区分不可覆盖的1.0.5候选。显式依赖预检通过，旧build-windows核对路径后保存在work/build-105-final-preserved，再完整构建。安装器126590225字节，SHA256 d4146f3e8a881b403acae56fe378392770ed654ed9cb8a8710deff8e4fb62919。147个产品源码文件与payload一致；18766隔离smoke exit0、release_ok/service_stopped均true。work/verification-106.json记录证据。当前1.0.5的1857个受管文件与清单匹配，目录设置摘要和保存偏好与备份一致。未运行1.0.6安装器，未发布。
 - 新悬浮按钮的真实点击验收尚未完成；用户原帖在当前1.0.5的预识别与独立视频下载真实通过，不能替代新入口验收。接续顺序：归档1.0.6候选，后续在可用且授权的入口安装、用户重载扩展后验证一键保存及原先SVG/整页截图等待验收项。
+- 1.0.6已归档到F:/RefTray/releases/1.0.6-candidate：安装器、固定bdc9dcc源码ZIP、说明及SHA256清单齐全，3个摘要与ZIP完整性/无用户数据检查通过。CURRENT、根README与releases索引同步为已安装1.0.5、最新候选1.0.6；无新安装、无发布。
