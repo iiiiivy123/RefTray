@@ -3,10 +3,10 @@ const {summary,bounds}=require('../../source/extension/floating-save.js');
 function fixture({result={new_images:22,message:'保存路径\n'+ '详细记录'.repeat(1000)},stored={},replyError='',storageError=false}={}){
  const nodes={},calls=[],writes=[],timers=new Map();let timerId=0,focused;
  class Element {
-  constructor(){this.style={};this.dataset={};this.attrs={};this.listeners={};this.hidden=false;this.offsetWidth=202;this.offsetHeight=56;this.classes=new Set();this.classList={add:k=>this.classes.add(k),remove:k=>this.classes.delete(k),toggle:(k,v)=>v?this.classes.add(k):this.classes.delete(k)};}
+  constructor(){this.style={};this.dataset={};this.attrs={};this.listeners={};this.hidden=false;this.offsetWidth=112;this.offsetHeight=48;this.classes=new Set();this.classList={add:k=>this.classes.add(k),remove:k=>this.classes.delete(k),toggle:(k,v)=>v?this.classes.add(k):this.classes.delete(k)};}
   setAttribute(k,v){this.attrs[k]=v;}removeAttribute(k){delete this.attrs[k];}addEventListener(k,v){this.listeners[k]=v;}
   dispatch(k,value={}){return this.listeners[k]?.({button:0,isPrimary:true,pointerId:1,clientX:900,clientY:700,preventDefault(){},stopPropagation(){},...value,type:k});}
-  getBoundingClientRect(){return {width:202,height:56};}attachShadow(){return shadow;}append(){}matches(){return false;}focus(){focused=this;}
+  getBoundingClientRect(){return {width:112,height:48};}attachShadow(){return shadow;}append(){}matches(){return false;}focus(){focused=this;}
   setPointerCapture(id){this.capture=id;}hasPointerCapture(id){return this.capture===id;}releasePointerCapture(){this.capture=null;}
  }
  const shadow=new Element();shadow.querySelector=s=>nodes[s]||(nodes[s]=new Element());
@@ -14,7 +14,7 @@ function fixture({result={new_images:22,message:'保存路径\n'+ '详细记录'
  const host=new Element(),window=new Element();window.top=window;
  const context={window,location:{origin:'https://example.com'},document:{body:{append(){}},querySelector:()=>null,createElement:()=>host,addEventListener(){}},innerWidth:1366,innerHeight:900,Math,Number,Object,String,Error,
   setTimeout:(f,ms)=>{timers.set(++timerId,{f,ms});return timerId;},clearTimeout:id=>timers.delete(id),
-  chrome:{storage:{local:{get:async()=>stored,set:async v=>{if(storageError)throw Error('denied');writes.push(v);}},onChanged:{addListener(){}}},runtime:{sendMessage:async m=>{calls.push(m);return replyError?{ok:false,error:replyError}:{ok:true,result};}}}};
+  chrome:{storage:{local:{get:async()=>stored,set:async v=>{if(storageError)throw Error('denied');writes.push(v);}},onChanged:{addListener(){}}},runtime:{sendMessage:async m=>{calls.push(m);return replyError?{ok:false,error:replyError}:{ok:true,result,context:{mode:'自动识别',directory:'F:/Example',latest:{id:7,directory:'F:/Example/Saved'}}};}}}};
  vm.runInNewContext(fs.readFileSync('source/extension/floating-save.js','utf8'),context);
  return {nodes,host,window,context,calls,writes,timers,focused:()=>focused};
 }
@@ -46,7 +46,7 @@ test('pointer cancellation restores position and never persists or saves',async(
 test('stored position restores, resize clamps and keyboard movement is persisted',async()=>{
  const f=fixture({stored:{reftrayFloatingPosition:{x:.1,y:.2}}});await settled();assert.ok(parseFloat(f.host.style.left)<200);
  f.nodes['#grip'].dispatch('keydown',{key:'ArrowRight'});assert.equal(f.writes.length,1);
- f.context.innerWidth=320;f.context.innerHeight=240;f.window.dispatch('resize');assert.ok(parseFloat(f.host.style.left)+202<=320);assert.ok(parseFloat(f.host.style.top)+56<=240);
+ f.context.innerWidth=320;f.context.innerHeight=240;f.window.dispatch('resize');assert.ok(parseFloat(f.host.style.left)+112<=320);assert.ok(parseFloat(f.host.style.top)+48<=240);
 });
 test('errors remain visible, menu navigation is separate from saving, Escape restores focus',async()=>{
  const f=fixture({replyError:'connection failed\n'+'debug'.repeat(1000)});await settled();await f.nodes['#save'].onclick({detail:0});
@@ -75,4 +75,26 @@ test('hover only opens context, leaving closes, dragging cancels opening',async(
  assert.equal(f.nodes['#menu'].hidden,false);assert.ok(f.calls.every(c=>c.type==='REFTRAY_FLOATING_CONTEXT'));
  f.host.dispatch('pointerleave');[...f.timers.values()].find(t=>t.ms===250).f();assert.equal(f.nodes['#menu'].hidden,true);
  f.host.dispatch('pointerenter');f.nodes['#save'].dispatch('pointerdown');assert.ok(![...f.timers.values()].some(t=>t.ms===350));
+});
+test('one-time options reset for the next normal click, and folders use history IDs',async()=>{
+ const f=fixture({result:{new_videos:1,captureId:8}});await settled();
+ f.nodes['#more'].onclick();await settled();f.nodes['#options'].onclick();f.nodes['#choice'].value='video';await f.nodes['#save-options'].onclick();
+ assert.equal(f.calls.find(c=>c.type==='REFTRAY_QUICK_SAVE').choice,'video');assert.equal(f.nodes['#current'].hidden,false);
+ await f.nodes['#current'].onclick();assert.equal(f.calls.at(-1).captureId,8);
+ await f.nodes['#save'].onclick({detail:0});assert.equal(f.calls.at(-1).choice,'auto');assert.equal(f.writes.length,0);
+});
+test('failed one-time save retries the same choice and preserves visible details',async()=>{
+ const f=fixture({replyError:'failed'});await settled();f.nodes['#options'].onclick();f.nodes['#choice'].value='plain';await f.nodes['#save-options'].onclick();
+ assert.equal(f.nodes['#retry'].hidden,false);await f.nodes['#retry'].onclick();assert.equal(f.calls.at(-1).choice,'plain');assert.equal(f.nodes['#result-links'].hidden,false);
+});
+test('a panel remains inside a narrow viewport after the saved button position is clamped',async()=>{
+ const f=fixture();await settled();f.context.innerWidth=320;f.context.innerHeight=500;f.nodes['#menu'].offsetWidth=240;f.window.dispatch('resize');f.nodes['#more'].onclick();await settled();
+ const left=parseFloat(f.host.style.left)+parseFloat(f.nodes['#menu'].style.left);assert.ok(left>=12);assert.ok(left+240<=308);
+});
+
+test('success folder action keeps the expanded result inside a narrow viewport',async()=>{
+ const f=fixture({result:{new_images:3,captureId:8}});await settled();f.context.innerWidth=320;f.context.innerHeight=500;f.window.dispatch('resize');
+ Object.defineProperty(f.nodes['#notice'],'offsetWidth',{get:()=>f.nodes['#current']?.hidden?112:230});
+ await f.nodes['#save'].onclick({detail:0});
+ const left=parseFloat(f.host.style.left)+parseFloat(f.nodes['#notice'].style.left);assert.ok(left>=12);assert.ok(left+230<=308);
 });

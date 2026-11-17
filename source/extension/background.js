@@ -54,7 +54,7 @@ async function persistProgress(value,taskContext) {
   else value=TaskProgress.reduce(old,value,taskContext.batch);
   if(batchDownloadItem)value.current={...value.current,...batchDownloadItem};
   const detail = String(value.details || '').replace(/([?&](?:xsec_token|token|signature|auth)[^=]*=)[^\s&#]+/gi,'$1[已隐藏]');
-  await chrome.storage.local.set({liblibProgress: {...value, details: detail, context:taskContext?{id:taskContext.id,url:taskContext.url,title:taskContext.title,mode:taskContext.mode}:null, build: BUILD, updatedAt: Date.now()}});
+  await chrome.storage.local.set({liblibProgress: {...value, details: detail, context:taskContext?{id:taskContext.id,url:taskContext.url,title:taskContext.title,mode:taskContext.mode,quickRequestId:taskContext.quickRequestId}:null, build: BUILD, updatedAt: Date.now()}});
   if(taskContext?.id){
     const {collectorTaskJournal:journal={}}=await chrome.storage.local.get(['collectorTaskJournal']);
     const terminal=['completed','failed','partial','stopped','interrupted','paused'].includes(value.status);
@@ -692,7 +692,7 @@ async function collect(mode, port, options = {}, testTarget) {
   let tab = testTarget ? await chrome.tabs.get(testTarget.id) : (await chrome.tabs.query({active: true, currentWindow: true}))[0];
   if(testTarget?.publicPinFallback&&!/^https?:/.test(tab.url||'')&&tab.pendingUrl===testTarget.url)tab={...tab,url:tab.pendingUrl};
   if(testTarget && tab.url !== testTarget.url) throw new Error('测试目标页面已改变，请重新选择标签页。');
-  taskContext = {bridgeId:testTarget?.bridgeId,imageQuotaUsed:0,options:CaptureOptions.snapshot(options),control:'running',backendJobId:null,id:crypto.randomUUID(),url:tab?.url?.replace(/([?&])(?:xsec_token|xsec_source)=[^&#]*/g,'$1'), mode, title:tab?.title};
+  taskContext = {bridgeId:testTarget?.bridgeId,quickSave:Boolean(testTarget?.quickSave),quickRequestId:testTarget?.quickRequestId,imageQuotaUsed:0,options:CaptureOptions.snapshot(options),control:'running',backendJobId:null,id:crypto.randomUUID(),url:tab?.url?.replace(/([?&])(?:xsec_token|xsec_source)=[^&#]*/g,'$1'), mode, title:tab?.title};
   if (!tab?.id || (!/^https?:/i.test(tab.url || "") && !(mode === 'video' && tab.url === chrome.runtime.getURL('video.html')))) throw new Error("请打开普通网页后再采集");
   await chrome.storage.local.set({liblibActiveJob: {mode, startedAt: Date.now(), build: BUILD, bridgeId:testTarget?.bridgeId, testRunId:testTarget?.runId}});
   if(!testTarget?.bridgeId)await chrome.storage.local.set({liblibControl: "running"});
@@ -721,7 +721,7 @@ async function collect(mode, port, options = {}, testTarget) {
     if(mode==='author' && /(^|\.)instagram\.com$/.test(new URL(tab.url).hostname)) return await runSocialBatch(tab,port,options,'instagram');
     if(mode==='author' && /(^|\.)bilibili\.com$/.test(new URL(tab.url).hostname))return await runSocialBatch(tab,port,options,'bilibili');
     if(mode==='author' && /(^|\.)youtube\.com$/.test(new URL(tab.url).hostname))return await runSocialBatch(tab,port,options,'youtube');
-    if (mode === 'download' || mode === 'download-frames') return taskContext.bridgeId
+    if (mode === 'download' || mode === 'download-frames') return taskContext.bridgeId||taskContext.quickSave
       ? await downloadVideoSequence(tab,port,options,health,mode==='download-frames')
       : await downloadVideo(tab, port, options, health, mode === 'download-frames');
     if (mode === 'video' && options.savedAsset) {
@@ -811,14 +811,14 @@ async function previewCollection(tabId,url,owned=false){
   if((await chrome.tabs.get(tabId)).url!==url)throw new Error('页面已切换，请重新识别');
   const media=payload._media||[];
   const gifs=new Set(media.filter(m=>m.kind==='gif').map(m=>m.url));
-  const videos=new Set(media.filter(m=>m.kind==='video'||m.media_kind).map(m=>m.url));
+  const videos=new Set(media.filter(m=>m.kind!=='gif'&&(m.kind==='video'||m.media_kind)).map(m=>m.url));
   const photos=new Set();
   for(const item of payload.images||[]){
     if(item.role==='comment')continue;
     if(/\.gif(?:[?#]|$)/i.test(item.url))gifs.add(item.url);
     else if(!gifs.has(item.url))photos.add(item.url);
   }
-  return {url,state:'ready',images:photos.size,gifs:gifs.size,warning:payload._preflightIssue||'',
+  return {url,state:'ready',images:photos.size,gifs:gifs.size,has_text:Boolean(payload.body_text?.trim()),warning:payload._preflightIssue||'',
     videos:videos.size||(Number.isInteger(payload.video_count)?payload.video_count:!payload.has_video?0:null),has_video:Boolean(payload.has_video),
     kind:photos.size||gifs.size?'images':payload.has_video?'video':'plain'};
   });

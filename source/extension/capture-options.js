@@ -45,7 +45,21 @@ const CaptureOptions=(()=>{
     if(d.output_format==='audio'){d.video_action='save';d.subtitle_mode='none';}
     return snapshot(normalize(d));
   }
+  function quick(defaults,site,preview,choice='auto'){
+    if(!['auto','images','text','plain','video'].includes(choice))throw new Error('无效的本次保存选项');
+    if(preview?.state!=='ready'||preview.warning)throw new Error(preview?.reason||preview?.warning||'正文仍在加载，请稍后保存');
+    const pictures=preview.images>0||preview.gifs>0;
+    const video=preview.videos>0||preview.has_video&&!preview.gifs;
+    let kind=choice;
+    if(kind==='auto')kind=defaults.md_only?'plain':site.mode==='text'?'text':site.mode==='video'||preview.kind==='video'?'video':pictures?(defaults.collection_mode==='text'?'text':'images'):preview.has_text?'plain':null;
+    if(!kind||kind==='plain'&&!preview.has_text||kind==='images'&&!pictures||kind==='video'&&!video||kind==='text'&&!pictures&&!preview.has_text)throw new Error('尚未确认所选内容，请等正文加载后重试');
+    const d={...defaults,destination:null,capture_scope:'single',md_only:kind==='plain'};
+    if(choice==='images')Object.assign(d,{include_images:true,include_comments:false,video_action:'skip'});
+    if(choice==='text')d.include_images=true;
+    const options=browser({mode:kind,scope:'single',options:d});
+    return {mode:kind==='video'?(options.extract_frames?'download-frames':'download'):'current',options};
+  }
   const snapshot=value=>freeze(clone(value));
-  return {resolve,merge:resolve,signature,stamp,normalize,browser,snapshot};
+  return {resolve,merge:resolve,signature,stamp,normalize,browser,quick,snapshot};
 })();
 if(typeof module!=='undefined')module.exports=CaptureOptions;

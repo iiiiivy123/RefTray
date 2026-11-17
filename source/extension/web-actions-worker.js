@@ -1,15 +1,20 @@
 /* Web actions share the existing collector and its immutable task parameters. */
 chrome.runtime.onMessage.addListener((message,sender,respond)=>{
- if(['REFTRAY_FLOATING_CONTEXT','REFTRAY_OPEN_LIBRARY'].includes(message.type)){
+ if(['REFTRAY_FLOATING_CONTEXT','REFTRAY_OPEN_LIBRARY','REFTRAY_OPEN_SAVED'].includes(message.type)){
   if(sender.id!==chrome.runtime.id||!sender.tab||sender.frameId!==0){respond({ok:false,error:'无效的悬浮入口'});return false;}
   (async()=>{
    const response=await reftrayHealth('http://127.0.0.1:8766/health'),health=await response.json();
    if(!response.ok)throw new Error('后台未连接');
    if(health.release!==chrome.runtime.getManifest().version)throw new Error('请重新加载扩展后刷新网页');
    if(message.type==='REFTRAY_OPEN_LIBRARY'){await downloadApi(8766,health.settings_token,'/settings/open',{directory:health.inbox});return {};}
-   const defaults=await downloadApi(8766,health.settings_token,'/settings/defaults'),site=CollectorSite.context(sender.tab.url);
-   const mode=defaults.md_only?'纯文字':site.site==='小红书'?'自动识别视频 / 图文':site.mode==='video'?'视频':defaults.collection_mode==='text'?'图文笔记':'图片 / GIF';
-   return {mode,directory:health.inbox};
+   if(message.type==='REFTRAY_OPEN_SAVED'){
+    if(!Number.isSafeInteger(message.captureId)||message.captureId<1)throw new Error('保存记录无效');
+    await downloadApi(8766,health.settings_token,`/history/${message.captureId}/open`,{});return {};
+   }
+   const defaults=await downloadApi(8766,health.settings_token,'/settings/defaults');
+   const history=await downloadApi(8766,health.settings_token,'/history?page_size=1');
+   const latest=history.items?.[0];
+   return {mode:defaults.md_only?'仅正文':'自动识别 · '+(defaults.collection_mode==='text'?'图文笔记':'图片 / GIF'),directory:health.inbox,latest:latest?{id:latest.id,title:latest.title,directory:latest.directory}:null};
   })().then(context=>respond({ok:true,context})).catch(error=>respond({ok:false,error:error.message}));
   return true;
  }
@@ -36,33 +41,29 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
   const api=(path,body)=>downloadApi(8766,health.settings_token,path,body);
   if(!quick)return await FullPageCapture.capture(tab,{api,progress:message=>chrome.storage.local.set({reftraySnapshotProgress:{...snapshot,status:'running',message,updatedAt:Date.now()}})});
   const defaults=await api('/settings/defaults');
-  let options=CaptureOptions.normalize({...defaults,destination:null,capture_scope:'single'});
   const site=CollectorSite.context(tab.url);
   if(!site.single)throw new Error(site.reason||'请打开一篇作品详情');
-  let video=site.mode==='video';
-  if(site.site==='小红书'&&!options.md_only){
-   // Quick-save owns the task lock, but unlike the MCP runner it has no new
-   // controls yet. Check pending work before clearing an earlier Stop marker.
-   await ensureBackendIdle();
-   await chrome.storage.local.remove('liblibControl');
-   const preview=await previewCollection(tab.id,tab.url,true);
-   if(preview?.url!==tab.url)throw new Error('页面已切换，请重新保存');
-   if(preview.state!=='ready'||preview.warning)throw new Error(preview.reason||preview.warning||'正文仍在加载，请稍后保存');
-   video=preview.videos>0||preview.kind==='video';
-   if(!video&&(preview.has_video&&!preview.gifs||!(preview.images>0||preview.gifs>0)))throw new Error('尚未确认当前帖的媒体类型，请等正文加载后重试');
-   // “Skip videos” is the text-note attachment preference. A primary video
-   // uses the existing video-mode contract, without changing saved defaults.
-   if(video)options=CaptureOptions.browser({mode:'video',scope:'single',options});
-  }
-  const mode=video?(options.video_action==='frames'?'download-frames':'download'):'current';
-  const result=await collect(mode,8766,options,{id:tab.id,url:tab.url});
+  await ensureBackendIdle();
+  await chrome.storage.local.remove('liblibControl');
+  const preview=await previewCollection(tab.id,tab.url,true);
+  if(preview?.url!==tab.url)throw new Error('页面已切换，请重新保存');
+  const {mode,options}=CaptureOptions.quick(defaults,site,preview,message.choice??'auto');
+  const requestId=typeof message.requestId==='string'&&/^[\w-]{1,64}$/.test(message.requestId)?message.requestId:null;
+  const result=await collect(mode,8766,options,{id:tab.id,url:tab.url,quickSave:true,quickRequestId:requestId});
   await reportProgress({percent:100,status:TaskProgress.resultStatus(result),message:result.message||`保存完成，新增 ${result.new_images} 张`,directory:result.directory,details:result.details||result.warnings?.join('\n')});
-  return {...result,status:TaskProgress.resultStatus(result)};
- })().then(async result=>{if(!quick)await chrome.storage.local.set({reftraySnapshotProgress:{...snapshot,status:'completed',message:result.message,directory:result.directory,updatedAt:Date.now()}});respond({ok:true,result});}).catch(async error=>{
+  let captureId=null,folderWarning='';
+  if(result.directory)try{
+   const {item}=await api('/history/lookup',{url:tab.url,required:[]});
+   const normalized=value=>String(value||'').replace(/\\/g,'/').replace(/\/+$/,'').toLowerCase();
+   if(item&&normalized(item.directory)===normalized(result.directory))captureId=item.id;
+  }catch(_){folderWarning='保存位置暂时无法读取，请在采集记录中查看。';}
+  return {...result,captureId,folderWarning,status:TaskProgress.resultStatus(result)};
+ })().then(async result=>{if(!quick)await chrome.storage.local.set({reftraySnapshotProgress:{...snapshot,status:'completed',message:result.message,directory:result.directory,updatedAt:Date.now()}});return {ok:true,result};}).catch(async error=>{
   try{
    if(quick&&taskContext!==previous)await reportProgress({status:error.message==='USER_STOPPED'?'stopped':'failed',message:error.message});
    if(!quick)await chrome.storage.local.set({reftraySnapshotProgress:{...snapshot,message:error.message,status:'failed',updatedAt:Date.now()}});
-  }finally{respond({ok:false,error:error.message});}
- }).finally(()=>{taskRunning=false;});
+  }catch(persistError){return {ok:false,error:error.message+'；状态保存失败：'+persistError.message};}
+  return {ok:false,error:error.message};
+ }).then(response=>{taskRunning=false;respond(response);});
  return true;
 });
