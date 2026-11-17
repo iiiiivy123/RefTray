@@ -184,3 +184,20 @@ P1/P2（2026-11-16）：核对 Microsoft [Run 登录启动](https://learn.micros
 - 只读复核后台、安装扩展及最近配对扩展仍1.0.3；四张表的全部旧行、2391个文件size/mtime、1857个程序文件SHA256、原设置摘要、目录登记和登录自启均保持。结果存work/install-105/blocked-install-evidence.json。核验脚本首次工具包装少括号产生语法错误、未执行，修正后执行通过。
 - CURRENT、根入口和releases索引同步真实阻塞状态。没有发布，没有宣称安装或浏览器实测成功。用户无需现在重载；等待安装阻塞解除并确认1.0.5运行后，接用户重载，再验收悬浮/SVG/长截图及旧采集问题。
 - 收尾：8项架构检查与git diff --check通过；本轮仅更新交接记录，候选安装包和产品源码未改。
+
+## 2026-11-17 小红书视频悬浮保存误用图文默认值
+
+用户反馈视频帖子点击悬浮保存后成为图文，询问预扫描能力。当前实际后台及配对扩展已为1.0.5（用户在上轮安装被拒后自行完成，不能归为助手安装成功）。基线e66208c；原素材、默认设置、历史包与原工作区保持，不发布、不改日常扩展文件。
+
+证据：历史记录486“胶片转场素材分享”（6ae9f8a7000000000e027ca1），mode=text、coverage只有文字/评论/OCR，实际只有716字节Markdown，无视频。默认collection_mode=text、video_action=skip。web-actions-worker只依据CollectorSite网址mode选择current/download，未调用已有previewCollection；小红书网址不区分视频/图文，导致盲用默认图文和跳过视频。
+
+本轮目标：悬浮点击对小红书先复用已加载主帖预识别；确认视频进入已有视频管线，save/frames规则复用CaptureOptions.browser，skip附件偏好不能吞掉主视频；图片/动图保留原图文及GIF默认值，显式md_only保留。扫描失败、未就绪或页面切换不得回退保存文字。识别不写设置、不遍历推荐、不滚动加载评论；悬停显示自动识别提示，不额外扫描。其他平台和弹窗手动选择保持。先保留原故障反例，再验证路由、参数、并发、失败和原平台回归。
+
+MCP连接Transport closed，本地后台HTTP仍正常，使用产品API读记录及提交只读preview。首次canonical URL不含页面source参数，后台未复用原标签并返回跳转失败；已按观察到的source=web_explore_feed补齐身份后重试一次。CUA库存确认原帖存在，读取该标签30秒超时，停止该UI读取路径。未操作扩展管理页、未改变浏览器安全配置。
+
+- 实页预识别重试b4680e39c3754af598eb358cb264654c成功：state=ready，images=0/gifs=0/videos=1，kind=video，warning为空。这直接确认该平台能力已存在，漏接点在悬浮worker。源URL签名参数不写入项目证据。
+- 修复仅落web-actions-worker，复用previewCollection和CaptureOptions.browser；清除旧停止标记前核对未完后台，扫描和正式采集持续持有同一任务锁。正式collect仍重新核对标签URL并负责下载和记录。图片/动图默认、md_only、frames、目录/大小限制不改；hover只说明自动识别。拒绝/空/加载中/切页不保存文字。
+- 5个新增行为用例修前按目标失败；修后全部通过。全套200项JS、239项Python（含8项架构）及语法/diff检查通过。B01：不新增依赖、存储、预识别副本或采集任务所有者；共享提取/下载未修改，全部既有平台JS回归通过。
+- 已为原帖补存视频，使用日常1.0.5已有明确视频模式：任务c6b18d74675049bd8a535bdb2727c373 completed，采集记录487。MP4 1920x1080/19.2秒/2120630字节，SHA256 d991107859bff311fc755af0973f57720fa16e1ba40beb6e87606cafb5e33696，与历史文件索引一致；原Markdown记录486保留。初次HTTP提交因把视频参数放外层返回422，按BrowserCapture.options合同修正一次后成功，无重复下载。详见work/xhs-video-proof.json。
+- 版本升1.0.6区分不可覆盖的1.0.5候选。显式依赖预检通过，旧build-windows核对路径后保存在work/build-105-final-preserved，再完整构建。安装器126590225字节，SHA256 d4146f3e8a881b403acae56fe378392770ed654ed9cb8a8710deff8e4fb62919。147个产品源码文件与payload一致；18766隔离smoke exit0、release_ok/service_stopped均true。work/verification-106.json记录证据。当前1.0.5的1857个受管文件与清单匹配，目录设置摘要和保存偏好与备份一致。未运行1.0.6安装器，未发布。
+- 新悬浮按钮的真实点击验收尚未完成；用户原帖在当前1.0.5的预识别与独立视频下载真实通过，不能替代新入口验收。接续顺序：归档1.0.6候选，后续在可用且授权的入口安装、用户重载扩展后验证一键保存及原先SVG/整页截图等待验收项。

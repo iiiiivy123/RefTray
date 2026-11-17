@@ -8,7 +8,7 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
    if(health.release!==chrome.runtime.getManifest().version)throw new Error('请重新加载扩展后刷新网页');
    if(message.type==='REFTRAY_OPEN_LIBRARY'){await downloadApi(8766,health.settings_token,'/settings/open',{directory:health.inbox});return {};}
    const defaults=await downloadApi(8766,health.settings_token,'/settings/defaults'),site=CollectorSite.context(sender.tab.url);
-   const mode=site.mode==='video'?'视频':defaults.md_only?'纯文字':defaults.collection_mode==='text'?'图文笔记':'图片 / GIF';
+   const mode=defaults.md_only?'纯文字':site.site==='小红书'?'自动识别视频 / 图文':site.mode==='video'?'视频':defaults.collection_mode==='text'?'图文笔记':'图片 / GIF';
    return {mode,directory:health.inbox};
   })().then(context=>respond({ok:true,context})).catch(error=>respond({ok:false,error:error.message}));
   return true;
@@ -36,10 +36,25 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
   const api=(path,body)=>downloadApi(8766,health.settings_token,path,body);
   if(!quick)return await FullPageCapture.capture(tab,{api,progress:message=>chrome.storage.local.set({reftraySnapshotProgress:{...snapshot,status:'running',message,updatedAt:Date.now()}})});
   const defaults=await api('/settings/defaults');
-  const options=CaptureOptions.normalize({...defaults,destination:null,capture_scope:'single'});
+  let options=CaptureOptions.normalize({...defaults,destination:null,capture_scope:'single'});
   const site=CollectorSite.context(tab.url);
   if(!site.single)throw new Error(site.reason||'请打开一篇作品详情');
-  const mode=site.mode==='video'?(options.video_action==='frames'?'download-frames':'download'):'current';
+  let video=site.mode==='video';
+  if(site.site==='小红书'&&!options.md_only){
+   // Quick-save owns the task lock, but unlike the MCP runner it has no new
+   // controls yet. Check pending work before clearing an earlier Stop marker.
+   await ensureBackendIdle();
+   await chrome.storage.local.remove('liblibControl');
+   const preview=await previewCollection(tab.id,tab.url,true);
+   if(preview?.url!==tab.url)throw new Error('页面已切换，请重新保存');
+   if(preview.state!=='ready'||preview.warning)throw new Error(preview.reason||preview.warning||'正文仍在加载，请稍后保存');
+   video=preview.videos>0||preview.kind==='video';
+   if(!video&&(preview.has_video&&!preview.gifs||!(preview.images>0||preview.gifs>0)))throw new Error('尚未确认当前帖的媒体类型，请等正文加载后重试');
+   // “Skip videos” is the text-note attachment preference. A primary video
+   // uses the existing video-mode contract, without changing saved defaults.
+   if(video)options=CaptureOptions.browser({mode:'video',scope:'single',options});
+  }
+  const mode=video?(options.video_action==='frames'?'download-frames':'download'):'current';
   const result=await collect(mode,8766,options,{id:tab.id,url:tab.url});
   await reportProgress({percent:100,status:TaskProgress.resultStatus(result),message:result.message||`保存完成，新增 ${result.new_images} 张`,directory:result.directory,details:result.details||result.warnings?.join('\n')});
   return {...result,status:TaskProgress.resultStatus(result)};
