@@ -14,6 +14,15 @@
 
 开始改动前读 [AGENTS](../../AGENTS.md) 和 [CURRENT](CURRENT.md)，按 [SPEC](SPEC.md) 核对受影响功能。当前计划与验证证据写在 [TASK](TASK.md)；历史审查文档不代表现在已经验证。使用独立分支或 worktree，保留已有未提交内容。
 
+## 本机交付归档
+
+本机项目入口为 `F:/RefTray/README.md`，安装包统一归档到 `F:/RefTray/releases`。`worktrees/*/dist` 仅为构建输出。新机器需先核实实际项目根目录。
+
+- 正式包用版本目录，候选用 `版本-candidate`；候选也属于本地 releases，不代表已公开发布。
+- 每次交付含安装程序、对应提交的完整源码 ZIP、交付说明和 SHA256 文件。源码 ZIP 用 `git archive` 生成；不带素材、配置、数据库和本地 work 证据。说明记录提交、安装状态、验证与未完成项。
+- 逐项核验归档摘要与 ZIP 完整性后更新 releases/README、根 README、当前 CURRENT/TASK。已存在不同内容不可覆盖；同版本重构建用日期及提交区分并更新索引。
+- 安装、公开上传、远端 Release 各依用户授权单独执行和核验。不得把文件已归档写成已安装或已发布。
+
 ## Windows 构建前检查
 
 构建宿主使用 Python 3.11 或更新版本及 pip；安装包运行时仍为锁定的 Python 3.13。先准备项目要求的离线 wheelhouse、运行时及编译工具，再从仓库根目录运行：

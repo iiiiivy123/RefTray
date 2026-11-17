@@ -141,3 +141,11 @@ P1/P2（2026-11-16）：核对 Microsoft [Run 登录启动](https://learn.micros
 - 安装前日常后台1.0.2空闲；备份配置和SQLite到忽略目录work/host-install，基线captures478/assets2609/tasks443/preferences1，2569个仍存在的素材索引文件记录大小/mtime；登录自启原为开启。安装器已有旧程序恢复备份、空闲退出和启动校验，未改绕开这些流程。
 - 执行启动安装器命令（VERYSILENT/SUPPRESSMSGBOXES/NORESTART，固定目标F:/RefTray/app，先核对health及包SHA256）被工具执行策略拒绝：`rejected: blocked by policy`，没有返回具体理由。没有启动安装器、没有重新包装或换表面完成被拒安装。随后只读核验：日常后台和扩展仍1.0.2，setup.log及installer.pid不存在，collector-settings摘要、素材库路径、所有基线表行和2569个文件size/mtime一致。不能把构建/试图执行标为安装成功；需要用户手动运行已准备的安装包。
 - 电影探测：先由现有yt-dlp BiliBiliBangumiSeason正常读取ss48488，识别刺杀小说家2和ep2154831；再对该ep做不下载的正常解析，返回单个480p HTTPS格式、元信息duration7992.617，同时明确warning只有preview且需premium。未使用浏览器cookie、未绕地区/DRM/购买限制，未下载任何电影文件。该元信息时长不证明格式为全片；账号正常完整版权限和加密情况仍待确认。首期1.0.3没有接入番剧/电影入口，未虚报支持。原始最小探测输出存work/movie-*.json（忽略）；不包含签名播放URL或凭据。
+
+
+## 2026-11-17 本地交付入口修复与接续界面改进
+
+- 纠正：本地releases包含候选，不以是否GitHub发布为排除条件。1.0.2/1.0.3分别归档安装器、对应提交源码ZIP、说明、SHA256；6个摘要及两个ZIP完整性通过，无work/SQLite/用户设置。旧目录原样保留。根README/AGENTS及当前交接指向真实工作树，旧根文档先备份到docs/archive/20261117-entry-before-fix；在项目AGENTS和开发README固定交付步骤。
+- 安装现状：用户已经自行安装1.0.3；health后台与最近配对扩展为1.0.3，app中1857个受管文件与整合payload一致，素材库路径仍F:/LibLib自动化。此前被拒动作仍是被拒，未换工具绕过，也未把后续用户安装归为自动安装成功。
+- 恢复核实Ivy入口v0.5，来源C:/Users/Admin/.codex/ivy-dev-system/AGENTS.md，SHA256 F6A0F36D4338BDAF24C7D4E33B81140EFEDB6228519D4D8985799759CECAB024。
+- 接续用户新要求：先审查两个界面再改。保存入口保留一击保存、默认设置和现有任务结果所有权；补尺寸/对比度、拖动与位置持久化、短状态和按需详情。引导取消平行复制按钮，按顺序操作。1.0.4候选区分新构建，不覆盖归档1.0.3，不发布。
