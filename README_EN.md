@@ -4,7 +4,7 @@ Save web references to folders on your Windows PC: images, GIFs, Markdown notes,
 
 [Published releases](https://github.com/iiiiivy123/RefTray/releases) · [中文](README.md) · [Installation](docs/install.md) · [MCP setup](docs/mcp.md)
 
-**1.0.8 is a development candidate and has not been published.** It uses the same capture engine in the Chrome extension and MCP interface.
+**1.0.9 is a development candidate and has not been published.** It uses the same capture engine in the Chrome extension and MCP interface.
 
 ## Getting started
 
@@ -29,7 +29,7 @@ Adapters cover Xiaohongshu, Huaban, Pinterest, X, Bilibili, YouTube, Instagram, 
 
 ## Updating
 
-From 0.5.48 or earlier, install the full 1.0.8 package over the existing program. If 1.0.0 or an earlier version reports an update source mismatch after the repository rename, install the full 1.0.8 package once. Future updates are available in **Settings → About & updates**. Reload the Chrome extension and refresh work pages after upgrading. Reconnect the AI client's MCP connection when needed.
+From 0.5.48 or earlier, install the full 1.0.9 package over the existing program. If 1.0.0 or an earlier version reports an update source mismatch after the repository rename, install the full 1.0.9 package once. Future updates are available in **Settings → About & updates**. Reload the Chrome extension and refresh work pages after upgrading. Reconnect the AI client's MCP connection when needed.
 
 Your library, settings and saved records are retained. Read the [update guide](docs/update.md) for recovery steps.
 
