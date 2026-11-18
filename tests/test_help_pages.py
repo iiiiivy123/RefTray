@@ -52,7 +52,7 @@ class HelpPagesTests(unittest.TestCase):
                'docs/usage.md','docs/install.md','docs/update.md','docs/mcp.md','docs/save-layout.md',
                'docs/use-cases.md','docs/use-cases-en.md','docs/rights-and-privacy.md',
                'docs/marketing/brand-guide.md','docs/marketing/press-kit.md','docs/marketing/launch-copy.md','docs/development/publishing.md',
-               'docs/marketing/demo-script.md','docs/releases/release-1.0.9.md','docs/development/archive/SAVE-LAYOUT-REVIEW-2026-11-11.md')
+               'docs/marketing/demo-script.md','docs/releases/release-1.0.10.md','docs/development/archive/SAVE-LAYOUT-REVIEW-2026-11-11.md')
         for name in names:
             source=(ROOT/name).read_text('utf-8-sig')
             self.assertNotIn('\ufffd',source,name)

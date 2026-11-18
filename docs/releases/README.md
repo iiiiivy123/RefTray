@@ -2,10 +2,11 @@
 
 [返回文档](../README.md) · [下载安装包](https://github.com/iiiiivy123/RefTray/releases)
 
-当前版本：[1.0.9](release-1.0.9.md) · [下载安装包](https://github.com/iiiiivy123/RefTray/releases/tag/v1.0.9)。
+当前版本：[1.0.10](release-1.0.10.md) · [下载安装包](https://github.com/iiiiivy123/RefTray/releases/tag/v1.0.10)。
 
 ## 历史版本
 
+- [1.0.9](release-1.0.9.md)
 - [1.0.1](release-1.0.1.md)
 
 - [1.0.0](release-1.0.0.md)
