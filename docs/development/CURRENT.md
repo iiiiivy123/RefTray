@@ -1,3 +1,17 @@
+# 当前：1.0.9已正式发布，日常安装与已验收源码一致
+
+2026-11-18（Asia/Shanghai）。工作树install-103 / fix/install-103；GitHub main已推送，固定v1.0.9标签及正式源码归档提交226c732809eeaebae557f820a5a4cfeabc41e483。Release已公开（非草稿/非预发布）并设为最新：https://github.com/iiiiivy123/RefTray/releases/tag/v1.0.9 。后续线上开发从main进入，说明见ONLINE.md。
+
+用户实际重载1.0.9并点击悬浮保存，后台/已加载扩展均1.0.9；任务9c52ae56-5982-4ea4-9a3d-32c501527ae5 completed，实际参数subtitle_mode=none / output_format=original / video_action=save。记录490与已验证H264画面、AAC双声道的95517195字节文件SHA256一致；旧视频/SRT/MD保留且未在此次重写。此前真实下载进度变化、首中尾声音解码和画面核对通过。证据work/install-109/live-task.json及work/install-108/live-media.json。
+
+219项JS、244项Python已通过；正式说明14项复验、依赖预检、最终构建及隔离18766启动退出通过。正式包147个产品源码文件与实采候选逐字节一致，1857受管文件核对。安装器126597342字节，SHA256 35f0e43a2d45a32bb1cd47a91c893f8bd0346cfe649bdc1f20a9b630ba23005b。静默同步正式包成功，无需重启；490采集/2659素材索引/463任务/1偏好旧行、2396已有素材大小mtime、原配置摘要/目录登记/自启保持，20旧缺失另计。备份work/install-109-release。
+
+本机正式安装器归档F:/RefTray/releases/1.0.9；GitHub精确对应资产集在其中github-20261118-226c732子目录。GitHub自动把中文附件名改成default.md，已在草稿阶段改为RELEASE-NOTES-1.0.9.md并重传匹配的SHA256清单；原本地文件未覆盖。5个公开资产state=uploaded，大小及服务器SHA256逐项匹配。公开校验文件下载、固定tag及旧版更新格式检查通过；本机软件内updates/check遇到GitHub未授权公开接口限流，返回明确短提示，不修改版本、不继续反复请求。直接Release下载正常。证据work/github-109-published.json、work/github-109-update-path.json。
+
+范围：没有接管用户桌面或日常Chrome。设置选择器通过事件回归，完整可见UI操作未测；悬浮SVG/整页长截图及B站目标作者大批量本轮在线验收未完成；B站电影整片仍未支持。干净Windows完整首次安装/卸载/登录自启未测，公开说明已列明。当前请求已完成；下一轮按用户新需求继续，不重复安装或自动扩展发布授权。
+
+---
+
 # 当前：1.0.9实采验收通过，准备GitHub正式发布
 
 2026-11-18，工作树install-103 / fix/install-103；已安装候选产品提交426c618，交接提交b1c3b87。用户确认已重载并试保存；health配对扩展和后台均1.0.9。任务9c52ae56-5982-4ea4-9a3d-32c501527ae5 completed，subtitle_mode=none、output_format=original、video_action=save。记录490的新MP4仍为60f514e4…9f18（95517195字节），与前轮已解码有声画面文件一致；四个历史文件摘要全部一致，原SRT/MD未在本次重写。证据work/install-109/live-task.json。
