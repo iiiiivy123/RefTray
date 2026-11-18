@@ -4,7 +4,7 @@ Save web references to folders on your Windows PC: images, GIFs, Markdown notes,
 
 [Published releases](https://github.com/iiiiivy123/RefTray/releases) · [中文](README.md) · [Installation](docs/install.md) · [MCP setup](docs/mcp.md)
 
-**1.0.9 is a development candidate and has not been published.** It uses the same capture engine in the Chrome extension and MCP interface.
+**Version 1.0.9:** [Windows installer and release notes](https://github.com/iiiiivy123/RefTray/releases/tag/v1.0.9). It uses the same capture engine in the Chrome extension and MCP interface.
 
 ## Getting started
 
@@ -19,7 +19,8 @@ Windows 10/11 x64 and Chrome 120 or later are required. Load the extension manua
 
 - Save images and GIFs, preferring available high-resolution sources.
 - Save articles and notes as Markdown, with optional comments and local image text recognition.
-- Download supported videos, subtitles, transcripts or audio. Local speech recognition is included for videos without website captions.
+- Save supported videos with their original sound by default. Floating-save preferences separately enable subtitles, transcripts, audio or frame extraction; local speech recognition runs only when text is requested.
+- See real download percentages, transferred size, speed and processing stages in the floating panel.
 - Collect supported author pages, boards, collections and video lists, with a starting position and item limit.
 - View capture history with thumbnails, and pause, resume or retry tasks.
 - Use MCP from a compatible AI client to submit tasks and find saved files.

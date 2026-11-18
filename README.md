@@ -6,7 +6,7 @@ RefTray 是 Windows + Chrome 本地素材采集工具。素材保存在你选的
 
 [下载安装包](https://github.com/iiiiivy123/RefTray/releases) · [使用说明](docs/usage.md) · [首次安装](docs/install.md) · [更新与恢复](docs/update.md) · [English](README_EN.md)
 
-当前开发候选为 **1.0.9**，尚未公开发布。[查看已发布版本](https://github.com/iiiiivy123/RefTray/releases) · [候选说明](docs/releases/release-1.0.9.md)
+当前版本 **1.0.9**：[下载安装包](https://github.com/iiiiivy123/RefTray/releases/tag/v1.0.9) · [版本说明](docs/releases/release-1.0.9.md)
 
 ## 能做什么
 
