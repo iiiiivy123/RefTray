@@ -266,9 +266,24 @@ class Catalog:
 
     def defaults(self, value=None):
         with self.connect() as db:
-            if value is not None: db.execute('INSERT OR REPLACE INTO preferences VALUES(1,?)', (json.dumps(value),))
+            if value is not None: db.execute('BEGIN IMMEDIATE')
             row = db.execute('SELECT data FROM preferences WHERE id=1').fetchone()
-        return json.loads(row[0]) if row else {}
+            saved = json.loads(row[0]) if row else {}
+            if value is not None:
+                # General clients cannot reset the independent floating preference.
+                saved = {**value, **({'floating_save': saved['floating_save']} if 'floating_save' in saved else {})}
+                db.execute('INSERT OR REPLACE INTO preferences VALUES(1,?)', (json.dumps(saved),))
+        return {key: data for key, data in saved.items() if key != 'floating_save'}
+
+    def floating_defaults(self, value=None):
+        with self.connect() as db:
+            if value is not None: db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT data FROM preferences WHERE id=1').fetchone()
+            saved = json.loads(row[0]) if row else {}
+            if value is not None:
+                saved['floating_save'] = value
+                db.execute('INSERT OR REPLACE INTO preferences VALUES(1,?)', (json.dumps(saved),))
+        return saved.get('floating_save', {})
 
     def task(self, value):
         return self.save_task(value)

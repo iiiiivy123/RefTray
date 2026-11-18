@@ -33,11 +33,12 @@
  for(const section of [settings,records,diagnostics,tools])section.classList.add('workspace-page');
  const title=make('div','page-title');title.append(make('h1',null,'设置'));settings.querySelector(':scope>h2').replaceWith(title);
  const subnav=make('nav','subnav');subnav.setAttribute('aria-label','设置分类');const tabs={};
- for(const [key,label] of [['capture','采集默认值'],['library','素材库位置'],['advanced','视频与保护'],['about','关于与更新']]){const b=make('button',null,label);b.type='button';tabs[key]=b;subnav.append(b);b.onclick=()=>{showSettings(key);if(key==='about')location.hash='about';else if(location.hash==='#about')location.hash='defaults';};}
+ for(const [key,label] of [['capture','采集默认值'],['floating','悬浮保存'],['library','素材库位置'],['advanced','视频与保护'],['about','关于与更新']]){const b=make('button',null,label);b.type='button';tabs[key]=b;subnav.append(b);b.onclick=()=>{showSettings(key);if(key==='about')location.hash='about';else if(location.hash==='#about')location.hash='defaults';};}
  const context=make('div','settings-context');title.after(subnav,context);
  const layout=make('div','settings-layout');context.after(layout);layout.append(library,form);
  const capture=make('div'),advanced=make('div');capture.dataset.settingsPanel='capture';advanced.dataset.settingsPanel='advanced';
  const about=make('section');about.id='about-settings';about.hidden=true;layout.append(about);
+ const floating=make('section');floating.id='floating-settings';floating.hidden=true;layout.append(floating);
  const fieldsets=[...form.querySelectorAll('fieldset')];form.prepend(capture,advanced);capture.append(fieldsets[0]);advanced.append(...fieldsets.slice(1));
  for(const p of [...settings.children].filter(el=>el.tagName==='P'))p.remove();
  function field(label){
@@ -81,7 +82,7 @@
  const help=make('button','help-link','使用说明');help.type='button';help.onclick=async()=>{try{await Hub.api('/help/open',{});}catch(error){q('#notice').textContent=error.message;}};tools.append(help);
  const diagnosticsTitle=make('div','page-title');diagnosticsTitle.append(make('h1',null,'诊断记录'));diagnostics.querySelector(':scope>h2').replaceWith(diagnosticsTitle);
  function showSettings(key){
-  capture.hidden=key!=='capture';advanced.hidden=key!=='advanced';library.hidden=key!=='library';about.hidden=key!=='about';form.hidden=!['capture','advanced'].includes(key);
+  capture.hidden=key!=='capture';advanced.hidden=key!=='advanced';library.hidden=key!=='library';about.hidden=key!=='about';floating.hidden=key!=='floating';form.hidden=!['capture','advanced'].includes(key);
   for(const [name,b] of Object.entries(tabs)){b.classList.toggle('active',name===key);b.setAttribute('aria-current',name===key?'page':'false');}
  }
  function showView(key){

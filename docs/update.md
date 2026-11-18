@@ -1,6 +1,6 @@
 # 更新 RefTray
 
-公开安装包见 [Releases](https://github.com/iiiiivy123/RefTray/releases)。当前开发候选为 **1.0.8**，尚未公开。
+公开安装包见 [Releases](https://github.com/iiiiivy123/RefTray/releases)。当前开发候选为 **1.0.9**，尚未公开。
 
 1. 完成或停止正在采集的任务。
 2. 下载新版本的 Windows 安装包，安装到原来的程序目录。安装器会处理旧后台和本程序的 MCP 进程占用。

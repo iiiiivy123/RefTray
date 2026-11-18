@@ -52,6 +52,7 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
   const api=(path,body)=>downloadApi(8766,health.settings_token,path,body);
   if(!quick)return await FullPageCapture.capture(tab,{api,progress:message=>chrome.storage.local.set({reftraySnapshotProgress:{...snapshot,status:'running',message,updatedAt:Date.now()}})});
   const defaults=await api('/settings/defaults');
+  const floating=await api('/settings/floating-defaults');
   if(owner.stopped)throw new Error('USER_STOPPED');
   const site=CollectorSite.context(tab.url);
   if(!site.single)throw new Error(site.reason||'请打开一篇作品详情');
@@ -60,7 +61,7 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
   const preview=await previewCollection(tab.id,tab.url,true);
   if(owner.stopped)throw new Error('USER_STOPPED');
   if(preview?.url!==tab.url)throw new Error('页面已切换，请重新保存');
-  const {mode,options}=CaptureOptions.quick(defaults,site,preview,message.choice??'auto');
+  const {mode,options}=CaptureOptions.quick(defaults,site,preview,message.choice??'auto',floating);
   const result=await collect(mode,8766,options,{id:tab.id,url:tab.url,quickSave:true,quickRequestId:requestId,quickControl:owner});
   await reportProgress({percent:100,status:TaskProgress.resultStatus(result),message:result.message||`保存完成，新增 ${result.new_images} 张`,directory:result.directory,details:result.details||result.warnings?.join('\n')});
   let captureId=null,folderWarning='';

@@ -9,6 +9,43 @@ from server.catalog import Catalog
 
 
 class TaskCatalogTests(unittest.TestCase):
+    def test_floating_defaults_are_independent_and_survive_old_general_clients(self):
+        from server.models import FloatingSaveDefaults
+        from pydantic import ValidationError
+        self.assertEqual(FloatingSaveDefaults(**self.catalog.floating_defaults()).video_output, 'original')
+        self.assertEqual(self.catalog.defaults(), {})
+        general = {'layout': 'organized_flat', 'video_action': 'frames', 'include_comments': True}
+        self.catalog.defaults(general)
+        self.catalog.floating_defaults({'video_output': 'audio'})
+        self.assertEqual(self.catalog.defaults(), general)
+        self.catalog.defaults({**general, 'limit': 7})
+        self.assertEqual(self.catalog.floating_defaults(), {'video_output': 'audio'})
+        self.assertEqual(Catalog(self.catalog.path.parents[2]).floating_defaults(), {'video_output': 'audio'})
+        with self.assertRaises(ValidationError): FloatingSaveDefaults(video_output='invalid')
+
+    def test_floating_settings_routes_require_authorization_and_preserve_general_values(self):
+        from types import SimpleNamespace
+        from starlette.requests import Request
+        from fastapi import HTTPException
+        from server.app import create_app
+        from server.config import Settings
+        from server.video import VideoDownloads
+        from server.models import FloatingSaveDefaults
+        runtime = SimpleNamespace(settings=Settings(Path(self.temporary.name)), storage=SimpleNamespace(catalog=self.catalog), videos=VideoDownloads(self.catalog))
+        app = create_app(runtime)
+        endpoint = lambda path, method: next(r.endpoint for r in app.routes if r.path == path and method in r.methods)
+        anonymous = Request({'type':'http','method':'GET','query_string':b'','headers':[]})
+        get = endpoint('/settings/floating-defaults', 'GET')
+        put = endpoint('/settings/floating-defaults', 'POST')
+        with self.assertRaises(HTTPException): get(anonymous)
+        with self.assertRaises(HTTPException): put(FloatingSaveDefaults(video_output='audio'), anonymous)
+        token = endpoint('/health', 'GET')(anonymous)['settings_token']
+        request = Request({'type':'http','headers':[(b'x-collector-token',token.encode())]})
+        self.assertEqual(get(request), {'video_output':'original'})
+        put(FloatingSaveDefaults(video_output='subtitles'), request)
+        self.assertEqual(get(request), {'video_output':'subtitles'})
+        self.assertEqual(self.catalog.defaults(), {})
+
     def test_old_stopped_records_remain_visible_without_rewriting_user_data(self):
         with tempfile.TemporaryDirectory() as root:
             catalog = Catalog(Path(root))

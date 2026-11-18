@@ -13,7 +13,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse
 
 from .config import load_settings, save_directory, initialize_folders
-from .models import ClassifyRequest, CollectRequest, DirectoryRequest, VideoDownloadRequest, VideoControlRequest, CaptureDefaults, HistoryLookup, VideoProbe
+from .models import ClassifyRequest, CollectRequest, DirectoryRequest, VideoDownloadRequest, VideoControlRequest, CaptureDefaults, FloatingSaveDefaults, HistoryLookup, VideoProbe
 from .preflight import probe, space
 from pydantic import BaseModel, Field
 from pathlib import Path
@@ -160,6 +160,18 @@ def create_app(runtime=None):
     def set_defaults(value: CaptureDefaults, request: Request):
         authorize_settings(request)
         return catalog.defaults(value.model_dump())
+
+
+    @app.get('/settings/floating-defaults')
+    def get_floating_defaults(request: Request):
+        authorize_settings(request)
+        return FloatingSaveDefaults(**catalog.floating_defaults()).model_dump()
+
+
+    @app.post('/settings/floating-defaults')
+    def set_floating_defaults(value: FloatingSaveDefaults, request: Request):
+        authorize_settings(request)
+        return catalog.floating_defaults(value.model_dump())
 
 
     @app.get('/history')

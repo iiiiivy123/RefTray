@@ -10,7 +10,7 @@ let resolvedMedia=new Map();
 const imagesRemaining=()=>taskContext.options.max_images>0?Math.max(0,taskContext.options.max_images-taskContext.imageQuotaUsed):Infinity;
 function reserveImages(count){taskContext.imageQuotaUsed+=count;if(typeof taskContext.batch!=='undefined'&&taskContext.batch)taskContext.batch.image_used=taskContext.imageQuotaUsed;}
 async function matureMedia(url,options=taskContext.options){
-  const request={url,output_format:options.output_format==='audio'?'audio':'original',quality:options.video_quality||'best',subtitle_language:options.subtitle_language||'auto',captions:options.output_format!=='audio'&&options.subtitle_mode!=='none'};
+  const request={url,output_format:options.output_format==='audio'?'audio':'original',quality:options.video_quality||'best',subtitle_language:options.subtitle_language||'auto',captions:options.output_format!=='audio'&&['with_video','only'].includes(options.subtitle_mode)};
   const key=JSON.stringify(request),cache=resolvedMedia;
   if(!cache.has(key))cache.set(key,resolveMediaInWorker(request).catch(error=>{cache.delete(key);throw error;}));
   return cache.get(key);
@@ -367,7 +367,7 @@ async function downloadVideo(tab, port, options, health, extractAfter) {
     if(imagesRemaining()<1)return {new_images:0,partial:true,message:'达到本次图片上限，剩余 GIF 未处理'};
     reserveImages(1);
   }
-  source.subtitle_mode=source.kind==='gif'||options.output_format==='audio'?'none':options.subtitle_mode||taskContext.options.subtitle_mode||'with_video';
+  source.subtitle_mode=source.kind==='gif'||options.output_format==='audio'?'none':options.subtitle_mode||taskContext.options.subtitle_mode||'none';
   source.trim_start=options.trim_start||0;source.trim_end=options.trim_end||0;
   if(source.subtitle_mode!=='none'&&/(^|\.)youtube\.com$/.test(new URL(source.canonical_url).hostname)){
     let captions=source._browserCaptions;

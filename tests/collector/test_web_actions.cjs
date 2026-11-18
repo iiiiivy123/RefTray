@@ -1,12 +1,12 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const CaptureOptions=require('../../source/extension/capture-options.js');
 const CollectorSite=require('../../source/extension/site-panel.js');
-function worker({busy=false,shotFailure=false,site={single:true},defaults={},preview,previewError,previewWait,onCollect}={}){
+function worker({busy=false,shotFailure=false,site={single:true},defaults={},floating={video_output:'original'},floatingError,preview,previewError,previewWait,onCollect}={}){
  let listener;const calls=[],progress=[];
  const chrome={tabs:{create:async value=>calls.push(value),get:async id=>({id,url:'https://example.com/page',title:'Page'})},runtime:{id:'extension',getURL:p=>'chrome-extension://extension/'+p,getManifest:()=>({version:'1.0.3'}),onMessage:{addListener:f=>listener=f}},storage:{local:{set:async v=>progress.push(v),remove:async k=>calls.push(['clear',k])}}};
  const context={chrome,URL,taskRunning:busy,scanInProgress:false,taskContext:{},CaptureOptions,ensureBackendIdle:async()=>calls.push(['idle']),
   reftrayHealth:async()=>({ok:true,json:async()=>({release:'1.0.3',settings_token:'test',busy:false,inbox:'F:/TestLibrary'})}),
-  downloadApi:async(...args)=>{calls.push(args);return {collection_mode:'text',layout:'organized_flat',include_images:true,video_action:'skip',ocr_enabled:false,...defaults};},
+  downloadApi:async(...args)=>{calls.push(args);if(args[2]==='/settings/floating-defaults'){if(floatingError)throw Error(floatingError);return floating;}return {collection_mode:'text',layout:'organized_flat',include_images:true,video_action:'skip',ocr_enabled:false,...defaults};},
   CollectorSite:{context:()=>site},collect:async(...args)=>{calls.push(args);context.taskContext={quickRequestId:args[3].quickRequestId};if(onCollect)return onCollect(...args);return {message:'saved',new_images:1};},
   previewCollection:async(...args)=>{calls.push(['preview',...args]);if(previewWait)await previewWait;if(previewError)throw Error(previewError);return {url:args[1],state:'ready',images:2,gifs:0,videos:0,has_video:false,has_text:true,kind:'images',...preview};},
   FullPageCapture:{capture:async(tab,{progress})=>{calls.push(['snapshot',tab]);await progress('tile 1/2');if(shotFailure)throw Error('capture failed');return {directory:'F:/TestLibrary/图片/shot',message:'saved PNG'};}},
@@ -41,6 +41,16 @@ test('one click uses defaults and the sender tab, never a supplied destination',
 });
 
 const xhsSender={...sender,tab:{id:42,url:'https://www.xiaohongshu.com/explore/6ae9f8a7000000000e027ca1'}};
+test('floating video output is independent; unreadable settings cannot start a capture',async()=>{
+ const preview={images:0,videos:1,has_video:true,kind:'video'};
+ const w=worker({preview,defaults:{video_action:'frames',subtitle_mode:'with_video',output_format:'audio'}});
+ assert.equal((await w.run({type:'REFTRAY_QUICK_SAVE'},xhsSender)).ok,true);
+ const options=w.calls.find(c=>c[0]==='download')[2];
+ assert.equal(options.subtitle_mode,'none');assert.equal(options.output_format,'original');
+ const failed=worker({preview,floatingError:'settings unavailable'});
+ assert.match((await failed.run({type:'REFTRAY_QUICK_SAVE'},xhsSender)).error,/settings unavailable/);
+ assert.ok(!failed.calls.some(c=>['download','current','preview'].includes(c[0])));
+});
 test('XHS video quick-save preflights and saves the primary video despite text/skip attachment defaults',async()=>{
  const w=worker({site:{single:true,site:'小红书'},defaults:{include_comments:true,max_video_mb:256},preview:{images:0,videos:1,has_video:true,kind:'video'}});
  const r=await w.run({type:'REFTRAY_QUICK_SAVE'},xhsSender);
@@ -62,8 +72,8 @@ test('XHS image and Live Photo posts retain configured text/GIF behavior',async(
   const saved=w.calls.find(c=>c[0]==='current');assert.ok(saved);assert.equal(saved[2].collection_mode,'text');assert.equal(saved[2].skip_gifs,false);
  }
 });
-test('XHS frames and explicit plain-text preferences are retained',async()=>{
- const frames=worker({site:{single:true,site:'小红书'},defaults:{video_action:'frames'},preview:{images:0,videos:1,has_video:true,kind:'video'}});
+test('XHS explicit floating frames and general plain-text preferences are retained',async()=>{
+ const frames=worker({site:{single:true,site:'小红书'},floating:{video_output:'frames'},preview:{images:0,videos:1,has_video:true,kind:'video'}});
  assert.equal((await frames.run({type:'REFTRAY_QUICK_SAVE'},xhsSender)).ok,true);
  assert.ok(frames.calls.some(c=>c[0]==='download-frames'&&c[2].extract_frames));
  const plain=worker({site:{single:true,site:'小红书'},defaults:{md_only:true}});

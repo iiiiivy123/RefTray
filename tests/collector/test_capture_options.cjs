@@ -3,6 +3,53 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const Options=require('../../source/extension/capture-options.js');
+test('video resolver requests captions only for an explicit text output and caches those separately',async()=>{
+ const source=fs.readFileSync('source/extension/background.js','utf8'),requests=[];
+ const context=vm.createContext({taskContext:{options:{}},resolvedMedia:new Map(),resolveMediaInWorker:async request=>{requests.push(request);return request;}});
+ vm.runInContext(source.slice(source.indexOf('async function matureMedia('),source.indexOf('async function resolveMediaInWorker(')),context);
+ await context.matureMedia('https://example.com/video',{});
+ await context.matureMedia('https://example.com/video',{subtitle_mode:'none'});
+ assert.equal(requests.length,1);assert.equal(requests[0].captions,false);
+ await context.matureMedia('https://example.com/video',{subtitle_mode:'with_video'});
+ assert.equal(requests.length,2);assert.equal(requests[1].captions,true);
+ await context.matureMedia('https://example.com/video',{subtitle_mode:'with_video',output_format:'audio'});
+ assert.equal(requests[2].captions,false);
+});
+test('fresh popup uses video without generated subtitles while explicit old selections survive',()=>{
+ const source=fs.readFileSync('source/extension/popup.js','utf8'),nodes={};
+ const context=vm.createContext({q:s=>nodes[s]??=( {} ),site:{},resumeOptions:null,defaults:{}});
+ vm.runInContext(source.slice(source.indexOf('function showOptions(d){'),source.indexOf("q('#task-options').addEventListener")),context);
+ for(const [saved,expected] of [[{},'none'],[{subtitle_mode:'with_video'},'with_video'],[{subtitle_mode:'only'},'only'],[{output_format:'audio',subtitle_mode:'none'},'audio']]){
+  context.showOptions(saved);assert.equal(nodes['#subtitle-mode'].value,expected);
+ }
+});
+
+test('floating settings read/save failures stay visible and do not write unrelated defaults',async()=>{
+ const nodes={},calls=[],tick=()=>new Promise(resolve=>setImmediate(resolve));let readFailure=true,writeFailure=false;
+ const node=selector=>nodes[selector]??={value:'original',checked:false,disabled:true,hidden:false,textContent:''};
+ const context={document:{querySelector:()=>({querySelector:node})},chrome:{storage:{local:{get:async()=>({reftrayFloatingEnabled:true}),set:async value=>calls.push(['toggle',value])}}},Hub:{api:async(path,value)=>{calls.push([path,value]);if(value===undefined){if(readFailure)throw Error('offline');return {video_output:'original'};}if(writeFailure)throw Error('write failed');return value;}}};
+ vm.runInNewContext(fs.readFileSync('source/extension/floating-settings.js','utf8'),context);await tick();
+ assert.equal(node('[type="submit"]').disabled,true);assert.equal(node('#floating-retry').hidden,false);assert.match(node('#floating-defaults-status').textContent,/读取失败/);
+ readFailure=false;node('#floating-retry').onclick();await tick();assert.equal(node('[type="submit"]').disabled,false);
+ node('#floating-video-output').value='audio';writeFailure=true;await node('#floating-defaults-form').onsubmit({preventDefault(){}});
+ assert.match(node('#floating-defaults-status').textContent,/未保存/);assert.equal(node('[type="submit"]').disabled,false);
+ writeFailure=false;await node('#floating-defaults-form').onsubmit({preventDefault(){}});
+ assert.match(node('#floating-defaults-status').textContent,/下次悬浮保存生效/);
+ assert.ok(calls.every(c=>c[0]==='/settings/floating-defaults'));
+ assert.deepEqual(Object.keys(calls.at(-1)[1]),['video_output']);
+});
+test('floating output choices produce immutable snapshots without changing general preferences or GIFs',()=>{
+ const defaults={video_action:'frames',subtitle_mode:'with_video',output_format:'audio',skip_gifs:false,max_video_mb:256};
+ const preview={state:'ready',kind:'video',videos:1,has_text:true};
+ for(const [video_output,subtitle_mode,output_format,mode] of [['original','none','original','download'],['subtitles','with_video','original','download'],['text','only','original','download'],['audio','none','audio','download'],['frames','none','original','download-frames']]){
+  const result=Options.quick(defaults,{},preview,'auto',{video_output});
+  assert.equal(result.mode,mode);assert.equal(result.options.subtitle_mode,subtitle_mode);assert.equal(result.options.output_format,output_format);assert.equal(result.options.max_video_mb,256);assert.ok(Object.isFrozen(result.options));
+ }
+ assert.equal(defaults.subtitle_mode,'with_video');assert.equal(defaults.video_action,'frames');
+ const gif=Options.quick({...defaults,video_action:'skip'},{},{state:'ready',kind:'images',gifs:1,has_video:true},'auto',{video_output:'audio'});
+ assert.equal(gif.options.output_format,'original');assert.equal(gif.options.video_action,'skip');assert.equal(gif.options.skip_gifs,false);
+ assert.throws(()=>Options.quick(defaults,{},preview,'auto',{}),/默认设置无效/);
+});
 
 test('new captures use approved folders while resumed snapshots retain their original schema',()=>{
   assert.equal(Options.browser({mode:'text',scope:'single',options:{}}).directory_schema,'function-platform-v3');

@@ -205,6 +205,10 @@ class VideoControlRequest(BaseModel):
     action: Literal['running', 'paused', 'stopped']
 
 
+class FloatingSaveDefaults(BaseModel):
+    video_output: Literal['original', 'subtitles', 'text', 'audio', 'frames'] = 'original'
+
+
 class CaptureDefaults(BaseModel):
     skip_posts: int = Field(default=0, ge=0, le=499)
     min_duration: float = Field(default=0, ge=0, le=86400, allow_inf_nan=False)
