@@ -237,3 +237,9 @@
 !/tests/collector/test_floating_save.cjs
 !/docs/releases/release-1.0.8.md
 !/docs/development/quick-review.md
+
+# Update feed repair
+!/docs/releases/release-1.0.11.md
+!/tools/build_update_feed.py
+!/tests/test_update_feed_build.py
+!/tests/collector/test_update_feed.py

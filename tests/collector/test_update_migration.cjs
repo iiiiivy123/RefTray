@@ -1,82 +1,50 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
-const source = fs.readFileSync(path.resolve(__dirname, '../../source/extension/release-check.js'), 'utf8');
-const current = 'https://api.github.com/repos/iiiiivy123/RefTray/releases/latest';
-const legacy = 'https://api.github.com/repos/iiiiivy123/inspiration-collector/releases/latest';
-
-function harness(responses) {
-  const store = {}, calls = [];
-  const context = vm.createContext({AbortSignal,
-    chrome: {storage: {local: {get: async () => store, set: async values => Object.assign(store, values)}}},
-    fetch: async (url, options) => {
-      calls.push({url, options});
-      assert.ok(responses.length, 'unexpected additional request');
-      const response = responses.shift();
-      if (response instanceof Error) throw response;
-      return response;
-    }
-  });
-  return {store, calls, updates: vm.runInContext(source + ';RefTrayUpdates', context)};
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync('source/extension/release-check.js','utf8');
+function harness(results,store={}){
+ const calls=[];
+ const context=vm.createContext({
+  chrome:{storage:{local:{get:async()=>store,set:async v=>Object.assign(store,v)}}},
+  Hub:{api:async path=>{calls.push(path);assert.ok(results.length,'unexpected request');const value=results.shift();if(value instanceof Error)throw value;return value;}},
+  fetch:()=>assert.fail('popup must not create a second external update lookup')
+ });
+ return {calls,store,updates:vm.runInContext(source+';RefTrayUpdates',context)};
 }
-const success = (release = {tag_name: 'v1.0.1', body: 'Bridge release'}) =>
-  ({ok: true, status: 200, json: async () => release});
-const failure = (status, headers) => ({ok: false, status, headers: {get: key => headers?.[key]}});
-
-test('release notice uses RefTray first and caches its result', async () => {
-  const {updates, calls, store} = harness([success()]);
-  assert.equal((await updates.check('1.0.0')).version, 'v1.0.1');
-  await updates.check('1.0.0');
-  assert.deepEqual(calls.map(call => call.url), [current]);
-  assert.equal(store.releaseCheck.latest.version, 'v1.0.1');
+const available={available:true,version:'1.0.11',notes:'Update lookup fix'};
+test('popup uses the manual-check backend and caches a successful result for one day',async()=>{
+ const {updates,calls,store}=harness([available]);
+ assert.equal((await updates.check('1.0.9')).version,'v1.0.11');
+ await updates.check('1.0.9');
+ assert.deepEqual(calls,['/updates/check']);
+ assert.equal(store.releaseCheck.source,'backend-feed');
+ assert.ok(store.releaseCheck.nextCheck>Date.now()+23*3600000);
 });
-
-test('before rename a 404 uses old repo with the same privacy and timeout options', async () => {
-  const {updates, calls} = harness([failure(404), success()]);
-  assert.equal((await updates.check('1.0.0')).version, 'v1.0.1');
-  assert.deepEqual(calls.map(call => call.url), [current, legacy]);
-  for (const {options} of calls) {
-    assert.equal(options.credentials, 'omit');
-    assert.equal(options.referrerPolicy, 'no-referrer');
-    assert.equal(options.headers.Accept, 'application/vnd.github+json');
-    assert.ok(options.signal instanceof AbortSignal);
-  }
-  assert.equal(calls[0].options.signal, calls[1].options.signal);
+test('old direct-API failure cache cannot hide the repaired feed',async()=>{
+ const state=harness([available],{releaseCheck:{nextCheck:Date.now()+86400000,error:'HTTP 403'}});
+ assert.equal((await state.updates.check('1.0.9')).version,'v1.0.11');
+ assert.equal(state.calls.length,1);
 });
-
-test('rate limits, offline and server errors never trigger legacy requests', async () => {
-  for (const response of [failure(401), failure(403), failure(429), failure(500), new Error('offline')]) {
-    const {updates, calls, store} = harness([response]);
-    assert.equal(await updates.check('1.0.0'), null);
-    assert.equal(calls.length, 1);
-    assert.ok(store.releaseCheck.error);
-  }
+test('backend failures are cached without fetch fallback, install, or retry loop',async()=>{
+ for(const message of ['额度已用完','官方更新地址拒绝访问','offline']){
+  const state=harness([new Error(message)]);
+  assert.equal(await state.updates.check('1.0.9'),null);
+  assert.equal(await state.updates.check('1.0.9'),null);
+  assert.deepEqual(state.calls,['/updates/check']);
+  assert.equal(state.store.releaseCheck.error,message);
+ }
 });
-
-test('canonical metadata errors and current releases do not consult legacy', async () => {
-  for (const response of [success({tag_name: 'v1.0.1', prerelease: true}),
-      success({tag_name: 'v1.0.1', draft: true}), success({tag_name: 'invalid'}),
-      success({tag_name: 'v1.0.0'}), {ok: true, status: 200, json: async () => {throw Error('bad JSON');}}]) {
-    const {updates, calls} = harness([response]);
-    assert.equal(await updates.check('1.0.0'), null);
-    assert.equal(calls.length, 1);
-  }
+test('a successful no-update response clears obsolete release data',async()=>{
+ const state=harness([{available:false,current:'1.0.11'}],{releaseCheck:{latest:{version:'v1.0.10'}}});
+ assert.equal(await state.updates.check('1.0.11'),null);
+ assert.equal(state.store.releaseCheck.latest,null);
 });
-
-test('failure on both repositories stays an error with no request loop', async () => {
-  const {updates, calls, store} = harness([failure(404), failure(404)]);
-  assert.equal(await updates.check('1.0.0'), null);
-  assert.equal(calls.length, 2);
-  assert.equal(store.releaseCheck.error, 'HTTP 404');
+test('invalid backend metadata never becomes a release notice',async()=>{
+ for(const value of [{},{available:true,version:'invalid'},{available:'true',version:'1.0.11'}]){
+  const state=harness([value]);assert.equal(await state.updates.check('1.0.9'),null);
+  assert.ok(state.store.releaseCheck.error);assert.equal(state.calls.length,1);
+ }
 });
-
-test('legacy fallback rate limit preserves Retry-After backoff', async () => {
-  const start = Date.now();
-  const {updates, store, calls} = harness([failure(404), failure(429, {'retry-after': '7200'})]);
-  assert.equal(await updates.check('1.0.0'), null);
-  assert.equal(calls.length, 2);
-  assert.ok(store.releaseCheck.nextCheck >= start + 7200000);
-  assert.equal(store.releaseCheck.error, 'HTTP 429');
+test('ignore and later choices retain their previous v-prefixed identity',async()=>{
+ for(const choice of [{releaseIgnored:'v1.0.11'},{releaseLater:{version:'v1.0.11',until:Date.now()+86400000}}]){
+  const state=harness([available],choice);assert.equal(await state.updates.check('1.0.9'),null);
+ }
 });

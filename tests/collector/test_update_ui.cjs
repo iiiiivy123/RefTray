@@ -12,17 +12,35 @@ test('only update status crosses a version change and renews the old authorizati
  await assert.rejects(hub.api('/collect/start',{}),/版本/);
  assert.equal(calls,3);
 });
-function ui(status,store={}){
+function ui(status,store={},checks=[]){
  const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{dataset:{},hidden:false});return nodes.get(id);};
  const section={querySelector:node};let timer,reloads=0;const calls=[];
  const context=vm.createContext({Date,Set,setTimeout:f=>(timer=f,1),clearTimeout:()=>{timer=null;},
   document:{createElement:()=>section,querySelector:s=>s==='#about-settings'?{append(){}}:null},
-  Hub:{api:async(path,value)=>{calls.push([path,value]);return path==='/updates/status'?status:path==='/updates/check'?{available:true,version:'0.5.50'}:{};}},
+  Hub:{api:async(path,value)=>{calls.push([path,value]);if(path==='/updates/check'&&checks.length){const next=checks.shift();if(next instanceof Error)throw next;return next;}return path==='/updates/status'?status:path==='/updates/check'?{available:true,version:'0.5.50'}:{};}},
   chrome:{runtime:{getManifest:()=>({version:'0.5.49'}),reload:()=>reloads++},storage:{local:{get:async()=>store,set:async v=>Object.assign(store,v)}}}});
  vm.runInContext(fs.readFileSync('source/extension/update-ui.js','utf8'),context);
  return {node,store,calls,get reloads(){return reloads;},get timer(){return timer;}};
 }
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
+test('a failed recheck clears the previous install choice',async()=>{
+ const state=ui({phase:'idle'},{},[{available:true,version:'0.5.50'},new Error('拒绝访问')]);
+ await flush();await state.node('#check-update').onclick();assert.equal(state.node('#install-update').hidden,false);
+ await state.node('#check-update').onclick();assert.equal(state.node('#install-update').hidden,true);
+ assert.match(state.node('#update-message').textContent,/拒绝访问/);
+ assert.equal(state.calls.filter(c=>c[0]==='/updates/install').length,0);
+});
+test('update check backoff reaches popup callers without a second authorization retry',async()=>{
+ let calls=0;
+ const context=vm.createContext({AbortSignal,Date,reftrayApiError:()=> '额度已用完',
+  chrome:{runtime:{getManifest:()=>({version:'1.0.11'})}},
+  reftrayHealth:async()=>({ok:true,json:async()=>({release:'1.0.11',settings_token:'test'})}),
+  fetch:async()=>{calls++;return {status:429,ok:false,headers:{get:()=> '7200'},json:async()=>({detail:'额度已用完'})};}});
+ const hub=vm.runInContext(fs.readFileSync('source/extension/hub-api.js','utf8')+';Hub',context);
+ const before=Date.now();
+ await assert.rejects(hub.api('/updates/check'),error=>error.retryAt>=before+7200000&&/额度/.test(error.message));
+ assert.equal(calls,1);
+});
 test('an old successful receipt is not displayed as the current installed version',async()=>{
  const state=ui({phase:'completed',version:'0.5.45',current:'0.5.49',message:'已更新到 0.5.45'});
  await flush();assert.equal(state.node('#update-message').textContent,'当前版本 0.5.49');assert.equal(state.reloads,0);

@@ -127,7 +127,7 @@ test('release checks separate offline, ignored, deferred, busy, old and newer re
  const panel={show(){shown++;},close(){},querySelector(s){if(!panelNodes.has(s))panelNodes.set(s,{dataset:{}});return panelNodes.get(s);}};
  const context=vm.createContext({AbortSignal,UI:{t:x=>x},document:{querySelector:s=>s==='dialog[open]'?null:panel},
   chrome:{storage:{local:{get:async()=>store,set:async x=>Object.assign(store,x)}}},
-  fetch:async()=>{calls++;if(!online)throw Error('offline');return {ok:true,json:async()=>({tag_name:'v0.5.39',body:'release notes'})};}});
+  Hub:{api:async()=>{calls++;if(!online)throw Error('offline');return {available:true,version:'0.5.39',notes:'release notes'};}}});
  const updates=vm.runInContext(fs.readFileSync(path.join(extension,'release-check.js'),'utf8')+';RefTrayUpdates',context);
  assert.equal(updates.newer('v0.10.0','0.9.99'),true);
  assert.equal(updates.newer('v0.6.0-rc.1','0.5.38'),false);
@@ -148,7 +148,7 @@ test('rate-limited release lookup respects the server deadline and preserves cac
  const store={releaseCheck:{latest:{version:'v1.0.0',notes:'cached'}}};
  let calls=0;
  const context=vm.createContext({AbortSignal,chrome:{storage:{local:{get:async()=>store,set:async x=>Object.assign(store,x)}}},
-  fetch:async()=>{calls++;return {ok:false,status:403,headers:new Headers({'x-ratelimit-reset':String(reset),'retry-after':'60'})};}});
+  Hub:{api:async()=>{calls++;const error=new Error('额度已用完');error.retryAt=reset*1000;throw error;}}});
  const updates=vm.runInContext(fs.readFileSync(path.join(extension,'release-check.js'),'utf8')+';RefTrayUpdates',context);
  assert.equal((await updates.check('0.5.40')).version,'v1.0.0');
  assert.equal(store.releaseCheck.nextCheck,reset*1000);

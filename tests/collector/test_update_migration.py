@@ -6,10 +6,11 @@ from pathlib import Path
 import tempfile
 import unittest
 import urllib.error
-from unittest.mock import patch
+from unittest.mock import patch, Mock
+from contextlib import contextmanager
 
 from server.config import Settings
-from server.updates import LATEST, LEGACY_LATEST, Updates, release_info
+from server.updates import LATEST, LEGACY_LATEST, Updates, release_info, RELEASE_FEED
 
 
 NEW = 'iiiiivy123/RefTray'
@@ -29,6 +30,18 @@ def metadata(repository):
 
 def missing():
     return urllib.error.HTTPError(LATEST, 404, 'Not Found', {}, None)
+
+
+@contextmanager
+def legacy_read(**kwargs):
+    # These tests exercise older releases without the new static attachment.
+    read = Mock(**kwargs)
+    def route(url, limit):
+        if url == RELEASE_FEED:
+            raise urllib.error.HTTPError(url, 404, 'Not Found', {}, None)
+        return read(url, limit)
+    with patch('server.updates.read_small', side_effect=route):
+        yield read
 
 
 class RepositoryMigrationTests(unittest.TestCase):
@@ -51,42 +64,42 @@ class RepositoryMigrationTests(unittest.TestCase):
                 self.assertIn('/' + repository + '/', info['checksum_url'])
 
     def test_canonical_release_takes_priority_after_rename(self):
-        with patch('server.updates.read_small', return_value=json.dumps(metadata(NEW)).encode()) as read:
+        with legacy_read(return_value=json.dumps(metadata(NEW)).encode()) as read:
             info = self.manager.check()
         self.assertTrue(info['available'])
         read.assert_called_once_with('https://api.github.com/repos/iiiiivy123/RefTray/releases/latest', 2 * 1024 * 1024)
 
     def test_before_rename_only_a_404_uses_the_old_repository(self):
-        with patch('server.updates.read_small', side_effect=[missing(), json.dumps(metadata(OLD)).encode()]) as read:
+        with legacy_read(side_effect=[missing(), json.dumps(metadata(OLD)).encode()]) as read:
             self.assertTrue(self.manager.check()['available'])
         self.assertEqual([call.args[0] for call in read.call_args_list], [LATEST, LEGACY_LATEST])
 
     def test_errors_and_invalid_canonical_metadata_never_fall_back(self):
         for code in (401, 403, 429, 500):
             error = urllib.error.HTTPError(LATEST, code, 'test', {}, None)
-            with self.subTest(code=code), patch('server.updates.read_small', side_effect=error) as read:
+            with self.subTest(code=code), legacy_read(side_effect=error) as read:
                 with self.assertRaises(urllib.error.HTTPError):
                     self.manager.check()
                 self.assertEqual(read.call_count, 1)
         for error in (TimeoutError('timeout'), ValueError('rate limited')):
-            with self.subTest(error=error), patch('server.updates.read_small', side_effect=error) as read:
+            with self.subTest(error=error), legacy_read(side_effect=error) as read:
                 with self.assertRaises(type(error)):
                     self.manager.check()
                 self.assertEqual(read.call_count, 1)
         for body in (b'{invalid', json.dumps(metadata('other/RefTray')).encode()):
-            with self.subTest(body=body), patch('server.updates.read_small', return_value=body) as read:
+            with self.subTest(body=body), legacy_read(return_value=body) as read:
                 with self.assertRaises(ValueError):
                     self.manager.check()
                 self.assertEqual(read.call_count, 1)
 
     def test_current_canonical_release_does_not_consult_legacy_metadata(self):
         self.manager.current = '1.0.1'
-        with patch('server.updates.read_small', return_value=json.dumps(metadata(NEW)).encode()) as read:
+        with legacy_read(return_value=json.dumps(metadata(NEW)).encode()) as read:
             self.assertFalse(self.manager.check()['available'])
         self.assertEqual(read.call_count, 1)
 
     def test_missing_legacy_release_is_an_error_not_up_to_date(self):
-        with patch('server.updates.read_small', side_effect=[missing(), missing()]) as read:
+        with legacy_read(side_effect=[missing(), missing()]) as read:
             with self.assertRaises(urllib.error.HTTPError):
                 self.manager.check()
         self.assertEqual(read.call_count, 2)
@@ -112,6 +125,7 @@ class RepositoryMigrationTests(unittest.TestCase):
     def test_download_verifies_both_sources_and_hands_off_unchanged_package_name(self):
         for repository in (OLD, NEW):
             with self.subTest(repository=repository):
+                self.manager.check_until = 0
                 data = metadata(repository)
                 checksum = (hashlib.sha256(PAYLOAD).hexdigest() + '  ' + NAME).encode()
                 def read(url, limit):
@@ -121,7 +135,7 @@ class RepositoryMigrationTests(unittest.TestCase):
                         return json.dumps(data).encode()
                     self.assertEqual(url, data['assets'][1]['browser_download_url'])
                     return checksum
-                with patch('server.updates.read_small', side_effect=read), \
+                with legacy_read(side_effect=read), \
                         patch('server.updates.open_official', return_value=io.BytesIO(PAYLOAD)) as download, \
                         patch.object(self.manager, 'handoff') as handoff:
                     self.manager.download('1.0.1')

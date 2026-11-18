@@ -9,6 +9,7 @@ import threading
 import time
 import urllib.request
 import urllib.error
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException, Request
@@ -18,6 +19,7 @@ from server.update_recovery import backup_state, recovery_info
 REPOSITORY = 'iiiiivy123/RefTray'
 LEGACY_REPOSITORY = 'iiiiivy123/inspiration-collector'
 LATEST = f'https://api.github.com/repos/{REPOSITORY}/releases/latest'
+RELEASE_FEED = f'https://github.com/{REPOSITORY}/releases/latest/download/RefTray-update.json'
 LEGACY_LATEST = f'https://api.github.com/repos/{LEGACY_REPOSITORY}/releases/latest'
 MAX_PACKAGE = 512 * 1024 * 1024
 ACTIVE = {'downloading', 'ready', 'installing', 'restarting', 'rolling_back'}
@@ -46,19 +48,61 @@ class OfficialRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def open_official(url):
+class UpdateRequestError(ValueError):
+    """Safe upstream evidence; never expose raw response bodies, IPs or signed URLs."""
+    def __init__(self, kind, message, upstream_status=None, retry_at=0):
+        super().__init__(message)
+        self.kind, self.upstream_status, self.retry_at = kind, upstream_status, retry_at
+
+
+def request_error(error):
+    code, headers = error.code, error.headers or {}
+    remaining = headers.get('x-ratelimit-remaining')
+    body = ''
+    if code in (403, 429):
+        try:
+            value = json.loads(error.read(16384))
+            body = str(value.get('message', '')).lower() if isinstance(value, dict) else ''
+        except (OSError, ValueError, AttributeError):
+            pass
+    limited = code == 429 or code == 403 and (remaining == '0' or 'rate limit' in body)
+    if limited:
+        now = time.time()
+        deadlines = [now + 60]
+        for field in ('x-ratelimit-reset', 'retry-after'):
+            raw = headers.get(field, '')
+            try:
+                if field == 'retry-after' and not raw.isdecimal():
+                    deadlines.append(parsedate_to_datetime(raw).timestamp())
+                else:
+                    number = int(raw)
+                    deadlines.append(number + (now if field == 'retry-after' else 0))
+            except (ValueError, TypeError, OverflowError):
+                pass
+        retry_at = max(deadlines)
+        when = time.strftime('%m-%d %H:%M:%S', time.localtime(retry_at))
+        cause = 'GitHub 公开接口额度已用完' if remaining == '0' else 'GitHub 暂时限制更新请求频率'
+        return UpdateRequestError('rate_limit', f'{cause}（HTTP {code}）；请在 {when} 后重试。当前版本未修改。', code, retry_at)
+    if code in (401, 403):
+        return UpdateRequestError('forbidden', f'官方更新地址拒绝访问（HTTP {code}）；请检查网络访问策略。当前版本未修改。', code)
+    return UpdateRequestError('upstream', f'官方更新服务暂不可用（HTTP {code}）；当前版本未修改。', code)
+
+
+def open_official(url, timeout=30):
     allowed_url(url)
     request = urllib.request.Request(url, headers={'User-Agent': 'RefTray-Updater', 'Accept': 'application/vnd.github+json'})
     try:
-        return urllib.request.build_opener(OfficialRedirect()).open(request, timeout=30)
+        return urllib.request.build_opener(OfficialRedirect()).open(request, timeout=timeout)
     except urllib.error.HTTPError as error:
-        if error.code in (403, 429):
-            raise ValueError('官方更新服务暂时限制请求，请稍后重试；当前版本未修改。') from error
-        raise
+        if error.code == 404:
+            raise  # Only a missing feed/repository permits legacy compatibility.
+        raise request_error(error) from error
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise UpdateRequestError('network', '无法连接官方更新地址，请检查网络后重试；当前版本未修改。') from error
 
 
 def read_small(url, limit):
-    with open_official(url) as response:
+    with open_official(url, timeout=10) as response:
         data = response.read(limit + 1)
     if len(data) > limit:
         raise ValueError('更新信息超过大小上限')
@@ -66,6 +110,8 @@ def read_small(url, limit):
 
 
 def release_info(data, current):
+    if not isinstance(data, dict):
+        raise ValueError('正式更新信息格式无效')
     if data.get('draft') or data.get('prerelease'):
         raise ValueError('仅支持正式发布版本')
     tag = data.get('tag_name')
@@ -75,6 +121,8 @@ def release_info(data, current):
     name = f'InspirationCollector-{number}-Windows-x64-Setup.exe'
     checksum = f'SHA256SUMS-{number}.txt'
     assets = data.get('assets', [])
+    if not isinstance(assets, list) or any(not isinstance(item, dict) for item in assets):
+        raise ValueError('正式更新附件信息无效')
     def asset(filename):
         matches = [item for item in assets if item.get('name') == filename and item.get('state') == 'uploaded']
         if len(matches) != 1:
@@ -136,6 +184,10 @@ class Updates:
         self.base = settings.root / 'data/inspiration/updates'
         self.lock = threading.Lock()
         self.worker = None
+        self.check_lock = threading.Lock()
+        self.checked = None
+        self.check_error = None
+        self.check_until = 0
 
     def status(self):
         path = self.base / 'status.json'
@@ -182,6 +234,36 @@ class Updates:
         atomic_json(self.base / 'status.json', {'phase': phase, 'message': message, 'time': time.time(), **values})
 
     def check(self):
+        # Manual checks, popup notices and installation share one bounded lookup.
+        with self.check_lock:
+            if time.time() < self.check_until:
+                if self.check_error:
+                    raise self.check_error
+                return dict(self.checked)
+            self.check_error = None
+            try:
+                info = self.read_release()
+            except UpdateRequestError as error:
+                self.check_error = error
+                self.check_until = max(time.time() + 60, error.retry_at)
+                atomic_json(self.base / 'check-error.json', {
+                    'time': time.time(), 'kind': error.kind,
+                    'upstream_status': error.upstream_status, 'retry_at': error.retry_at})
+                raise
+            self.checked = info
+            self.check_until = time.time() + 60
+            return dict(info)
+
+    def read_release(self):
+        try:
+            data = json.loads(read_small(RELEASE_FEED, 65536))
+        except urllib.error.HTTPError as error:
+            if error.code != 404:
+                raise
+        else:
+            if not isinstance(data, dict) or type(data.get('schema_version')) is not int or data['schema_version'] != 1:
+                raise ValueError('正式更新清单版本无效')
+            return release_info(data, self.current)
         try:
             data = read_small(LATEST, 2 * 1024 * 1024)
         except urllib.error.HTTPError as error:
@@ -305,6 +387,10 @@ def attach(app, settings, current, authorize, busy):
             info = updates.check()
             return {key: value for key, value in info.items() if key not in ('url', 'checksum_url', 'digest')}
         except Exception as error:
+            if isinstance(error, UpdateRequestError):
+                status = 429 if error.kind == 'rate_limit' else 503
+                headers = {'Retry-After': str(max(1, int(error.retry_at - time.time())))} if error.retry_at else None
+                raise HTTPException(status, str(error), headers=headers) from error
             raise HTTPException(502, str(error) if isinstance(error, ValueError) else '无法检查正式新版，请稍后重试') from error
 
     @app.post('/updates/install')

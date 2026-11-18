@@ -24,7 +24,7 @@
 
 ## 版本与其他资料
 
-- [1.0.10 版本说明](releases/release-1.0.10.md) · [历史版本说明](releases/README.md) · [下载安装包](https://github.com/iiiiivy123/RefTray/releases)。
+- [1.0.11 版本说明](releases/release-1.0.11.md) · [历史版本说明](releases/README.md) · [下载安装包](https://github.com/iiiiivy123/RefTray/releases)。
 - [开发与构建](development/README.md)：源码结构、构建、测试和维护记录。
 - [介绍材料](marketing/README.md)：名称、视觉、演示和宣传草稿。
 

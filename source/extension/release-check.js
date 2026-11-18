@@ -1,9 +1,7 @@
-// Check on popup open. Chrome handles proxy routing and offline errors.
-// Only the official repository is contacted; no page or collection data is sent.
+// Check on popup open through the same backend used by Settings and installation.
+// No separate GitHub API quota, external host permission or background scheduler.
 const RefTrayUpdates = (() => {
   const day = 24 * 60 * 60 * 1000;
-  const latestUrl = 'https://api.github.com/repos/iiiiivy123/RefTray/releases/latest';
-  const legacyUrl = 'https://api.github.com/repos/iiiiivy123/inspiration-collector/releases/latest';
 
   function versionParts(value) {
     const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(value || '');
@@ -24,31 +22,18 @@ const RefTrayUpdates = (() => {
     const {releaseCheck = {}, releaseIgnored, releaseLater} =
       await storage.get(['releaseCheck', 'releaseIgnored', 'releaseLater']);
     let latest = releaseCheck.latest;
-    if (!(Date.now() < releaseCheck.nextCheck)) {
+    if (releaseCheck.source !== 'backend-feed' || !(Date.now() < releaseCheck.nextCheck)) {
       let retryAt=Date.now()+3600000;
       try {
-        const options = {credentials:'omit',referrerPolicy:'no-referrer',
-          signal:AbortSignal.timeout(5000),headers:{Accept:'application/vnd.github+json'}};
-        let response = await fetch(latestUrl, options);
-        if (response.status === 404) response = await fetch(legacyUrl, options);
-        if (!response.ok) {
-          if(response.status===403||response.status===429){
-            const reset=Number(response.headers?.get('x-ratelimit-reset'))*1000;
-            const delay=response.headers?.get('retry-after');
-            const after=delay && /^\d+$/.test(delay)?Date.now()+Number(delay)*1000:Date.parse(delay||'');
-            const deadline=Math.max(reset||0,after||0);
-            if(Number.isFinite(deadline)&&deadline>Date.now())retryAt=deadline;
-          }
-          throw new Error('HTTP ' + response.status);
-        }
-        const release = await response.json();
-        if (release.draft || release.prerelease || !versionParts(release.tag_name)) {
+        const release = await Hub.api('/updates/check');
+        if (typeof release.available !== 'boolean' || release.available && !versionParts(release.version)) {
           throw new Error('Unexpected release metadata');
         }
-        latest = {version:release.tag_name,notes:String(release.body || release.name || '').slice(0,1200)};
-        await storage.set({releaseCheck:{latest,nextCheck:Date.now()+day}});
+        latest = release.available ? {version:'v'+release.version.replace(/^v/,''),notes:String(release.notes || '').slice(0,1200)} : null;
+        await storage.set({releaseCheck:{source:'backend-feed',latest,nextCheck:Date.now()+day}});
       } catch (error) {
-        await storage.set({releaseCheck:{latest:latest || null,nextCheck:retryAt,
+        if(Number.isFinite(error.retryAt))retryAt=Math.max(retryAt,error.retryAt);
+        await storage.set({releaseCheck:{source:'backend-feed',latest:latest || null,nextCheck:retryAt,
           error:String(error.message).slice(0,120)}});
       }
     }

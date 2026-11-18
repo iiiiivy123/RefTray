@@ -1,6 +1,8 @@
 # 更新 RefTray
 
-当前版本 **1.0.10**，安装包和校验文件见 [Releases](https://github.com/iiiiivy123/RefTray/releases/tag/v1.0.10)。
+当前版本 **1.0.11**，安装包和校验文件见 [Releases](https://github.com/iiiiivy123/RefTray/releases/tag/v1.0.11)。
+
+1.0.11 起，自动提醒和手动检查共用官方发布附件中的更新清单，正常检查不占 GitHub API 配额。旧版本若显示“限制请求 / HTTP 502”，可下载完整 1.0.11 安装包覆盖升级一次，保留素材与设置。限流会显示可重试时间；访问拒绝或网络失败会分别说明，不要求提供 GitHub 账号或令牌。
 
 1. 完成或停止正在采集的任务。
 2. 下载新版本的 Windows 安装包，安装到原来的程序目录。安装器会处理旧后台和本程序的 MCP 进程占用。

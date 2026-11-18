@@ -15,6 +15,10 @@
 
 ## 测试入口
 
+每个正式 Release 必须在公开前上传 `RefTray-update.json`。先完成安装包、说明和 SHA256SUMS，再运行 `python tools/build_update_feed.py --package <完整安装包> --checksums <同版SHA256SUMS> --notes <版本说明> --output <发行目录>`。生成器会核对安装包摘要，拒绝覆盖不同清单。清单作为第六项附件；SHA256SUMS不包含清单，避免清单引用校验文件形成循环。先草稿上传并核对全部资产，公开后实际读取 `https://github.com/iiiiivy123/RefTray/releases/latest/download/RefTray-update.json`，核对版本、大小和摘要与发行归档一致。
+
+官方依据：[最新发布附件链接](https://docs.github.com/en/repositories/releasing-projects-on-github/linking-to-releases)、[API限流与恢复时间](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)。不将检查失败写成无更新，不通过切换代理或内置私人令牌处理匿名额度问题。
+
 依赖预检、架构检查和回归命令统一见[开发指南](README.md)，先通过依赖预检再打包。
 
 Windows 安装测试脚本为 `tools/verify_windows_install.py`。参数 `--run-isolated-installer-tests` 会实际安装、升级、卸载，并临时写入再恢复本软件的卸载注册项。运行前阅读脚本，优先使用专门的 Windows 测试环境。

@@ -51,7 +51,7 @@
   catch(error){enable(false);say(error.message);}
  }
  check.onclick=async()=>{
-  enable(true);say('正在检查正式新版…');
+  release=null;install.hidden=true;enable(true);say('正在检查正式新版…');
   try{release=await Hub.api('/updates/check');install.hidden=!release.available;say(release.available?'发现新版 '+release.version+' · 更新会保留素材和设置':'当前已是最新正式版，或正在使用更新的预发布版。');}
   catch(error){say(error.message);}finally{enable(false);}
  };

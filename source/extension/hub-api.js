@@ -22,7 +22,7 @@ const Hub = (() => {
     if(!updateStatus&&health.release&&health.release!==release)throw new Error(`扩展版本 ${release} 与后台版本 ${health.release} 不一致。请打开 chrome://extensions，找到「RefTray」点重新加载，然后刷新作品网页；若仍不一致，请确认加载的是本次安装目录中的 extension 文件夹。`);
     if(path==='/health')return health;
     for(let attempt=0;attempt<2;attempt++){
-      const response=await localFetch('http://127.0.0.1:8766'+path,{method:value===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Collector-Token':health.settings_token},...(value===undefined?{}:{body:JSON.stringify(value)}),signal:AbortSignal.timeout(15000)});
+      const response=await localFetch('http://127.0.0.1:8766'+path,{method:value===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Collector-Token':health.settings_token},...(value===undefined?{}:{body:JSON.stringify(value)}),signal:AbortSignal.timeout(path==='/updates/check'?45000:15000)});
       let body;try{body=await response.json();}catch{throw new Error('本地服务返回了无法识别的响应；请查看任务记录后再操作。');}
       // This exact authorization error is raised before endpoint execution.
       const notExecuted=typeof body.detail==='string'&&body.detail.startsWith('扩展未通过后台校验。');
@@ -31,7 +31,15 @@ const Hub = (() => {
         if(!updateStatus&&health.release&&health.release!==release)throw new Error('扩展与后台版本不一致，请重新加载扩展。');
         continue;
       }
-      if(!response.ok)throw new Error(reftrayApiError(response,body,path));
+      if(!response.ok){
+        const error=new Error(reftrayApiError(response,body,path));
+        if(path==='/updates/check'){
+          const delay=response.headers?.get('retry-after');
+          const deadline=delay&&/^\d+$/.test(delay)?Date.now()+Number(delay)*1000:Date.parse(delay||'');
+          if(Number.isFinite(deadline)&&deadline>Date.now())error.retryAt=deadline;
+        }
+        throw error;
+      }
       if(path==='/settings/directory')health=body;
       return body;
     }
