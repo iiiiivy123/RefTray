@@ -1,5 +1,6 @@
 """Run the optional documentation snippet in Windows PowerShell, without an installer."""
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
@@ -32,8 +33,9 @@ class InstallGuideTests(unittest.TestCase):
     def test_optional_checksum_snippet(self):
         text = (ROOT / 'docs/install.md').read_text('utf-8')
         snippet = re.search(r'```powershell\n(.*?)\n```', text, re.S)[1]
-        name = 'InspirationCollector-1.0.1-Windows-x64-Setup.exe'
-        checksum_name = 'SHA256SUMS-1.0.1.txt'
+        version = json.loads((ROOT / 'source/extension/manifest.json').read_text('utf-8'))['version']
+        name = f'InspirationCollector-{version}-Windows-x64-Setup.exe'
+        checksum_name = f'SHA256SUMS-{version}.txt'
         data = b'test fixture only; not an executable'
         digest = hashlib.sha256(data).hexdigest()
         cases = [

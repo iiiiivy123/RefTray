@@ -174,7 +174,7 @@ class VideoDownloads:
                     percent = min(100,received/total*100) if isinstance(total,(int,float)) and total>0 else None
                     track = f" · 轨道 {details['track']}/{details['tracks']}" if details.get('tracks',0)>1 else ''
                     size = f'{received/1048576:.1f} MB' + (f' / {total/1048576:.1f} MB' if total else ' · 总大小未知')
-                    self._update(job_id, stage='downloading', bytes=count, total=total, percent=percent, message='正在下载视频'+track+' · '+size)
+                    self._update(job_id, stage='downloading', bytes=count, total=total, transfer={'bytes':received,'total':total,'track':details.get('track',1),'tracks':details.get('tracks',1)}, percent=percent, message='正在下载视频'+track+' · '+size)
                 cached = download(value.resolver_id, value.canonical_url, value.url, workspace.name,
                                   limit, value.min_free_mb * 1048576, lambda: self._point(job_id),
                                   downloaded,
@@ -196,7 +196,7 @@ class VideoDownloads:
                     if value.approved_bytes is not None:remaining=min(remaining,value.approved_bytes-downloaded)
                     label='视频' if index==0 else '音频'
                     def track_progress(count,total):
-                        self._update(job_id,stage='downloading',bytes=downloaded+count,total=None,
+                        self._update(job_id,stage='downloading',bytes=downloaded+count,total=None,transfer={'bytes':count,'total':total,'track':index+1,'tracks':2},
                                      percent=min(100,count/total*100) if total else None,
                                      message=f'下载{label}轨道 {index+1}/2 · {count/1048576:.1f} MB')
                     count,*_=transfer(target,urls,
@@ -227,7 +227,7 @@ class VideoDownloads:
             def sniff(chunk):
                 return ('.gif','image/gif') if value.output_format=='gif' and chunk.startswith((b'GIF87a',b'GIF89a')) else video_type(chunk)
             def file_progress(count,total):
-                self._update(job_id,stage='processing' if cached else 'downloading',bytes=count,total=total or None,
+                self._update(job_id,stage='processing' if cached else 'downloading',bytes=count,total=total or None,transfer={'bytes':count,'total':total or None,'track':1,'tracks':1},
                     percent=min(100,int(count/total*100)) if total else None,
                     message=('正在整理本地视频 ' if cached else '正在下载视频 ')+f'{count/1048576:.1f} MB'+(f' / {total/1048576:.1f} MB' if total else ' · 总大小未知'))
             received,digest,suffix,mime,expected=transfer(temporary,urls,open_source=open_source,
@@ -272,8 +272,10 @@ class VideoDownloads:
                 received = temporary.stat().st_size
                 if received > limit:
                     raise ValueError('处理结果超过文件大小限制')
-            if mime.startswith('video/') and (urlsplit(value.canonical_url).hostname or '').lower() in ('x.com','www.x.com','twitter.com','www.twitter.com'):
+            if mime.startswith('video/') and (value.audio_required or (urlsplit(value.canonical_url).hostname or '').lower() in ('x.com','www.x.com','twitter.com','www.twitter.com','xiaohongshu.com','www.xiaohongshu.com','rednote.com','www.rednote.com')):
                 audio_present=any(s.get('codec_type')=='audio' for s in bilibili_media.inspect(temporary).get('streams',[]))
+                if value.audio_required and not audio_present:
+                    raise ValueError('原视频标记有声音，但下载结果缺少音轨；未保存为完整视频，请刷新原帖后重试')
                 if not audio_present:
                     media_warning='文件已保存，但没有音轨；尚未确认原帖是否无声，不能认定完整成功。网页静音不会删除下载音轨。'
             self._update(job_id, stage='processing', percent=None, message='正在校验并准备保存…')

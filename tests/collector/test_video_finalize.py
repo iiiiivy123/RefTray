@@ -33,11 +33,11 @@ class VideoFinalizeTests(unittest.TestCase):
         with self.assertRaises(InterruptedError):
             downloads._point('test')
 
-    def run_download(self, root, *, catalog=None, subtitle_error=None, output_format='original'):
+    def run_download(self, root, *, catalog=None, subtitle_error=None, output_format='original', canonical_url='https://example.org/post', audio_required=False):
         downloads = VideoDownloads(catalog)
         downloads.jobs['test'] = {'status': 'running', 'control': 'running', 'lease': time.monotonic()}
-        value = VideoDownloadRequest(url='https://cdn.example/video.mp4', canonical_url='https://example.org/post',
-            page_title='safe fixture', save_directory=str(root), subtitle_mode='with_video', output_format=output_format)
+        value = VideoDownloadRequest(url='https://cdn.example/video.mp4', canonical_url=canonical_url,
+            page_title='safe fixture', save_directory=str(root), subtitle_mode='with_video', output_format=output_format, audio_required=audio_required)
         content = b'\0\0\0\x18ftypisom' + b'fixture-media' * 20
         response = addinfourl(io.BytesIO(content), {'Content-Length': str(len(content))}, value.url, code=200)
         opener = Mock()
@@ -48,6 +48,39 @@ class VideoFinalizeTests(unittest.TestCase):
         with patch('server.video.validate_url', return_value=value.url), patch('server.video.public_opener', return_value=opener), patch('server.media_output.transform', side_effect=transform), patch('server.subtitles.save', side_effect=subtitle_error, return_value=(None, None)):
             downloads._run('test', root, value)
         return downloads.jobs['test'], content
+
+    def test_xhs_missing_audio_is_partial_and_not_reused_as_complete(self):
+        from server.video_cache import complete_cached
+        url='https://www.xiaohongshu.com/explore/6af98000000000002a0243af'
+        with tempfile.TemporaryDirectory() as temporary, patch('server.bilibili_media.inspect', return_value={'streams':[{'codec_type':'video'}]}):
+            root=Path(temporary)
+            job,content=self.run_download(root, canonical_url=url)
+            self.assertTrue(job['result']['partial'])
+            self.assertFalse(job['result']['audio_present'])
+            self.assertIn('没有音轨', job['result']['warning'])
+            saved=Path(job['result']['path'])
+            self.assertEqual(saved.read_bytes(),content)
+            value=VideoDownloadRequest(url='https://cdn.example/video.mp4',canonical_url=url,save_directory=str(root))
+            self.assertIsNone(complete_cached(saved,value))
+            self.assertTrue(saved.is_file())
+
+    def test_declared_audio_must_exist_before_complete_file_is_committed(self):
+        with tempfile.TemporaryDirectory() as temporary, patch('server.bilibili_media.inspect', return_value={'streams':[{'codec_type':'video'}]}):
+            root=Path(temporary)
+            job,_=self.run_download(root,audio_required=True)
+            self.assertEqual(job['status'],'failed')
+            self.assertIn('缺少音轨',job['message'])
+            self.assertFalse(list(root.rglob('*.mp4')))
+            self.assertFalse(list(root.rglob('*.part')))
+
+    def test_complete_xhs_audio_video_records_audio_and_retains_byte_progress(self):
+        with tempfile.TemporaryDirectory() as temporary, patch('server.bilibili_media.inspect', return_value={'streams':[{'codec_type':'video'},{'codec_type':'audio'}]}):
+            job,content=self.run_download(Path(temporary),canonical_url='https://www.xiaohongshu.com/explore/6af98000000000002a0243af',audio_required=True)
+            self.assertEqual(job['status'],'completed')
+            self.assertFalse(job['result']['partial'])
+            self.assertTrue(job['result']['audio_present'])
+            self.assertEqual(job['transfer']['bytes'],len(content))
+            self.assertEqual(job['transfer']['total'],len(content))
 
     def test_subtitle_interruption_keeps_file_source_record_and_partial_result(self):
         with tempfile.TemporaryDirectory() as temporary:

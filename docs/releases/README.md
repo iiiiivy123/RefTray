@@ -2,9 +2,11 @@
 
 [返回文档](../README.md) · [下载安装包](https://github.com/iiiiivy123/RefTray/releases)
 
-当前版本：[1.0.1](release-1.0.1.md)。
+开发候选：[1.0.8](release-1.0.8.md)，尚未公开。当前公开版本为[1.0.1](release-1.0.1.md)。
 
 ## 历史版本
+
+- [1.0.1](release-1.0.1.md)
 
 - [1.0.0](release-1.0.0.md)
 - [0.5.55](release-0.5.55.md)

@@ -11,6 +11,22 @@ test('XHS uses a provided original before the default preview and keeps signed U
  assert.equal(XHS.imageUrl({infoList:[preview]}),preview.url);
 });
 
+test('XHS chooses a complete audio/video rendition before a higher-bitrate silent track',()=>{
+ const silent={masterUrl:'https://sns-video-hw.xhscdn.com/silent.mp4',width:1080,height:1920,bitrate:8000000,audioChannels:0,audioCodec:''};
+ const complete={masterUrl:'https://sns-video-hw.xhscdn.com/complete.mp4',width:1080,height:1920,bitrate:3000000,audioChannels:2,audioCodec:'aac'};
+ const audioOnly={masterUrl:'https://sns-video-hw.xhscdn.com/audio.mp4',width:0,height:0,videoCodec:'',audioChannels:2,audioCodec:'aac',bitrate:9000000};
+ const video={media:{stream:{h264:[complete,silent],audio:[audioOnly]}}};
+ assert.equal(XHS.bestVideo(video).url,complete.masterUrl);
+ assert.equal(XHS.mediaItems({video})[0].url,complete.masterUrl);
+});
+
+test('XHS treats absent audio metadata as unknown and keeps silent Live Photo selection',()=>{
+ const unknown={masterUrl:'https://sns-video-hw.xhscdn.com/unknown.mp4',width:1080,height:1920};
+ const silent={masterUrl:'https://sns-video-hw.xhscdn.com/silent.mp4',width:2160,height:3840,audioChannels:0};
+ assert.equal(XHS.bestVideo({stream:[silent,unknown]}).url,unknown.masterUrl);
+ assert.equal(XHS.mediaItems({imageList:[{livePhoto:true,stream:[silent,unknown]}]})[0].url,silent.masterUrl);
+});
+
 test('X chooses the usable MP4 before bitrate ranking for both video and GIF',()=>{
  for(const type of ['video','animated_gif']){
   const items=X.mediaItems([{type,video_info:{variants:[

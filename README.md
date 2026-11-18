@@ -6,7 +6,7 @@ RefTray 是 Windows + Chrome 本地素材采集工具。素材保存在你选的
 
 [下载安装包](https://github.com/iiiiivy123/RefTray/releases) · [使用说明](docs/usage.md) · [首次安装](docs/install.md) · [更新与恢复](docs/update.md) · [English](README_EN.md)
 
-当前正式版为 **1.0.1**。[下载 Windows 安装包](https://github.com/iiiiivy123/RefTray/releases/download/v1.0.1/InspirationCollector-1.0.1-Windows-x64-Setup.exe) · [版本说明](docs/releases/release-1.0.1.md)
+当前开发候选为 **1.0.8**，尚未公开发布。[查看已发布版本](https://github.com/iiiiivy123/RefTray/releases) · [候选说明](docs/releases/release-1.0.8.md)
 
 ## 能做什么
 
@@ -23,8 +23,8 @@ RefTray 是 Windows + Chrome 本地素材采集工具。素材保存在你选的
 
 1. 在 Releases 的 Assets 下载 Windows 安装包（文件名以 `Windows-x64-Setup.exe` 结尾）。
 2. 安装并启动「灵感采集」，Windows 右下角会出现托盘图标。
-3. 从托盘复制扩展文件夹地址，到 `chrome://extensions` 开启开发者模式，加载该文件夹。
-4. 固定 Chrome 工具栏里的扩展，选择素材库，打开作品页开始采集。
+3. 按引导确认素材库，再打开扩展管理和扩展目录，加载该文件夹；升级用户重新加载原扩展。
+4. 固定 Chrome 工具栏里的扩展，打开作品页开始采集。
 
 首次加载扩展需要手动操作。安装包内置运行环境，下载后直接运行即可；遇到 Windows 提示或需要可选校验时见[安装教程](docs/install.md)。
 

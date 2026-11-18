@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const {summary,bounds}=require('../../source/extension/floating-save.js');
-function fixture({result={new_images:22,message:'保存路径\n'+ '详细记录'.repeat(1000)},stored={},replyError='',storageError=false}={}){
- const nodes={},calls=[],writes=[],timers=new Map();let timerId=0,focused;
+const {summary,bounds,progressView}=require('../../source/extension/floating-save.js');
+function fixture({result={new_images:22,message:'保存路径\n'+ '详细记录'.repeat(1000)},stored={},replyError='',storageError=false,onSave}={}){
+ const nodes={},calls=[],writes=[],timers=new Map();let timerId=0,focused,storageListener;
  class Element {
   constructor(){this.style={};this.dataset={};this.attrs={};this.listeners={};this.hidden=false;this.offsetWidth=112;this.offsetHeight=48;this.classes=new Set();this.classList={add:k=>this.classes.add(k),remove:k=>this.classes.delete(k),toggle:(k,v)=>v?this.classes.add(k):this.classes.delete(k)};}
   setAttribute(k,v){this.attrs[k]=v;}removeAttribute(k){delete this.attrs[k];}addEventListener(k,v){this.listeners[k]=v;}
@@ -10,13 +10,13 @@ function fixture({result={new_images:22,message:'保存路径\n'+ '详细记录'
   setPointerCapture(id){this.capture=id;}hasPointerCapture(id){return this.capture===id;}releasePointerCapture(){this.capture=null;}
  }
  const shadow=new Element();shadow.querySelector=s=>nodes[s]||(nodes[s]=new Element());
- for(const key of ['#notice','#menu','#detail'])shadow.querySelector(key).hidden=true;
+ for(const key of ['#notice','#menu','#detail','#progress-panel'])shadow.querySelector(key).hidden=true;
  const host=new Element(),window=new Element();window.top=window;
  const context={window,location:{origin:'https://example.com'},document:{body:{append(){}},querySelector:()=>null,createElement:()=>host,addEventListener(){}},innerWidth:1366,innerHeight:900,Math,Number,Object,String,Error,
   setTimeout:(f,ms)=>{timers.set(++timerId,{f,ms});return timerId;},clearTimeout:id=>timers.delete(id),
-  chrome:{storage:{local:{get:async()=>stored,set:async v=>{if(storageError)throw Error('denied');writes.push(v);}},onChanged:{addListener(){}}},runtime:{sendMessage:async m=>{calls.push(m);return replyError?{ok:false,error:replyError}:{ok:true,result,context:{mode:'自动识别',directory:'F:/Example',latest:{id:7,directory:'F:/Example/Saved'}}};}}}};
+  chrome:{storage:{local:{get:async()=>stored,set:async v=>{if(storageError)throw Error('denied');writes.push(v);}},onChanged:{addListener:f=>storageListener=f}},runtime:{sendMessage:async m=>{calls.push(m);if(onSave&&m.type==='REFTRAY_QUICK_SAVE')return onSave(m);return replyError?{ok:false,error:replyError}:{ok:true,result,context:{mode:'自动识别',directory:'F:/Example',latest:{id:7,directory:'F:/Example/Saved'}}};}}}};
  vm.runInNewContext(fs.readFileSync('source/extension/floating-save.js','utf8'),context);
- return {nodes,host,window,context,calls,writes,timers,focused:()=>focused};
+ return {nodes,host,window,context,calls,writes,timers,focused:()=>focused,progress:p=>storageListener({liblibProgress:{newValue:p}},'local')};
 }
 const settled=()=>new Promise(resolve=>setImmediate(resolve));
 test('short summaries distinguish partial, skipped, duplicate, stopped and failure',()=>{
@@ -97,4 +97,28 @@ test('success folder action keeps the expanded result inside a narrow viewport',
  Object.defineProperty(f.nodes['#notice'],'offsetWidth',{get:()=>f.nodes['#current']?.hidden?112:230});
  await f.nodes['#save'].onclick({detail:0});
  const left=parseFloat(f.host.style.left)+parseFloat(f.nodes['#notice'].style.left);assert.ok(left>=12);assert.ok(left+230<=308);
+});
+
+test('download view uses actual bytes, unknown totals, phases and measured speed without fake completion',()=>{
+ const mb=1048576,samples=[{time:1000,bytes:2*mb},{time:2000,bytes:4*mb}];
+ const known=progressView({stage:'downloading',percent:42,transfer:{bytes:4*mb,total:10*mb,track:2,tracks:2}},samples,2000,2000);
+ assert.equal(known.label,'下载 42%');assert.equal(known.speed,'2.0 MB/s');assert.equal(known.amount,'4.0 MB / 10.0 MB');assert.match(known.detail,/2\/2/);
+ const unknown=progressView({stage:'downloading',percent:null,bytes:4*mb,total:null},[],2000,2000);
+ assert.equal(unknown.percent,null);assert.match(unknown.amount,/总大小未知/);assert.equal(unknown.speed,'');
+ for(const stage of ['processing','saving']){const view=progressView({stage,percent:100},samples,2000,2000);assert.equal(view.percent,null);assert.doesNotMatch(view.label,/100|已保存/);assert.equal(view.amount,'');}
+ const stalled=progressView({stage:'downloading',percent:42},samples,2000,23000);assert.equal(stalled.label,'等待响应');assert.equal(stalled.speed,'');
+});
+
+test('busy click and hover reveal only own progress; stop is scoped; drag never submits another save',async()=>{
+ let finish;const f=fixture({onSave:()=>new Promise(resolve=>finish=resolve)});await settled();
+ const pending=f.nodes['#save'].onclick({detail:0}),requestId=f.calls[0].requestId;
+ f.progress({context:{quickRequestId:'old'},stage:'downloading',percent:99});assert.equal(f.nodes['#save strong'].textContent,'识别中');
+ f.progress({context:{quickRequestId:requestId},stage:'downloading',percent:42,transfer:{bytes:44040192,total:104857600}});
+ assert.equal(f.nodes['#save strong'].textContent,'下载 42%');assert.equal(f.nodes['#progress-panel'].hidden,true);
+ await f.nodes['#save'].onclick({detail:0});assert.equal(f.nodes['#progress-panel'].hidden,false);assert.equal(f.calls.length,1);
+ assert.match(f.nodes['#progress-amount'].textContent,/42.0 MB \/ 100.0 MB/);
+ f.nodes['#close-progress'].onclick();f.host.dispatch('pointerenter',{pointerType:'mouse'});await [...f.timers.values()].find(t=>t.ms===350).f();assert.equal(f.nodes['#progress-panel'].hidden,false);
+ const button=f.nodes['#save'];button.dispatch('pointerdown');button.dispatch('pointermove',{clientX:400,clientY:300});button.dispatch('pointerup',{clientX:400,clientY:300});await button.onclick({detail:1});assert.equal(f.calls.length,1);
+ await button.onclick({detail:0});await f.nodes['#stop'].onclick();assert.equal(f.calls.at(-1).type,'REFTRAY_QUICK_STOP');assert.equal(f.calls.at(-1).requestId,requestId);assert.equal(f.nodes['#stop'].disabled,true);
+ finish({ok:false,error:'USER_STOPPED'});await pending;assert.equal(f.nodes['#result'].textContent,'已停止保存');assert.equal(f.nodes['#progress-panel'].hidden,true);assert.ok(![...f.timers.values()].some(t=>t.ms===1000));
 });

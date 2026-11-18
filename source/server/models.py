@@ -180,6 +180,7 @@ class VideoDownloadRequest(CollectRequest):
     trim_start: float = Field(default=0, ge=0, le=86400, allow_inf_nan=False)
     trim_end: float = Field(default=0, ge=0, le=86400, allow_inf_nan=False)
     audio_url: str | None = None
+    audio_required: bool = False
     backup_urls: list[str] = Field(default_factory=list, max_length=3)
     audio_backup_urls: list[str] = Field(default_factory=list, max_length=3)
     media_kind: Literal['ordinary','bilibili-dash','bilibili-file','bilibili-audio','youtube-dash','resolved'] = 'ordinary'

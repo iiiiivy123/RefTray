@@ -1,5 +1,13 @@
 /* Web actions share the existing collector and its immutable task parameters. */
+let activeQuickSave=null;
 chrome.runtime.onMessage.addListener((message,sender,respond)=>{
+ if(message.type==='REFTRAY_QUICK_STOP'){
+  const owner=activeQuickSave;
+  if(sender.id!==chrome.runtime.id||sender.frameId!==0||!owner||!owner.requestId||sender.tab?.id!==owner.tabId||message.requestId!==owner.requestId){respond({ok:false,error:'这次保存已结束或不属于当前页面'});return false;}
+  owner.stopped=true;
+  (async()=>{if(taskContext.quickRequestId===owner.requestId)await chrome.storage.local.set({liblibControl:'stopped'});return {ok:true};})().then(respond).catch(error=>respond({ok:false,error:error.message}));
+  return true;
+ }
  if(['REFTRAY_FLOATING_CONTEXT','REFTRAY_OPEN_LIBRARY','REFTRAY_OPEN_SAVED'].includes(message.type)){
   if(sender.id!==chrome.runtime.id||!sender.tab||sender.frameId!==0){respond({ok:false,error:'无效的悬浮入口'});return false;}
   (async()=>{
@@ -28,6 +36,9 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
  if(sender.id!==chrome.runtime.id||(quick?(!sender.tab||sender.frameId!==0):sender.url!==chrome.runtime.getURL('popup.html'))){respond({ok:false,error:'无效的网页保存入口'});return false;}
  if(taskRunning||scanInProgress){respond({ok:false,error:'已有任务正在运行，请稍候'});return false;}
  taskRunning=true;const previous=taskContext;
+ const requestId=typeof message.requestId==='string'&&/^[\w-]{1,64}$/.test(message.requestId)?message.requestId:null;
+ const owner=quick?{tabId:sender.tab.id,requestId,stopped:false}:null;
+ if(owner)activeQuickSave=owner;
  const snapshot={tabId:message.tabId,context:{}};
  (async()=>{
   const tab=quick?sender.tab:await chrome.tabs.get(message.tabId);
@@ -41,15 +52,16 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
   const api=(path,body)=>downloadApi(8766,health.settings_token,path,body);
   if(!quick)return await FullPageCapture.capture(tab,{api,progress:message=>chrome.storage.local.set({reftraySnapshotProgress:{...snapshot,status:'running',message,updatedAt:Date.now()}})});
   const defaults=await api('/settings/defaults');
+  if(owner.stopped)throw new Error('USER_STOPPED');
   const site=CollectorSite.context(tab.url);
   if(!site.single)throw new Error(site.reason||'请打开一篇作品详情');
   await ensureBackendIdle();
   await chrome.storage.local.remove('liblibControl');
   const preview=await previewCollection(tab.id,tab.url,true);
+  if(owner.stopped)throw new Error('USER_STOPPED');
   if(preview?.url!==tab.url)throw new Error('页面已切换，请重新保存');
   const {mode,options}=CaptureOptions.quick(defaults,site,preview,message.choice??'auto');
-  const requestId=typeof message.requestId==='string'&&/^[\w-]{1,64}$/.test(message.requestId)?message.requestId:null;
-  const result=await collect(mode,8766,options,{id:tab.id,url:tab.url,quickSave:true,quickRequestId:requestId});
+  const result=await collect(mode,8766,options,{id:tab.id,url:tab.url,quickSave:true,quickRequestId:requestId,quickControl:owner});
   await reportProgress({percent:100,status:TaskProgress.resultStatus(result),message:result.message||`保存完成，新增 ${result.new_images} 张`,directory:result.directory,details:result.details||result.warnings?.join('\n')});
   let captureId=null,folderWarning='';
   if(result.directory)try{
@@ -64,6 +76,6 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
    if(!quick)await chrome.storage.local.set({reftraySnapshotProgress:{...snapshot,message:error.message,status:'failed',updatedAt:Date.now()}});
   }catch(persistError){return {ok:false,error:error.message+'；状态保存失败：'+persistError.message};}
   return {ok:false,error:error.message};
- }).then(response=>{taskRunning=false;respond(response);});
+ }).then(response=>{if(activeQuickSave===owner)activeQuickSave=null;taskRunning=false;respond(response);});
  return true;
 });

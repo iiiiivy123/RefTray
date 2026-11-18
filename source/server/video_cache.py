@@ -5,10 +5,10 @@ from .catalog import source_id
 
 
 def complete_cached(path, value):
-    """Do not reuse an unverified silent X video as a complete download."""
+    """Do not reuse an unverified silent social video as a complete download."""
     if not path:
         return None
-    if value.output_format == 'original' and (urlsplit(value.canonical_url).hostname or '').lower() in ('x.com', 'www.x.com', 'twitter.com', 'www.twitter.com'):
+    if value.output_format == 'original' and (value.audio_required or (urlsplit(value.canonical_url).hostname or '').lower() in ('x.com', 'www.x.com', 'twitter.com', 'www.twitter.com', 'xiaohongshu.com', 'www.xiaohongshu.com', 'rednote.com', 'www.rednote.com')):
         from .bilibili_media import inspect
         if not any(s.get('codec_type') == 'audio' for s in inspect(path).get('streams', [])):
             return None

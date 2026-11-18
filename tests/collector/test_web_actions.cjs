@@ -1,14 +1,14 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const CaptureOptions=require('../../source/extension/capture-options.js');
 const CollectorSite=require('../../source/extension/site-panel.js');
-function worker({busy=false,shotFailure=false,site={single:true},defaults={},preview,previewError}={}){
+function worker({busy=false,shotFailure=false,site={single:true},defaults={},preview,previewError,previewWait,onCollect}={}){
  let listener;const calls=[],progress=[];
  const chrome={tabs:{create:async value=>calls.push(value),get:async id=>({id,url:'https://example.com/page',title:'Page'})},runtime:{id:'extension',getURL:p=>'chrome-extension://extension/'+p,getManifest:()=>({version:'1.0.3'}),onMessage:{addListener:f=>listener=f}},storage:{local:{set:async v=>progress.push(v),remove:async k=>calls.push(['clear',k])}}};
  const context={chrome,URL,taskRunning:busy,scanInProgress:false,taskContext:{},CaptureOptions,ensureBackendIdle:async()=>calls.push(['idle']),
   reftrayHealth:async()=>({ok:true,json:async()=>({release:'1.0.3',settings_token:'test',busy:false,inbox:'F:/TestLibrary'})}),
   downloadApi:async(...args)=>{calls.push(args);return {collection_mode:'text',layout:'organized_flat',include_images:true,video_action:'skip',ocr_enabled:false,...defaults};},
-  CollectorSite:{context:()=>site},collect:async(...args)=>{calls.push(args);return {message:'saved',new_images:1};},
-  previewCollection:async(...args)=>{calls.push(['preview',...args]);if(previewError)throw Error(previewError);return {url:args[1],state:'ready',images:2,gifs:0,videos:0,has_video:false,has_text:true,kind:'images',...preview};},
+  CollectorSite:{context:()=>site},collect:async(...args)=>{calls.push(args);context.taskContext={quickRequestId:args[3].quickRequestId};if(onCollect)return onCollect(...args);return {message:'saved',new_images:1};},
+  previewCollection:async(...args)=>{calls.push(['preview',...args]);if(previewWait)await previewWait;if(previewError)throw Error(previewError);return {url:args[1],state:'ready',images:2,gifs:0,videos:0,has_video:false,has_text:true,kind:'images',...preview};},
   FullPageCapture:{capture:async(tab,{progress})=>{calls.push(['snapshot',tab]);await progress('tile 1/2');if(shotFailure)throw Error('capture failed');return {directory:'F:/TestLibrary/图片/shot',message:'saved PNG'};}},
   reportProgress:async()=>{},TaskProgress:{resultStatus:()=> 'completed'}};
  vm.runInNewContext(fs.readFileSync('source/extension/web-actions-worker.js','utf8'),context);
@@ -120,6 +120,21 @@ test('iframe, foreign sender and concurrent task cannot start capture',async()=>
  for(const [s,busy] of [[{...sender,frameId:1},false],[{...sender,id:'wrong'},false],[sender,true]]){
   const w=worker({busy}),r=await w.run({type:'REFTRAY_QUICK_SAVE'},s);assert.equal(r.ok,false);assert.equal(w.calls.length,0);
  }
+});
+
+test('floating stop rejects a stale request and another tab, and stops only its active capture',async()=>{
+ let finish;const w=worker({onCollect:()=>new Promise(resolve=>finish=resolve)}),pending=w.run({type:'REFTRAY_QUICK_SAVE',requestId:'current'},sender);
+ await new Promise(resolve=>setImmediate(resolve));
+ for(const [requestId,s] of [['old',sender],['current',{...sender,tab:{...sender.tab,id:99}}],['current',{...sender,frameId:1}]])assert.equal((await w.run({type:'REFTRAY_QUICK_STOP',requestId},s)).ok,false);
+ assert.ok(!w.progress.some(p=>p.liblibControl==='stopped'));
+ assert.equal((await w.run({type:'REFTRAY_QUICK_STOP',requestId:'current'},sender)).ok,true);assert.ok(w.progress.some(p=>p.liblibControl==='stopped'));
+ finish({status:'stopped'});await pending;assert.equal((await w.run({type:'REFTRAY_QUICK_STOP',requestId:'current'},sender)).ok,false);
+});
+
+test('stopping during identification prevents a later download and does not stop an unrelated context',async()=>{
+ let finish;const w=worker({previewWait:new Promise(resolve=>finish=resolve)}),pending=w.run({type:'REFTRAY_QUICK_SAVE',requestId:'identify'},sender);
+ await new Promise(resolve=>setImmediate(resolve));assert.equal((await w.run({type:'REFTRAY_QUICK_STOP',requestId:'identify'},sender)).ok,true);
+ assert.ok(!w.progress.some(p=>p.liblibControl==='stopped'));finish();const result=await pending;assert.equal(result.ok,false);assert.equal(result.error,'USER_STOPPED');assert.ok(!w.calls.some(c=>c[0]==='current'));
 });
 test('page scripts cannot ask for screenshot permission through the content entry',async()=>{
  const w=worker();assert.equal((await w.run({type:'REFTRAY_FULL_PAGE',tabId:42},sender)).ok,false);

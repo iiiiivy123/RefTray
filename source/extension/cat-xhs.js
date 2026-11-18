@@ -76,10 +76,20 @@
     return candidates;
   }
 
-  function bestVideo(video) {
-    return videoCandidates(video).sort((a, b) => {
+  function audioRank(item) {
+    const codec=item.audioCodec??item.audio_codec, channels=item.audioChannels??item.audio_channels;
+    if(Number(channels)>0 || typeof codec==='string'&&!/^(?:none|null|unknown)?$/i.test(codec.trim()))return 2;
+    return channels!==undefined&&channels!==null&&Number(channels)===0 || typeof codec==='string'&&/^(?:none|null)?$/i.test(codec.trim()) ? 0 : 1;
+  }
+
+  function bestVideo(video, preferAudio=true) {
+    return videoCandidates(video).filter(item=>!(audioRank(item)===2 &&
+      ((item.width!==undefined&&item.height!==undefined&&Number(item.width)===0&&Number(item.height)===0) ||
+       !(Number(item.width)>0&&Number(item.height)>0)&&typeof item.videoCodec==='string'&&/^(?:none|null)?$/i.test(item.videoCodec.trim())))).sort((a, b) => {
+      // A sharper video-only rendition is not a complete replacement for audio/video.
+      if(preferAudio && audioRank(a)!==audioRank(b))return audioRank(b)-audioRank(a);
       const score = (item) => Number(item.width || 0) * Number(item.height || 0) +
-        Number(item.bitrate || item.bitRate || item.bit_rate || 0);
+        Number(item.bitrate || item.bitRate || item.bit_rate || item.avgBitrate || 0);
       return score(b) - score(a);
     })[0] || null;
   }
@@ -87,13 +97,13 @@
   function mediaItems(value) {
     if (!value || typeof value !== "object") return [];
     const video = bestVideo(value.video);
-    if (video) return [{ kind: "video", url: video.url, extension: "mp4" }];
+    if (video) return [{ kind: "video", url: video.url, extension: "mp4", audio_required: audioRank(video)===2 }];
     const images = value.imageList || value.image_list || value.images;
     const unique = new Map();
     for (const image of Array.isArray(images) ? images : []) {
       const url = imageUrl(image);
       const live = Boolean(image.livePhoto || image.live_photo);
-      const motion = live ? bestVideo(image.stream || image.livePhoto?.media || image.live_photo?.media) : null;
+      const motion = live ? bestVideo(image.stream || image.livePhoto?.media || image.live_photo?.media, false) : null;
       if (url && !motion) unique.set(url, { kind: "photo", url, extension: /\.gif(?:[?#]|$)/i.test(url) ? "gif" : "jpg", live_missing: live && !motion });
       if (motion) unique.set(motion.url, { kind: "gif", url: motion.url, extension: "mp4", live_photo: true });
     }

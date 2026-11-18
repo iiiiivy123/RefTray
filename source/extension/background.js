@@ -408,7 +408,7 @@ async function downloadVideo(tab, port, options, health, extractAfter) {
       const action = liblibControl || 'stopped';
       await downloadApi(port, health.settings_token, `/video/control/${started.job_id}`, {action});
       const state = await downloadApi(port, health.settings_token, `/video/status/${started.job_id}`);
-      await reportProgress({stage:state.stage||null,percent:state.percent??null,bytes:state.bytes,total:state.total,message:state.message});
+      await reportProgress({stage:state.stage||null,percent:state.percent??null,bytes:state.bytes,total:state.total,transfer:state.transfer||null,message:state.message});
       if(state.status==='completed'){await chrome.storage.local.remove('collectorBackendPending');result=state.result;completed=true;break;}
       if(['failed','stopped'].includes(state.status)){await chrome.storage.local.remove('collectorBackendPending');throw new Error(state.status==='stopped'?'USER_STOPPED':state.message);}
       await wait(800);
@@ -698,6 +698,7 @@ async function collect(mode, port, options = {}, testTarget) {
   if(!testTarget?.bridgeId)await chrome.storage.local.set({liblibControl: "running"});
   await reportProgress({message: mode === 'author' ? '准备读取作者主页' : '准备保存当前页'});
   try {
+    if(testTarget?.quickControl?.stopped){await chrome.storage.local.set({liblibControl:'stopped'});throw new Error('USER_STOPPED');}
     const health = await reftrayHealth(`http://127.0.0.1:${port}/health`).then(r => r.json());
     healthCache = health;
     const extensionRelease=chrome.runtime.getManifest().version;
