@@ -45,6 +45,21 @@ const CaptureOptions=(()=>{
     if(d.output_format==='audio'){d.video_action='save';d.subtitle_mode='none';}
     return snapshot(normalize(d));
   }
+  const videoOutputs={original:'仅视频（含原声音）',subtitles:'视频 + 字幕 + 文字稿',text:'仅文字稿（MD）',audio:'仅提取音频',frames:'视频抽帧'};
+  function videoOutput(floating){
+    const output=floating?.video_output;
+    if(!Object.hasOwn(videoOutputs,output))throw new Error('悬浮保存默认设置无效，请在设置页重新保存');
+    return output;
+  }
+  // A URL hint is not a scan result. Hover never substitutes defaults for detected media.
+  function floatingHint(defaults,site,floating){
+    const output=videoOutput(floating);
+    if(!site.single)return site.reason||'请打开一篇作品详情';
+    if(defaults.md_only)return '保存方式 · 仅正文';
+    if(site.mode==='video')return '视频页 · '+videoOutputs[output];
+    if(site.mode==='text')return '图文页 · 图文笔记';
+    return '点击保存时识别内容';
+  }
   function quick(defaults,site,preview,choice='auto',floating={video_output:'original'}){
     if(!['auto','images','text','plain','video'].includes(choice))throw new Error('无效的本次保存选项');
     if(preview?.state!=='ready'||preview.warning)throw new Error(preview?.reason||preview?.warning||'正文仍在加载，请稍后保存');
@@ -53,8 +68,7 @@ const CaptureOptions=(()=>{
     let kind=choice;
     if(kind==='auto')kind=defaults.md_only?'plain':site.mode==='text'?'text':site.mode==='video'||preview.kind==='video'?'video':pictures?(defaults.collection_mode==='text'?'text':'images'):preview.has_text?'plain':null;
     if(!kind||kind==='plain'&&!preview.has_text||kind==='images'&&!pictures||kind==='video'&&!video||kind==='text'&&!pictures&&!preview.has_text)throw new Error('尚未确认所选内容，请等正文加载后重试');
-    const output=floating.video_output;
-    if(!['original','subtitles','text','audio','frames'].includes(output))throw new Error('悬浮保存默认设置无效，请在设置页重新保存');
+    const output=videoOutput(floating);
     const d={...defaults,destination:null,capture_scope:'single',md_only:kind==='plain',subtitle_mode:'none',output_format:'original'};
     if(kind==='video')Object.assign(d,{video_action:output==='frames'?'frames':'save',subtitle_mode:output==='subtitles'?'with_video':output==='text'?'only':'none',output_format:output==='audio'?'audio':'original'});
     if(choice==='images')Object.assign(d,{include_images:true,include_comments:false,video_action:'skip'});
@@ -63,6 +77,6 @@ const CaptureOptions=(()=>{
     return {mode:kind==='video'?(options.extract_frames?'download-frames':'download'):'current',options};
   }
   const snapshot=value=>freeze(clone(value));
-  return {resolve,merge:resolve,signature,stamp,normalize,browser,quick,snapshot};
+  return {resolve,merge:resolve,signature,stamp,normalize,browser,quick,floatingHint,snapshot};
 })();
 if(typeof module!=='undefined')module.exports=CaptureOptions;

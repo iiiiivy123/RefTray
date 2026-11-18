@@ -16,7 +16,7 @@ function fixture({result={new_images:22,message:'保存路径\n'+ '详细记录'
   setTimeout:(f,ms)=>{timers.set(++timerId,{f,ms});return timerId;},clearTimeout:id=>timers.delete(id),
   chrome:{storage:{local:{get:async()=>stored,set:async v=>{if(storageError)throw Error('denied');writes.push(v);}},onChanged:{addListener:f=>storageListener=f}},runtime:{sendMessage:async m=>{calls.push(m);if(onSave&&m.type==='REFTRAY_QUICK_SAVE')return onSave(m);return replyError?{ok:false,error:replyError}:{ok:true,result,context:{mode:'自动识别',directory:'F:/Example',latest:{id:7,directory:'F:/Example/Saved'}}};}}}};
  vm.runInNewContext(fs.readFileSync('source/extension/floating-save.js','utf8'),context);
- return {nodes,host,window,context,calls,writes,timers,focused:()=>focused,progress:p=>storageListener({liblibProgress:{newValue:p}},'local')};
+ return {nodes,node:s=>shadow.querySelector(s),host,window,context,calls,writes,timers,focused:()=>focused,progress:p=>storageListener({liblibProgress:{newValue:p}},'local')};
 }
 const settled=()=>new Promise(resolve=>setImmediate(resolve));
 test('short summaries distinguish partial, skipped, duplicate, stopped and failure',()=>{
@@ -75,6 +75,14 @@ test('hover only opens context, leaving closes, dragging cancels opening',async(
  assert.equal(f.nodes['#menu'].hidden,false);assert.ok(f.calls.every(c=>c.type==='REFTRAY_FLOATING_CONTEXT'));
  f.host.dispatch('pointerleave');[...f.timers.values()].find(t=>t.ms===250).f();assert.equal(f.nodes['#menu'].hidden,true);
  f.host.dispatch('pointerenter');f.nodes['#save'].dispatch('pointerdown');assert.ok(![...f.timers.values()].some(t=>t.ms===350));
+});
+test('hover shows the actual read error and does not retain stale type or folder actions',async()=>{
+ const f=fixture({replyError:'请重新加载扩展后刷新网页'});await settled();
+ f.node('#context-mode').textContent='图文笔记';f.node('#context-folder').title='old folder';f.node('#recent').hidden=false;
+ f.nodes['#more'].onclick();await settled();
+ assert.equal(f.nodes['#context-mode'].textContent,'暂时无法读取保存方式');
+ assert.equal(f.nodes['#context-folder'].textContent,'请重新加载扩展后刷新网页');assert.equal(f.nodes['#recent'].hidden,true);
+ assert.ok(f.calls.every(c=>c.type==='REFTRAY_FLOATING_CONTEXT'));
 });
 test('one-time options reset for the next normal click, and folders use history IDs',async()=>{
  const f=fixture({result:{new_videos:1,captureId:8}});await settled();

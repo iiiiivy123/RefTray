@@ -819,9 +819,12 @@ async function previewCollection(tabId,url,owned=false){
     if(/\.gif(?:[?#]|$)/i.test(item.url))gifs.add(item.url);
     else if(!gifs.has(item.url))photos.add(item.url);
   }
-  return {url,state:'ready',images:photos.size,gifs:gifs.size,has_text:Boolean(payload.body_text?.trim()),warning:payload._preflightIssue||'',
-    videos:videos.size||(Number.isInteger(payload.video_count)?payload.video_count:!payload.has_video?0:null),has_video:Boolean(payload.has_video),
-    kind:photos.size||gifs.size?'images':payload.has_video?'video':'plain'};
+  // Adapters use has_video for any moving media, including GIF/Live Photo.
+  const hasVideo=videos.size>0||Boolean(payload.has_video&&(!gifs.size||payload.video_count>0));
+  const warning=payload._preflightIssue||(payload.pinterest_motion&&!payload.has_video&&!photos.size&&!gifs.size?'当前 Pin 的动态内容仍在加载，请打开正文媒体后重试':'');
+  return {url,state:'ready',images:photos.size,gifs:gifs.size,has_text:Boolean(payload.body_text?.trim()),warning,
+    videos:videos.size||(Number.isInteger(payload.video_count)?payload.video_count:!hasVideo?0:null),has_video:hasVideo,
+    kind:photos.size||gifs.size?'images':hasVideo?'video':'plain'};
   });
 }
 

@@ -20,9 +20,11 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
     await downloadApi(8766,health.settings_token,`/history/${message.captureId}/open`,{});return {};
    }
    const defaults=await downloadApi(8766,health.settings_token,'/settings/defaults');
+   const floating=await downloadApi(8766,health.settings_token,'/settings/floating-defaults');
    const history=await downloadApi(8766,health.settings_token,'/history?page_size=1');
    const latest=history.items?.[0];
-   return {mode:defaults.md_only?'仅正文':'自动识别 · '+(defaults.collection_mode==='text'?'图文笔记':'图片 / GIF'),directory:health.inbox,latest:latest?{id:latest.id,title:latest.title,directory:latest.directory}:null};
+   const tab=await chrome.tabs.get(sender.tab.id);
+   return {mode:CaptureOptions.floatingHint(defaults,CollectorSite.context(tab.url),floating),directory:health.inbox,latest:latest?{id:latest.id,title:latest.title,directory:latest.directory}:null};
   })().then(context=>respond({ok:true,context})).catch(error=>respond({ok:false,error:error.message}));
   return true;
  }

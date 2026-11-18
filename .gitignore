@@ -230,6 +230,8 @@
 !/tests/test_web_capture.py
 !/tests/collector/test_full_page_capture.cjs
 !/tests/collector/test_web_actions.cjs
+!/tests/collector/test_platform_preflight.cjs
+!/docs/development/preflight-review-20261118.md
 !/tests/collector/test_bili_profile_loading.cjs
 !/tests/collector/test_floating_save.cjs
 !/docs/releases/release-1.0.8.md

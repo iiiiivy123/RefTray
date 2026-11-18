@@ -8,7 +8,7 @@
   const id = xhs ? path.match(/\/([a-f0-9]{24})\/?$/i)?.[1] : ins ? path.match(/^\/(?:[\w.]+\/)?(?:p|reels?)\/([\w-]+)/)?.[1] : x ? path.match(/\/status\/(\d+)/)?.[1] : null;
   if (!id) return {media: []};
   const roots = [];
-  let mainArticleFound=false, matchedRecord=false, parserFailed=false;
+  let mainArticleFound=false, matchedRecord=false, parserFailed=false, videoExpected=false;
   if(x){
     // React-rendered post props may hold loaded media that is absent from script JSON.
     // Only inspect the article whose own status link matches this post, never global state.
@@ -49,14 +49,18 @@
     let record;
     try {
       // Match identity before invoking a media parser, never collect recommendations.
-      if (xhs && String(value.noteId || value.note_id || value.id || '') === id) record = globalThis.XEagleXhs.xhsRecord(value);
+      if (xhs && String(value.noteId || value.note_id || value.id || '') === id) {
+        videoExpected ||= (value.noteCard || value.note_card || value.note || value).type === 'video';
+        record = globalThis.XEagleXhs.xhsRecord(value);
+      }
       if (ins && String(value.code || value.shortcode || '') === id) {
+        videoExpected ||= value.media_type===2 || value.is_video===true || value.__typename==='GraphVideo';
         record = globalThis.XEagleInstagram.instagramRecord(value);
         const username=value.owner?.username || value.user?.username;
         if(typeof username==='string' && /^[\w.]{1,30}$/.test(username))author_handle=username.toLowerCase();
       }
       if (x && String(value.rest_id || value.id_str || '') === id) {matchedRecord=true;record = globalThis.XEagleMedia.tweetRecord(value);}
-    } catch (_) {if(x)parserFailed=true;}
+    } catch (_) {parserFailed=true;}
     if(record?.media?.length)best=[...new Map([...best,...record.media].map(m=>[m.kind+':'+m.url,m])).values()];
     const children = x ? Object.entries(value).filter(([key])=>!['return','stateNode','_owner','alternate'].includes(key)).map(([,child])=>child) : Object.values(value);
     for (let i = 0; i < Math.min(children.length, 500); i++) if (children[i] && typeof children[i] === 'object') stack.push(children[i]);
@@ -75,10 +79,12 @@
     }
   }
   const read_state=x ? best.length?'media_found':parserFailed?'parser_failed':session||matchedRecord?'post_without_media':mainArticleFound?'post_data_missing':'main_post_missing' : undefined;
-  return {postId: id, read_state, author_handle, session_text:session?.text, session_ready:Boolean(globalThis.RefTrayXSession), has_gif:hasGif||best.some(m=>m.kind==='gif'), media: best.slice(0, 100).filter(item => {
+  const media=best.slice(0, 100).filter(item => {
     try {
       const url = new URL(item.url);
       return url.protocol === 'https:' && /(^|\.)(xhscdn\.com|xhscdn\.net|xhsimg\.com|cdninstagram\.com|fbcdn\.net|twimg\.com)$/.test(url.hostname);
     } catch (_) { return false; }
-  })};
+  });
+  const resolution_error=parserFailed?'当前帖媒体解析失败，请刷新后重试':videoExpected&&!media.some(m=>m.kind==='video')?'当前视频仍在加载，未取得视频源，请稍后重试':'';
+  return {postId:id,read_state,author_handle,session_text:session?.text,session_ready:Boolean(globalThis.RefTrayXSession),has_gif:hasGif||best.some(m=>m.kind==='gif'),media,resolution_error};
 })();

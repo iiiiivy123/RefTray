@@ -80,7 +80,7 @@ internal static partial class Launcher {
    render=()=>{
     step.Text=stage==4?"连接就绪":"开始使用 · "+(stage+1)+" / 4";
     title.Text=new[]{configured?"确认当前素材库":"选择素材库","打开扩展管理","选择扩展文件夹","检查连接","可以开始保存了"}[stage];
-    description.Text=new[]{configured?"当前保存位置如下，可以继续使用或更改。\n更改只影响后续保存，原素材不会自动移动。":"默认在 RefTray 下创建“素材库”，也可以更改。\n点击继续后创建；以后仍可在设置中更改。","首次使用：在 Chrome 页面右上角打开“开发者模式”。\n更新用户：点击 RefTray 卡片的“重新加载”。","点击 Chrome 的“加载已解压的扩展程序”。\n下一步会打开文件夹并复制路径，方便你直接选择。","加载或重新加载后，打开一次工具栏的 RefTray。\n再点击下面的按钮，确认版本和连接。","网页右上方的蓝色“保存”按钮可直接保存。\n悬停查看选项；按住圆点拖动，位置会记住。"}[stage];
+    description.Text=new[]{configured?"当前保存位置如下，可以继续使用或更改。\n更改只影响后续保存，原素材不会自动移动。":"默认在 RefTray 下创建“素材库”，也可以更改。\n点击继续后创建；以后仍可在设置中更改。","首次使用：在 Chrome 页面右上角打开“开发者模式”。\n更新用户：点击 RefTray 卡片的“重新加载”。","点击 Chrome 的“加载已解压的扩展程序”。\n下一步会打开文件夹并复制路径，方便你直接选择。","加载或重新加载后，打开一次工具栏的 RefTray。\n再点击下面的按钮，确认版本和连接。","网页右上方的“保存”按钮可直接保存。\n悬停查看选项；按住按钮拖动，位置会记住。"}[stage];
     primary.Text=new[]{configured?"使用此素材库，继续":"创建并使用此素材库","打开 Chrome 扩展管理","打开并复制扩展文件夹","检查连接","完成"}[stage];
     library.Visible=change.Visible=stage==0;extension.Visible=stage==2;shortcut.Visible=stage==1||stage==2;back.Visible=stage>0&&stage<4;feedback.Text="";
    };

@@ -78,10 +78,12 @@
   clearTimeout(hoverClose);if(drag)return;if(busy){openProgress(keep);return;}if(!keep&&!notice.hidden)return;
   if(keep)dismiss();menu.hidden=false;pinned=keep;place(position?.x,position?.y);if(focus)q('#options').focus();
   if(contextLoading)return;contextLoading=true;
-  try{const reply=await chrome.runtime.sendMessage({type:'REFTRAY_FLOATING_CONTEXT'});if(!reply?.ok)throw new Error();
+  q('#context-mode').textContent='正在读取保存方式…';q('#context-folder').textContent='';q('#context-folder').title='';
+  recentId=null;q('#recent').hidden=true;q('#empty').hidden=true;
+  try{const reply=await chrome.runtime.sendMessage({type:'REFTRAY_FLOATING_CONTEXT'});if(!reply?.ok)throw new Error(reply?.error||'扩展连接已失效，请刷新网页');
    q('#context-mode').textContent=reply.context.mode;const path=reply.context.directory||'';q('#context-folder').textContent='素材库：'+(path.split(/[\\/]/).filter(Boolean).pop()||'尚未设置');q('#context-folder').title=path;
    recentId=reply.context.latest?.id||null;q('#recent').hidden=!recentId;q('#empty').hidden=Boolean(recentId);q('#recent').title=reply.context.latest?.directory||'';
-  }catch(_){q('#context-mode').textContent='暂未连接后台';q('#context-folder').textContent='请打开 RefTray 后重试';}
+  }catch(error){q('#context-mode').textContent='暂时无法读取保存方式';q('#context-folder').textContent=error.message.slice(0,160);q('#context-folder').title=error.message;}
   finally{contextLoading=false;}
  }
  function dismiss(focus=false){clearTimeout(autoHide);notice.hidden=true;detail.hidden=true;details.setAttribute('aria-expanded','false');if(!busy){label.textContent='保存';retrySave=false;}if(focus)save.focus();}

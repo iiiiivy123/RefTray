@@ -4,6 +4,17 @@ const {create}=require('../../source/extension/page-reader.js');
 const batch=require('../../source/extension/batch-state.js');
 const {expandLabel}=require('../../source/extension/comment-replies.js');
 
+test('non-X media reader failures remain visible to preflight instead of becoming an empty success',async()=>{
+ for(const url of ['https://www.xiaohongshu.com/explore/6ae9f8a7000000000e027ca1','https://www.instagram.com/p/AbCd123/','https://weibo.com/123/AbCd','https://example.com/article']){
+  const reader=create({chrome:{tabs:{get:async()=>({url})},scripting:{executeScript:async request=>{
+   if(request.files?.includes('page-media.js'))throw Error('script context invalidated');
+   return [];
+  }}}});
+  const result=await reader.loadedPageMedia(1,false,{});
+  assert.match(result.resolution_error,/script context invalidated/,url);
+ }
+});
+
 test('Huaban readable document need not wait for all external resources; wrong/loading documents stay blocked',async()=>{
  let actual='https://huaban.com/boards/102999899',state='interactive',calls=0;
  const reader=create({chrome:{scripting:{executeScript:async request=>{

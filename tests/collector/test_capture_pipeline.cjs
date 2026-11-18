@@ -104,6 +104,16 @@ test('preview recognizes a verified video even before its download tracks are re
  const unknown=await context.previewCollection(7,url);
  assert.equal(unknown.videos,null);assert.equal(unknown.has_video,true);
 });
+
+test('an unresolved motion Pin cannot become an automatic plain-text save',async()=>{
+ const url='https://www.pinterest.com/pin/123/',Options=require('../../source/extension/capture-options.js');
+ const context=vm.createContext({taskRunning:false,scanInProgress:false,taskContext:{options:{}},healthCache:null,
+  chrome:{tabs:{get:async()=>({url})},storage:previewStorage()},ensureBackendIdle:async()=>{},reftrayHealth:async()=>({json:async()=>({})}),
+  pagePayload:async()=>({platform:'pinterest',pinterest_motion:true,has_video:false,body_text:'Video description',images:[]})});
+ const preview=await vm.runInContext(previewCode+';previewCollection(7,'+JSON.stringify(url)+')',context);
+ assert.match(preview.warning,/动态内容.*加载/);
+ assert.throws(()=>Options.quick({collection_mode:'text'},{single:true},preview),/加载/);
+});
 test('ArtStation reads videos only inside the artwork and admits supported embedded players',()=>{
  const {extract}=require('../../source/extension/artstation.js');
  const root={querySelectorAll:selector=>selector==='video'?[{src:'https://cdn.artstation.com/p/assets/videos/sample.mp4',querySelectorAll:()=>[]}]:selector==='iframe[src]'?[{src:'https://www.youtube.com/embed/abcdefghijk'},{src:'https://youtube.com.evil.invalid/embed/abcdefghijk'}]:[]};

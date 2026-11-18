@@ -149,6 +149,8 @@ async function readPagePayload(tabId, options, current) {
     if(mediaPage.resolution_error)payload._preflightIssue=mediaPage.resolution_error;
     if(payload.platform==='x'){payload.author_handle ||= mediaPage.author_handle;payload.body_text ||= mediaPage.session_text||'';}
     const found = mediaPage.media || [];
+    if(['xhs','instagram'].includes(payload.platform)&&payload.has_video&&!options.skip_gifs&&!found.some(m=>m.kind==='video'||m.kind==='gif'))
+      payload._preflightIssue ||= '当前视频仍在加载，未确认正文媒体，请稍后重试';
     const media = options.skip_gifs?found.filter(m=>m.kind!=='gif'&&m.extension!=='gif'&&!m.live_missing):found;
     if(found.length && payload.platform!=='x')payload.images=[];
     payload._skippedMotion=found.length>media.length||Boolean(mediaPage.has_gif&&options.skip_gifs);
@@ -272,8 +274,9 @@ async function loadedPageMedia(tabId, resolveVideo=true, options={}) {
       return {...result,media:[...(result.media||[]).filter(m=>m.kind==='photo'),...media]};
     }
     if(resolveVideo&&!result?.media?.length&&/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname)&&/\/status\/\d+/.test(new URL(tab.url).pathname))return await matureMedia(tab.url,options);
-    return result || {media:[]};
-  } catch(error){if(error.message==='USER_STOPPED')throw error;if(resolvingGif && observed?.media?.some(m=>m.kind==='photo'))return {...observed,resolution_error:error.message};if(resolvingGif)throw error;if(/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname))throw new Error('[X_PAGE_READ] 读取当前 X 帖子失败：'+String(error.message||error).slice(0,800));return {media:[]};} // Other platform DOM fallbacks remain unchanged.
+    if(!result)throw new Error('网页没有返回媒体识别结果，请刷新后重试');
+    return result;
+  } catch(error){if(error.message==='USER_STOPPED')throw error;if(resolvingGif && observed?.media?.some(m=>m.kind==='photo'))return {...observed,resolution_error:error.message};if(resolvingGif)throw error;if(/(^|\.)(x\.com|twitter\.com)$/.test(new URL(tab.url).hostname))throw new Error('[X_PAGE_READ] 读取当前 X 帖子失败：'+String(error.message||error).slice(0,800));return {media:[],resolution_error:'读取当前页媒体失败：'+String(error.message||error).slice(0,800)};}
 }
 
 async function includeProtectedImages(payload, pageUrl) {

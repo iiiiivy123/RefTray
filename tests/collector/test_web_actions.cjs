@@ -16,7 +16,7 @@ function worker({busy=false,shotFailure=false,site={single:true},defaults={},flo
 }
 const sender={id:'extension',frameId:0,tab:{id:42,url:'https://example.com/work'}};
 test('hover reads context without saving; opening library ignores a supplied path',async()=>{
- const w=worker({busy:true});const r=await w.run({type:'REFTRAY_FLOATING_CONTEXT'},sender);assert.equal(r.context.mode,'自动识别 · 图文笔记');assert.equal(r.context.directory,'F:/TestLibrary');
+ const w=worker({busy:true});const r=await w.run({type:'REFTRAY_FLOATING_CONTEXT'},sender);assert.equal(r.context.mode,'点击保存时识别内容');assert.equal(r.context.directory,'F:/TestLibrary');
  assert.ok(!w.calls.some(c=>c[0]==='current'));
  await w.run({type:'REFTRAY_OPEN_LIBRARY',directory:'F:/untrusted'},sender);assert.equal(w.calls.at(-1)[2],'/settings/open');assert.equal(w.calls.at(-1)[3].directory,'F:/TestLibrary');
  assert.equal((await w.run({type:'REFTRAY_FLOATING_CONTEXT'},{...sender,frameId:1})).ok,false);
@@ -89,7 +89,35 @@ test('XHS failed, loading, empty or stale identification never falls back to sav
 });
 test('XHS hover explains automatic selection without starting a scan',async()=>{
  const w=worker({site:{single:true,site:'小红书'}}),r=await w.run({type:'REFTRAY_FLOATING_CONTEXT'},xhsSender);
- assert.match(r.context.mode,/自动识别/);assert.ok(!w.calls.some(c=>c[0]==='preview'));
+ assert.equal(r.context.mode,'点击保存时识别内容');assert.ok(!w.calls.some(c=>c[0]==='preview'));
+});
+
+test('hover distinguishes URL hints from scan results and uses the actual floating video preference',async()=>{
+ const outputs={original:'仅视频（含原声音）',subtitles:'视频 + 字幕 + 文字稿',text:'仅文字稿（MD）',audio:'仅提取音频',frames:'视频抽帧'};
+ for(const url of ['https://www.bilibili.com/video/BV1HiGV6uExj/','https://www.youtube.com/watch?v=abcdefghijk','https://youtu.be/abcdefghijk','https://www.youtube.com/shorts/abcdefghijk']){
+  for(const [video_output,label] of Object.entries(outputs)){
+   const w=worker({site:CollectorSite.context(url),floating:{video_output},defaults:{collection_mode:'text',subtitle_mode:'with_video'}});
+   const r=await w.run({type:'REFTRAY_FLOATING_CONTEXT'},{...sender,tab:{id:42,url}});
+   assert.equal(r.context.mode,'视频页 · '+label,url);assert.ok(!w.calls.some(c=>c[0]==='preview'));
+  }
+ }
+ for(const url of ['https://www.bilibili.com/opus/123','https://www.bilibili.com/read/cv123']){
+  const w=worker({site:CollectorSite.context(url)});
+  assert.equal((await w.run({type:'REFTRAY_FLOATING_CONTEXT'},sender)).context.mode,'图文页 · 图文笔记');
+ }
+ const plain=worker({site:{single:true,mode:'video'},defaults:{md_only:true}});
+ assert.equal((await plain.run({type:'REFTRAY_FLOATING_CONTEXT'},sender)).context.mode,'保存方式 · 仅正文');
+ const list=worker({site:{single:false,mode:'video',reason:'请打开作品详情'}});
+ assert.equal((await list.run({type:'REFTRAY_FLOATING_CONTEXT'},sender)).context.mode,'请打开作品详情');
+ assert.equal((await worker({floatingError:'偏好读取失败'}).run({type:'REFTRAY_FLOATING_CONTEXT'},sender)).error,'偏好读取失败');
+});
+
+test('a Bilibili cover does not override primary video routing or its hover label',async()=>{
+ const site=CollectorSite.context('https://www.bilibili.com/video/BV1HiGV6uExj/');
+ const w=worker({site,preview:{images:1,videos:1,has_video:true,kind:'images'}});
+ assert.match((await w.run({type:'REFTRAY_FLOATING_CONTEXT'},sender)).context.mode,/^视频页/);
+ assert.equal((await w.run({type:'REFTRAY_QUICK_SAVE'},sender)).ok,true);
+ const saved=w.calls.find(c=>c[0]==='download');assert.equal(saved[2].subtitle_mode,'none');assert.equal(saved[2].capture_kind,'video');
 });
 
 test('all supported single-page platforms preflight; primary video and mixed/GIF content use distinct routes',async()=>{

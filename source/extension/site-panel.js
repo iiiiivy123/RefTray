@@ -35,7 +35,7 @@
         bulk='author';result.mode='text';result.hint='按当前图文列表及排序采集前N篇；不递归进入其他文集';
       }
     }
-    else if(result.site==='Instagram'){single=/^\/(p|reels?)\/[\w-]+/.test(p);bulk=/^\/[^/]+(?:\/reels)?\/?$/.test(p)&&!/^\/(explore|accounts|direct|reels)(\/|$)/.test(p)?'author':null;}
+    else if(result.site==='Instagram'){single=/^\/(?:[\w.]+\/)?(p|reels?)\/[\w-]+/.test(p);bulk=/^\/[^/]+(?:\/reels)?\/?$/.test(p)&&!/^\/(explore|accounts|direct|reels)(\/|$)/.test(p)?'author':null;}
     else if(result.site==='Pinterest'){
       single=Boolean(pinterest?.pinId(value));
       bulk=/^\/[^/]+\/[^/]+\/?$/.test(p)&&!/^\/(pin|search|visual-search|ideas|settings)(\/|$)/.test(p)?'board':null;
